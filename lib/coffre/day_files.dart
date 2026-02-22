@@ -114,7 +114,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
   }
 
   Future<void> _saveNote(String text) async {
-    setState(() => _noteSaving = true);
+    setState(() { _noteSaving = true; _note = text; });
     try {
       await saveNote(widget.year, widget.month, widget.day, text);
     } catch (_) {}
