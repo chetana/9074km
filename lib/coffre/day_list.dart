@@ -32,11 +32,14 @@ class _DayListBodyState extends State<DayListBody> {
           .toList()
         ..sort((a, b) => b.compareTo(a));
       setState(() => _days = days);
-      // Compteurs en parallèle (note.txt exclu)
+      // Compteurs en parallèle (note.txt, meta.json, reactions.json exclus)
       final entries = await Future.wait(days.map((d) async {
         try {
           final r = await listObjects('${widget.year}/${widget.month}/$d/');
-          final count = r.items.where((i) => !i.name.endsWith('/note.txt')).length;
+          final count = r.items.where((i) =>
+              !i.name.endsWith('/note.txt') &&
+              !i.name.endsWith('/meta.json') &&
+              !i.name.endsWith('/reactions.json')).length;
           return MapEntry(d, count);
         } catch (_) {
           return MapEntry(d, 0);

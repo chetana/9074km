@@ -136,11 +136,14 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
           .toList()
         ..sort();
       if (mounted) setState(() => _days = days);
-      // Charge les compteurs en parallèle
+      // Charge les compteurs en parallèle (note.txt, meta.json, reactions.json exclus)
       final entries = await Future.wait(days.map((d) async {
         try {
           final r = await listObjects('${widget.year}/${widget.month}/$d/');
-          return MapEntry(d, r.items.length);
+          return MapEntry(d, r.items.where((i) =>
+              !i.name.endsWith('/note.txt') &&
+              !i.name.endsWith('/meta.json') &&
+              !i.name.endsWith('/reactions.json')).length);
         } catch (_) {
           return MapEntry(d, 0);
         }
