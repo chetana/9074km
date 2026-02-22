@@ -420,7 +420,7 @@ class _FabProgress extends StatelessWidget {
   }
 }
 
-class _DaysChipBar extends StatelessWidget {
+class _DaysChipBar extends StatefulWidget {
   final List<String> days;
   final String selected;
   final String year;
@@ -435,10 +435,46 @@ class _DaysChipBar extends StatelessWidget {
     this.onTap,
   });
 
+  @override
+  State<_DaysChipBar> createState() => _DaysChipBarState();
+}
+
+class _DaysChipBarState extends State<_DaysChipBar> {
+  final _scrollController = ScrollController();
+  final _selectedKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
+  }
+
+  @override
+  void didUpdateWidget(_DaysChipBar old) {
+    super.didUpdateWidget(old);
+    if (old.selected != widget.selected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToSelected() {
+    final ctx = _selectedKey.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(ctx,
+          alignment: 0.5, duration: const Duration(milliseconds: 300));
+    }
+  }
+
   String _label(String dd) {
     final d = int.tryParse(dd);
-    final m = int.tryParse(month);
-    final y = int.tryParse(year);
+    final m = int.tryParse(widget.month);
+    final y = int.tryParse(widget.year);
     if (d == null || m == null || y == null) return dd;
     final date = DateTime(y, m, d);
     const kmDays = ['ចន្ទ', 'អង្គារ', 'ពុធ', 'ព្រ', 'សុក្រ', 'សៅរ៍', 'អាទិត្យ'];
@@ -450,13 +486,15 @@ class _DaysChipBar extends StatelessWidget {
     return Container(
       color: const Color(0xFF0D0D1C),
       child: SingleChildScrollView(
+        controller: _scrollController,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
-          children: days.map((dd) {
-            final isSelected = dd == selected;
+          children: widget.days.map((dd) {
+            final isSelected = dd == widget.selected;
             return GestureDetector(
-              onTap: onTap != null && !isSelected ? () => onTap!(dd) : null,
+              key: isSelected ? _selectedKey : null,
+              onTap: widget.onTap != null && !isSelected ? () => widget.onTap!(dd) : null,
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
