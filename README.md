@@ -24,7 +24,7 @@ Application couple cross-plateforme — double horloge, coffre à souvenirs priv
 - **Back Android** — bouton retour remonte dans le breadcrumb (PopScope)
 - **Icône calendrier** — dans l'AppBar, ouvre un date picker pour sauter directement à n'importe quelle date (utile pour uploader dans une date passée)
 - **Bouton "Aujourd'hui · ថ្ងៃនេះ"** — accès direct au jour courant depuis la liste des années
-- **Compteurs dans les listes** — chaque année affiche "X mois", chaque mois affiche "X jours"
+- **Compteurs bilingues dans les listes** — `X mois · X ខែ` / `X jours · X ថ្ងៃ` / `X fichiers · X ឯកសារ` à chaque niveau
 
 #### Vue jour
 - **Flèches `< >`** — navigation jour par jour

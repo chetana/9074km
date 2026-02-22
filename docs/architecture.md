@@ -66,8 +66,9 @@ Coffre › 2026 › 02 › 22      [📅]  [logout]
 ### Compteurs dans les listes
 
 Après le chargement principal, les listes lancent des requêtes parallèles pour enrichir l'affichage :
-- `YearListBody` : pour chaque année, `listObjects('YYYY/')` → compte les mois → affiche "X mois"
-- `MonthListBody` : pour chaque mois, `listObjects('YYYY/MM/')` → compte les jours → affiche "X jours"
+- `YearListBody` : pour chaque année, `listObjects('YYYY/')` → compte les mois → affiche "X mois · X ខែ"
+- `MonthListBody` : pour chaque mois, `listObjects('YYYY/MM/')` → compte les jours → affiche "X jours · X ថ្ងៃ"
+- `DayListBody` : pour chaque jour, `listObjects('YYYY/MM/DD/')` → compte les fichiers (note.txt exclu) → affiche "X fichiers · X ឯកសារ"
 
 ---
 
