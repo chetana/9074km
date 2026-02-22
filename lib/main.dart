@@ -5,6 +5,9 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'coffre/coffre_screen.dart';
 
+/// Date de la bague — début officiel de notre histoire 💍
+const _coupleStartDate = DateTime(2026, 1, 13);
+
 void main() {
   tz_data.initializeTimeZones();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -147,7 +150,12 @@ class _ClockScreenState extends State<ClockScreen> {
                 // Distance indicator
                 _DistanceIndicator(paris: paris, phnomPenh: phnomPenh),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
+
+                // Compteur jours ensemble
+                _DaysTogetherBadge(now: paris.toDateTime()),
+
+                const SizedBox(height: 8),
 
                 // Cambodia card
                 _ClockCard(
@@ -296,6 +304,28 @@ class _ClockCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DaysTogetherBadge extends StatelessWidget {
+  final DateTime now;
+  const _DaysTogetherBadge({required this.now});
+
+  @override
+  Widget build(BuildContext context) {
+    final start = DateTime(
+        _coupleStartDate.year, _coupleStartDate.month, _coupleStartDate.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final days = today.difference(start).inDays;
+    if (days < 0) return const SizedBox.shrink();
+    return Text(
+      '💍 Jour $days ensemble · ថ្ងៃទី $days',
+      style: const TextStyle(
+        fontSize: 12,
+        color: Color(0xFFE8A4B8),
+        letterSpacing: 0.5,
       ),
     );
   }
