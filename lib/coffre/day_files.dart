@@ -333,7 +333,11 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
             style: TextStyle(color: Color(0xFF9090A0))),
       );
     }
-    return GridView.builder(
+    return RefreshIndicator(
+      onRefresh: _load,
+      color: const Color(0xFFE8A4B8),
+      backgroundColor: const Color(0xFF1E1E30),
+      child: GridView.builder(
       padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -353,6 +357,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
             ? _toggleSelection(_items![i].name)
             : _enterSelectionMode(_items![i].name),
       ),
+      ),  // RefreshIndicator
     );
   }
 }
