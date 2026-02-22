@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'coffre_api.dart';
+import 'image_compressor.dart';
+
+enum _UploadPhase { idle, compressing, uploading }
 
 class DayFilesScreen extends StatefulWidget {
   final String year;
@@ -32,9 +35,9 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
   List<CoffreItem>? _items;
   List<String>? _days;
   String? _error;
-  bool _uploading = false;
-  int _uploadCurrent = 0;
-  int _uploadTotal = 0;
+  _UploadPhase _phase = _UploadPhase.idle;
+  int _current = 0;
+  int _total = 0;
   bool _selectionMode = false;
   final Set<String> _selected = {};
 
@@ -118,23 +121,35 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
     final files = result.files.where((f) => f.bytes != null).toList();
     if (files.isEmpty) return;
 
-    setState(() {
-      _uploading = true;
-      _uploadCurrent = 0;
-      _uploadTotal = files.length;
-    });
+    // ── Phase 1 : compression des images ─────────────────────────────────────
+    setState(() { _phase = _UploadPhase.compressing; _current = 0; _total = files.length; });
+
+    final processed = <({Uint8List bytes, String contentType, String filename})>[];
+    for (int i = 0; i < files.length; i++) {
+      setState(() => _current = i + 1);
+      final file = files[i];
+      final ct = _contentTypeFor(file.name);
+      if (ct.startsWith('image/')) {
+        processed.add(await compressImage(file.bytes!, file.name, ct));
+      } else {
+        // Vidéo ou autre : pas de compression, envoi direct
+        processed.add((bytes: file.bytes!, contentType: ct, filename: file.name));
+      }
+    }
+
+    // ── Phase 2 : upload ──────────────────────────────────────────────────────
+    setState(() { _phase = _UploadPhase.uploading; _current = 0; });
 
     final errors = <String>[];
-    for (int i = 0; i < files.length; i++) {
-      setState(() => _uploadCurrent = i + 1);
-      final file = files[i];
-      final path = '$_prefix${file.name}';
-      final contentType = _contentTypeFor(file.name);
+    for (int i = 0; i < processed.length; i++) {
+      setState(() => _current = i + 1);
+      final item = processed[i];
+      final path = '$_prefix${item.filename}';
       try {
-        final signedUrl = await signUpload(path, contentType);
-        await uploadFile(signedUrl, file.bytes!, contentType);
-      } catch (e) {
-        errors.add(file.name);
+        final signedUrl = await signUpload(path, item.contentType);
+        await uploadFile(signedUrl, item.bytes, item.contentType);
+      } catch (_) {
+        errors.add(item.filename);
       }
     }
 
@@ -149,11 +164,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
       );
     }
 
-    setState(() {
-      _uploading = false;
-      _uploadCurrent = 0;
-      _uploadTotal = 0;
-    });
+    setState(() { _phase = _UploadPhase.idle; _current = 0; _total = 0; });
   }
 
   void _openViewer(int index) {
@@ -224,28 +235,22 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
         toolbarHeight: 0,
       ),
       floatingActionButton: _selectionMode ? null : FloatingActionButton(
-        onPressed: _uploading ? null : _upload,
+        onPressed: _phase != _UploadPhase.idle ? null : _upload,
         backgroundColor: const Color(0xFFE8A4B8),
         foregroundColor: const Color(0xFF0F0F1A),
-        child: _uploading
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F0F1A)),
-                  ),
-                  if (_uploadTotal > 1) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '$_uploadCurrent/$_uploadTotal',
-                      style: const TextStyle(fontSize: 9, color: Color(0xFF0F0F1A), fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ],
-              )
-            : const Icon(Icons.add),
+        child: switch (_phase) {
+          _UploadPhase.idle => const Icon(Icons.add),
+          _UploadPhase.compressing => _FabProgress(
+              icon: Icons.auto_awesome,
+              current: _current,
+              total: _total,
+            ),
+          _UploadPhase.uploading => _FabProgress(
+              spinner: true,
+              current: _current,
+              total: _total,
+            ),
+        },
       ),
       bottomNavigationBar: _selectionMode
           ? SafeArea(
@@ -348,6 +353,50 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
             ? _toggleSelection(_items![i].name)
             : _enterSelectionMode(_items![i].name),
       ),
+    );
+  }
+}
+
+// ─── FAB progress indicator ───────────────────────────────────────────────────
+
+class _FabProgress extends StatelessWidget {
+  final bool spinner;
+  final IconData? icon;
+  final int current;
+  final int total;
+
+  const _FabProgress({
+    this.spinner = false,
+    this.icon,
+    required this.current,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (spinner)
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F0F1A)),
+          )
+        else
+          Icon(icon, size: 18, color: const Color(0xFF0F0F1A)),
+        if (total > 1) ...[
+          const SizedBox(height: 2),
+          Text(
+            '$current/$total',
+            style: const TextStyle(
+              fontSize: 9,
+              color: Color(0xFF0F0F1A),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
