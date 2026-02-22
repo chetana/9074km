@@ -379,6 +379,66 @@ Les autres endpoints du coffre requièrent `Authorization: Bearer <google_id_tok
 
 Cela signifie qu'une photo supprimée de GCS continuera à apparaître en preview dans les conversations pendant ~24h — comportement acceptable et attendu.
 
+### Bug critique rencontré en production : `&` vs `&amp;` dans les attributs HTML
+
+#### Symptôme
+
+Facebook ne montrait aucune preview image malgré un endpoint qui semblait fonctionner. Le HTML était bien retourné, la signed URL bien générée — mais pas d'image.
+
+#### Diagnostic
+
+En inspectant le HTML brut retourné par l'endpoint (sans suivre les redirects), le tag `og:image` contenait :
+
+```html
+<meta property="og:image" content="https://storage.googleapis.com/...?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=...&X-Goog-Date=...&X-Goog-Expires=3600&X-Goog-SignedHeaders=host&X-Goog-Signature=...">
+```
+
+Les `&` dans la query string de la signed URL **n'étaient pas échappés** en `&amp;`.
+
+#### Cause
+
+La spécification HTML exige que le caractère `&` dans les valeurs d'attributs soit toujours encodé en `&amp;`. Les parsers HTML stricts (dont ceux des bots scrapers de Facebook, WhatsApp, Telegram) lisent le contenu d'un attribut jusqu'au premier `&` non échappé et **tronquent l'URL à cet endroit**.
+
+Une signed URL GCS contient systématiquement plusieurs `&` dans ses query params :
+
+```
+?X-Goog-Algorithm=GOOG4-RSA-SHA256
+&X-Goog-Credential=...      ← premier & → URL tronquée ici par le parser HTML
+&X-Goog-Date=...
+&X-Goog-Expires=3600
+&X-Goog-SignedHeaders=host
+&X-Goog-Signature=...
+```
+
+Résultat : Facebook recevait une URL invalide (tronquée avant `X-Goog-Credential`), tentait de charger une ressource GCS sans signature valide, obtenait une erreur 403, et abandonnait la preview image.
+
+#### Fix
+
+Avant d'injecter une URL dans un attribut HTML, tous les `&` sont remplacés par `&amp;` :
+
+```typescript
+const imageUrlHtml  = imageUrl.replace(/&/g, '&amp;')
+const flutterUrlHtml = flutterUrl.replace(/&/g, '&amp;')
+```
+
+Les variables `*Html` sont utilisées dans les attributs HTML (`content=`, `href=`), tandis que les variables brutes sont réservées au JavaScript (`window.location.replace(JSON.stringify(flutterUrl))`) — le JS n'est pas du HTML et n'a pas besoin d'échappement HTML.
+
+```html
+<!-- Attribut HTML : &amp; obligatoire -->
+<meta property="og:image" content="https://storage.googleapis.com/...?X-Goog-Algorithm=GOOG4-RSA-SHA256&amp;X-Goog-Credential=...">
+
+<!-- JavaScript : URL brute, JSON.stringify gère l'échappement JS -->
+<script>window.location.replace("https://chetlys.vercel.app/?tab=coffre&y=2026&m=01&d=13&f=photo.jpg");</script>
+```
+
+#### Forcer le re-scrape Facebook
+
+Facebook met en cache les résultats de scraping ~24h. Après un fix sur l'endpoint, il faut forcer un nouveau scrape via l'outil officiel :
+
+**https://developers.facebook.com/tools/debug/** → coller l'URL → "Scrape Again"
+
+Cet outil affiche également les erreurs de parsing og:image, ce qui est utile pour diagnostiquer ce type de problème.
+
 ---
 
 ## Dépendances
