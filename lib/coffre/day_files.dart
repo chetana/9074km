@@ -265,6 +265,10 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
       pageBuilder: (_, __, ___) => _FileViewer(
         items: List.from(_items!),
         initialIndex: index,
+        reactions: Map.from(_reactions),
+        onReactionsChanged: (updated) {
+          if (mounted) setState(() => _reactions = updated);
+        },
       ),
       transitionBuilder: (_, anim, __, child) {
         final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
@@ -545,6 +549,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
           selectionMode: _selectionMode,
           selected: _selected.contains(_items![i].name),
           uploaderName: _meta[filename],
+          reactions: _reactions[filename] ?? [],
           onTap: () => _selectionMode
               ? _toggleSelection(_items![i].name)
               : _openViewer(i),
@@ -833,6 +838,7 @@ class _FileTile extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final String? uploaderName;
+  final List<String> reactions;
   const _FileTile({
     super.key,
     required this.item,
@@ -842,6 +848,7 @@ class _FileTile extends StatefulWidget {
     required this.onTap,
     required this.onLongPress,
     this.uploaderName,
+    this.reactions = const [],
   });
 
   @override
@@ -961,6 +968,22 @@ class _FileTileState extends State<_FileTile> {
                     fontSize: 8,
                     fontWeight: FontWeight.w600,
                   ),
+                ),
+              ),
+            ),
+          if (!widget.selectionMode && widget.reactions.isNotEmpty)
+            Positioned(
+              bottom: 4,
+              right: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  widget.reactions.take(3).join(''),
+                  style: const TextStyle(fontSize: 10),
                 ),
               ),
             ),
@@ -1124,8 +1147,15 @@ class _NoteFieldState extends State<_NoteField> {
 class _FileViewer extends StatefulWidget {
   final List<CoffreItem> items;
   final int initialIndex;
+  final Map<String, List<String>> reactions;
+  final void Function(Map<String, List<String>>) onReactionsChanged;
 
-  const _FileViewer({required this.items, required this.initialIndex});
+  const _FileViewer({
+    required this.items,
+    required this.initialIndex,
+    required this.reactions,
+    required this.onReactionsChanged,
+  });
 
   @override
   State<_FileViewer> createState() => _FileViewerState();
@@ -1139,6 +1169,46 @@ class _FileViewerState extends State<_FileViewer> {
   bool _loadingPrev = false;
   bool _loadingNext = false;
   bool _showUi = true;
+  late Map<String, List<String>> _reactions;
+
+  static const _availableEmojis = ['❤️', '😍', '😂', '🥹', '🔥', '👏'];
+
+  CoffreItem get _currentItem => _items[_currentIndex];
+
+  String get _currentFilename => _currentItem.name.split('/').last;
+
+  List<String> get _currentReactions => _reactions[_currentFilename] ?? [];
+
+  String _dayPrefix(CoffreItem item) {
+    final p = item.name.split('/');
+    if (p.length >= 4) return '${p[0]}/${p[1]}/${p[2]}';
+    return '';
+  }
+
+  Future<void> _toggleReaction(String emoji) async {
+    final filename = _currentFilename;
+    final updated = Map<String, List<String>>.from(_reactions);
+    final current = List<String>.from(updated[filename] ?? []);
+    if (current.contains(emoji)) {
+      current.remove(emoji);
+    } else {
+      current.add(emoji);
+    }
+    if (current.isEmpty) {
+      updated.remove(filename);
+    } else {
+      updated[filename] = current;
+    }
+    setState(() => _reactions = updated);
+    widget.onReactionsChanged(updated);
+    // Persist
+    final parts = _currentItem.name.split('/');
+    if (parts.length >= 4) {
+      try {
+        await saveReactions(parts[0], parts[1], parts[2], updated);
+      } catch (_) {}
+    }
+  }
 
   DateTime _dateOf(CoffreItem item) {
     final p = item.name.split('/');
@@ -1159,6 +1229,7 @@ class _FileViewerState extends State<_FileViewer> {
     super.initState();
     _items = List.from(widget.items);
     _currentIndex = widget.initialIndex;
+    _reactions = Map.from(widget.reactions);
     _pageController = PageController(
       initialPage: widget.initialIndex,
       viewportFraction: 0.92,
@@ -1302,6 +1373,60 @@ class _FileViewerState extends State<_FileViewer> {
                             tooltip: 'Partager',
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Barre réactions en bas — disparaît au tap
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: AnimatedOpacity(
+              opacity: _showUi ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: IgnorePointer(
+                ignoring: !_showUi,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Colors.black.withOpacity(0.75), Colors.transparent],
+                    ),
+                  ),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: _availableEmojis.map((emoji) {
+                          final active = _currentReactions.contains(emoji);
+                          return GestureDetector(
+                            onTap: () => _toggleReaction(emoji),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              margin: const EdgeInsets.symmetric(horizontal: 6),
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: active
+                                    ? Colors.white.withOpacity(0.25)
+                                    : Colors.black.withOpacity(0.3),
+                                border: Border.all(
+                                  color: active
+                                      ? Colors.white.withOpacity(0.7)
+                                      : Colors.white.withOpacity(0.15),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ),
                   ),
