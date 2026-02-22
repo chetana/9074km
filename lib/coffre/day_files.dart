@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'coffre_api.dart';
 import 'image_compressor.dart';
+import 'video_thumbnailer.dart';
 
 enum _UploadPhase { idle, compressing, uploading }
 
@@ -791,6 +792,7 @@ class _FileTile extends StatefulWidget {
 class _FileTileState extends State<_FileTile> {
   String? _signedUrl;
   bool _loading = true;
+  Uint8List? _thumbBytes;
 
   @override
   void initState() {
@@ -801,6 +803,12 @@ class _FileTileState extends State<_FileTile> {
   Future<void> _loadUrl() async {
     final url = await widget.getUrl(widget.item.name);
     if (mounted) setState(() { _signedUrl = url; _loading = false; });
+    if (url != null && _isVideo) _loadThumb(url);
+  }
+
+  Future<void> _loadThumb(String url) async {
+    final bytes = await generateVideoThumbnail(url);
+    if (mounted && bytes != null) setState(() => _thumbBytes = bytes);
   }
 
   bool get _isVideo {
@@ -895,18 +903,17 @@ class _FileTileState extends State<_FileTile> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const ColoredBox(color: Color(0xFF1A1A2E)),
-        const Center(
-          child: Icon(Icons.play_circle_outline, color: Color(0xFFE8A4B8), size: 40),
-        ),
-        Positioned(
-          bottom: 4,
-          right: 4,
-          child: Text(
-            widget.item.name.split('/').last,
-            style: const TextStyle(color: Color(0xFF9090A0), fontSize: 8),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
+        _thumbBytes != null
+            ? Image.memory(_thumbBytes!, fit: BoxFit.cover)
+            : const ColoredBox(color: Color(0xFF1A1A2E)),
+        Center(
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.5),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.play_arrow, color: Colors.white, size: 28),
           ),
         ),
       ],
