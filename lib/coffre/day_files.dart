@@ -1246,6 +1246,7 @@ class _FileViewerState extends State<_FileViewer> {
 
   static const _availableEmojis = ['❤️', '😍', '😂', '🥹', '🔥', '👏'];
 
+  static const _previewBase = 'https://chetana.dev/api/coffre/preview';
   static const _deepLinkBase = 'https://chetlys.vercel.app';
 
   String _buildDeepLink() {
@@ -1253,7 +1254,8 @@ class _FileViewerState extends State<_FileViewer> {
     final parts = item.name.split('/');
     if (parts.length < 4) return _deepLinkBase;
     final f = Uri.encodeComponent(parts[3]);
-    return '$_deepLinkBase/?tab=coffre&y=${parts[0]}&m=${parts[1]}&d=${parts[2]}&f=$f';
+    // Passe par le preview proxy → og:image pour WhatsApp/Telegram/FB + redirect Flutter
+    return '$_previewBase?y=${parts[0]}&m=${parts[1]}&d=${parts[2]}&f=$f';
   }
 
   Future<void> _copyLink() async {
