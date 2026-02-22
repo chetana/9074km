@@ -15,17 +15,21 @@ lib/
 │   ├── ChetLysApp         # MaterialApp — thème sombre #0F0F1A
 │   ├── HomeScreen         # StatefulWidget — BottomNavigationBar (2 onglets)
 │   ├── ClockScreen        # Stateful — Timer 1s, double fuseau horaire
-│   ├── _ClockCard         # Card par personne (heure, date, status)
+│   ├── _ClockCard         # Card par personne (heure, date, status bilingue FR+KH)
 │   └── _DistanceIndicator # 9 074 km + décalage horaire
 │
 └── coffre/
-    ├── auth_service.dart  # Singleton AuthService — GoogleSignIn web
-    ├── coffre_api.dart    # Fonctions REST vers chetana.dev/api/coffre/*
-    ├── coffre_screen.dart # Auth gate + routing state + breadcrumb AppBar
-    ├── year_list.dart     # YearListBody — liste des années GCS
-    ├── month_list.dart    # MonthListBody — liste des mois (FR + KH)
-    ├── day_list.dart      # DayListBody — liste des jours (date + FR + KH)
-    └── day_files.dart     # DayFilesScreen — chips jours + nav < > + grille + upload + viewer
+    ├── auth_service.dart       # Singleton AuthService — GoogleSignIn web
+    ├── coffre_api.dart         # Fonctions REST vers chetana.dev/api/coffre/*
+    │                           # + fetchNote() / saveNote() pour note.txt
+    ├── coffre_screen.dart      # Auth gate + PopScope + routing state + breadcrumb AppBar
+    ├── image_compressor.dart   # Export conditionnel (dart.library.html)
+    ├── image_compressor_web.dart   # Canvas WebP→JPEG, max 2048px — web uniquement
+    ├── image_compressor_stub.dart  # Pass-through — Android natif
+    ├── year_list.dart          # YearListBody — liste des années + compteur mois
+    ├── month_list.dart         # MonthListBody — liste des mois (FR+KH) + compteur jours
+    ├── day_list.dart           # DayListBody — liste des jours (date + FR+KH)
+    └── day_files.dart          # DayFilesScreen — tout l'écran jour (voir détail ci-dessous)
 ```
 
 ---
@@ -43,7 +47,7 @@ else           → DayFilesScreen(year, month, day)
 
 L'AppBar affiche en permanence :
 - **Breadcrumb cliquable** : `Coffre › 2026 › 02 › 22` — chaque segment remet à null les niveaux inférieurs
-- **Icône calendrier** : `showDatePicker` (thème sombre) → met à jour `_year/_month/_day` directement, utile pour uploader dans une date passée
+- **Icône calendrier** : `showDatePicker` (thème sombre) → met à jour `_year/_month/_day` directement
 - **Icône logout** : appelle `AuthService.disconnect()` pour forcer le sélecteur de compte
 
 ```
@@ -51,29 +55,101 @@ Coffre › 2026 › 02 › 22      [📅]  [logout]
   ↑tap      ↑tap  ↑tap  (courant)
 ```
 
-### DayFilesScreen — widgets internes
+### Back Android (PopScope)
+
+`CoffreScreen` est enveloppé dans un `PopScope` :
+- `_day != null` → efface `_day` (remonte à la liste des jours)
+- `_month != null` → efface `_month` (remonte aux mois)
+- `_year != null` → efface `_year` (remonte aux années)
+- `_year == null` → `canPop: true` → quitte l'onglet normalement
+
+### Compteurs dans les listes
+
+Après le chargement principal, les listes lancent des requêtes parallèles pour enrichir l'affichage :
+- `YearListBody` : pour chaque année, `listObjects('YYYY/')` → compte les mois → affiche "X mois"
+- `MonthListBody` : pour chaque mois, `listObjects('YYYY/MM/')` → compte les jours → affiche "X jours"
+
+---
+
+## DayFilesScreen — widgets internes
 
 ```
 DayFilesScreen
-├── _DayNavBar         # Barre < prev · nom jour FR+KH · next >
-├── _DaysChipBar       # Chips horizontal des jours existants dans le mois
-│   └── Chargé via listObjects('YYYY/MM/') — uniquement jours avec contenu
-│   └── Chip actif mis en évidence, tap → onDayJump callback → CoffreScreen._day
+├── _DayNavBar
+│   ├── < prev (onPrevDay callback)
+│   ├── Dimanche · អាទិត្យ  Jan 22   (label FR+KH)
+│   ├── next > (onNextDay callback)
+│   └── [zoom icon] toggle 2/3/4 colonnes (_columns state)
+│
+├── _DaysChipBar  (StatefulWidget)
+│   ├── ScrollController + GlobalKey sur chip active
+│   ├── Auto-scroll vers chip active (initState + didUpdateWidget)
+│   ├── Compteur par jour : chargé en parallèle dans _loadDays()
+│   │   → Map<String, int> _dayCounts via Future.wait(listObjects par jour)
+│   └── Chip actif mis en évidence, tap → onDayJump → CoffreScreen._day
+│
+├── _NoteField  (StatefulWidget)
+│   ├── Barre pliable — affiche aperçu du texte ou placeholder
+│   ├── TextField multi-lignes, auto-save onTapOutside / onSubmitted
+│   └── Stocké en GCS : YYYY/MM/DD/note.txt (filtré hors de la grille)
+│
 ├── GridView (_FileTile)
-│   ├── key: ValueKey(name)   # évite réutilisation d'état sur changement de date
-│   ├── Image.network (images)
-│   └── play icon (vidéos)
-└── _FileViewer (Dialog)
-    ├── InteractiveViewer  # pinch-to-zoom pour images
-    └── Chewie             # lecteur vidéo (play/pause, seek, fullscreen)
+│   ├── key: ValueKey(name)         # évite réutilisation d'état
+│   ├── getUrl: _getCachedUrl       # cache parent Map<String, String?>
+│   ├── RefreshIndicator            # pull-to-refresh → _load()
+│   ├── SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: _columns)
+│   └── onLongPress → _showTileMenu (bottom sheet : Sélectionner / Partager / Supprimer)
+│
+├── _FabProgress  (upload en 2 phases)
+│   ├── Phase compressing : ✨ icône + X/N
+│   └── Phase uploading   : ⏳ spinner + X/N
+│
+└── _FileViewer (Dialog.fullscreen)
+    ├── PageView.builder (PageController viewportFraction: 0.92)  ← peek effect
+    ├── onPageChanged → _loadAdjacent() si bord atteint (cross-day ±60j)
+    ├── _urlCache Map<String, String?> partagé entre toutes les pages
+    ├── Share.shareUri(signedUrl)    ← Web Share API iOS + Android
+    └── _PageContent (StatefulWidget, une instance par page)
+        ├── InteractiveViewer   # pinch-to-zoom images
+        └── ChewieController   # lecteur vidéo (autoPlay: false)
 ```
 
 ### Rechargement réactif
 
 `DayFilesScreen` utilise `didUpdateWidget` pour détecter les changements de date :
-- Si `year/month/day` change → `_items = null` + `_load()`
-- Si `year/month` change → `_days = null` + `_loadDays()`
-Cela permet au parent `CoffreScreen` de changer la date sans recréer le widget.
+- `year/month/day` change → `_items = null`, `_urlCache.clear()`, `_noteLoaded = false` + `_load()` + `_loadNote()`
+- `year/month` change → `_days = null`, `_dayCounts = {}` + `_loadDays()`
+
+---
+
+## Compression images
+
+```
+compressImage(bytes, filename, contentType)   [image_compressor.dart]
+        │
+        │  dart.library.html → web
+        ▼
+image_compressor_web.dart
+        │
+        ├── Blob(bytes) → ImageElement → load
+        ├── Redimensionne si > 2048px (préserve ratio)
+        ├── CanvasElement.drawImageScaled()
+        │
+        ├── canvas.toDataUrl('image/webp', 0.85)
+        │       └── Chrome/Android : WebP → si résultat < original → ✓
+        │       └── Safari          : retourne PNG (non webp) → skipped
+        │
+        └── canvas.toDataUrl('image/jpeg', 0.85)
+                └── Universel (Safari inclus) → si résultat < original → ✓
+                └── Sinon : retourne l'original intact (fallback)
+
+Gains typiques :
+  HEIC 5 MB → JPEG ~700 KB (Safari)   −86%
+  JPEG 3 MB → WebP ~300 KB (Chrome)   −90%
+  PNG  2 MB → WebP ~150 KB (Chrome)   −93%
+```
+
+Pour Android natif (`image_compressor_stub.dart`) : pass-through, bytes renvoyés tels quels.
 
 ---
 
@@ -101,9 +177,17 @@ coffre_api.dart  (toutes les fonctions ajoutent le Bearer token)
     │       └── GET chetana.dev/api/coffre/sign-download?path=
     │               └── Signed URL GET v4 (1h)
     │
-    └── deleteObject(path)
-            └── DELETE chetana.dev/api/coffre/delete?path=
-                    └── GCS file.delete()
+    ├── deleteObject(path)
+    │       └── DELETE chetana.dev/api/coffre/delete?path=
+    │               └── GCS file.delete()
+    │
+    ├── fetchNote(year, month, day)
+    │       └── signDownload('YYYY/MM/DD/note.txt')
+    │               └── GET <signed_url> → utf8.decode(body)
+    │
+    └── saveNote(year, month, day, text)
+            └── signUpload('YYYY/MM/DD/note.txt', 'text/plain')
+                    └── PUT <signed_url> avec utf8.encode(text)
 ```
 
 ---
@@ -111,12 +195,15 @@ coffre_api.dart  (toutes les fonctions ajoutent le Bearer token)
 ## GCS — Convention de nommage
 
 ```
-YYYY/MM/DD/filename.ext
-  └── Le prefix seul suffit pour drill-down sans DB :
-      listObjects('')         → prefixes = ['2026/']
-      listObjects('2026/')    → prefixes = ['2026/02/']
-      listObjects('2026/02/') → prefixes = ['2026/02/22/']
-      listObjects('2026/02/22/') → items = [{name, contentType, size}]
+YYYY/MM/DD/filename.ext    ← photos et vidéos (affichées dans la grille)
+YYYY/MM/DD/note.txt        ← note du jour (filtrée hors grille, chargée séparément)
+
+Le prefix seul suffit pour drill-down sans DB :
+  listObjects('')           → prefixes = ['2026/']
+  listObjects('2026/')      → prefixes = ['2026/02/']
+  listObjects('2026/02/')   → prefixes = ['2026/02/22/']
+  listObjects('2026/02/22/') → items = [{name, contentType, size}, ...]
+                               + items filtrés : note.txt exclu de la grille
 ```
 
 ---
@@ -162,8 +249,8 @@ Système (horloge OS / navigateur)
         ├──▶ tz.TZDateTime.now('Europe/Paris')     → paris
         └──▶ tz.TZDateTime.now('Asia/Phnom_Penh')  → phnomPenh
                   │
-                  ├──▶ _ClockCard (Chet)  → heure / date / status
-                  ├──▶ _ClockCard (Lys)   → heure / date / status
+                  ├──▶ _ClockCard (Chet)  → heure / date / status FR+KH
+                  ├──▶ _ClockCard (Lys)   → heure / date / status FR+KH
                   └──▶ _DistanceIndicator → "+6h"
 ```
 
@@ -177,7 +264,7 @@ Code Dart (lib/)
         ▼ flutter build web --release
 build/web/  (HTML + JS + WASM)
         │
-        ▼ vercel --prod
+        ▼ npx vercel --prod
 Vercel CDN  →  https://chetlys.vercel.app  (projet: chet_lys)
 ```
 
@@ -199,3 +286,12 @@ Lys : Partager → "Sur l'écran d'accueil"
         ▼
 Icône "Chet & Lys" → mode standalone (sans barre Safari)
 ```
+
+---
+
+## Notes de limitations connues
+
+- **Multi-upload iOS (Safari)** : Apple limite `UIImagePickerController` à 1 fichier à la fois, même avec `allowMultiple: true`. Pas de workaround côté code.
+- **Compression vidéo web** : pas de solution propre sans FFmpeg.wasm (~30 MB). Les vidéos sont uploadées telles quelles.
+- **Compression Android natif** : `image_compressor_stub.dart` est un pass-through. Pour activer la compression sur Android natif, utiliser `flutter_image_compress`.
+- **Signed URLs 1h** : si l'app reste ouverte > 1h, les URLs en cache deviennent invalides. Un refresh manuel (pull-to-refresh) recharge les URLs.

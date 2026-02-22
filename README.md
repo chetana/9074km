@@ -17,16 +17,39 @@ Application couple cross-plateforme — double horloge, coffre à souvenirs priv
 - **PWA installable** — Lys peut l'ajouter à son écran d'accueil iPhone depuis Safari
 
 ### Coffre · ប្រអប់
+
+#### Navigation
 - **Auth Google** — connexion avec compte Google, `disconnect()` à la déconnexion → sélecteur de compte complet garanti
 - **Breadcrumb cliquable** — `Coffre › 2026 › 02 › 22`, chaque niveau est tappable pour remonter
+- **Back Android** — bouton retour remonte dans le breadcrumb (PopScope)
 - **Icône calendrier** — dans l'AppBar, ouvre un date picker pour sauter directement à n'importe quelle date (utile pour uploader dans une date passée)
-- **Flèches `< >`** — navigation jour par jour en haut de DayFilesScreen
-- **Chips des jours** — bandeau horizontal scrollable montrant uniquement les jours avec du contenu dans le mois courant, chip actif mis en évidence
 - **Bouton "Aujourd'hui · ថ្ងៃនេះ"** — accès direct au jour courant depuis la liste des années
-- **Upload de photos/vidéos** — via signed URL GCS PUT direct (pas de proxy serveur)
-- **Grille de miniatures** — aperçu immédiat après upload, rechargement automatique au changement de date
-- **Viewer plein écran** — tap sur une image → pinch-to-zoom / tap sur une vidéo → lecteur avec play/pause, seek bar, plein écran (Chewie)
-- **Suppression** — long press sur une miniature → confirmation → suppression GCS
+- **Compteurs dans les listes** — chaque année affiche "X mois", chaque mois affiche "X jours"
+
+#### Vue jour
+- **Flèches `< >`** — navigation jour par jour
+- **Zoom grille** — icône à droite des flèches, cycle 2 → 3 → 4 colonnes
+- **Chips des jours** — bandeau horizontal scrollable, uniquement les jours avec contenu, avec compteur `22 (3)` — **auto-scroll** vers le jour actif
+- **Note du jour** — champ texte pliable sous les chips, sauvegardé automatiquement en `note.txt` dans GCS
+- **Pull-to-refresh** — swipe bas pour recharger la grille
+
+#### Upload
+- **Compression avant upload** — canvas WebP (Chrome/Android) ou JPEG (Safari/iPhone) à 85% qualité, max 2048px — gains typiques −85 à −95%
+- **Progression en 2 phases** — FAB affiche ✨ compression `X/N` puis ⏳ upload `X/N`
+- **Multi-sélection** — `allowMultiple: true`, upload séquentiel
+- **Fallback automatique** — si la compression échoue ou si le résultat est plus grand, l'original est envoyé intact
+
+#### Médias
+- **Viewer plein écran** — `Dialog.fullscreen` + `PageView` (swipe entre toutes les photos du jour)
+- **Peek effect** — `viewportFraction: 0.92` → aperçu de la photo suivante/précédente sur les bords
+- **Navigation cross-day** — au bord du PageView, charge automatiquement le jour adjacent avec du contenu (jusqu'à ±60 jours)
+- **Partage** — icône share dans le viewer → Web Share API (iOS Share Sheet, Android)
+- **Pinch-to-zoom** — images avec InteractiveViewer
+- **Lecteur vidéo** — Chewie (play/pause, seek bar, plein écran)
+
+#### Gestion
+- **Menu long-press** — bottom sheet contextuel : Sélectionner / Partager / Supprimer
+- **Mode sélection** — long press → checkboxes → suppression groupée (barre en bas)
 - **Labels bilingues** — mois : `01 — Janvier · មករា` / jours : `2026/02/22 — Dimanche · អាទិត្យ`
 - **Seuls les dates avec contenu** sont affichées dans les listes et les chips (issues de GCS, pas de DB)
 
@@ -40,14 +63,35 @@ lib/
 │
 ├── coffre/
 │   ├── auth_service.dart      # GoogleSignIn singleton — signIn / disconnect / idToken
-│   ├── coffre_api.dart        # Appels REST chetana.dev/api/coffre/*
-│   ├── coffre_screen.dart     # Auth gate + état navigation + breadcrumb
-│   ├── year_list.dart         # Liste des années (YearListBody)
-│   ├── month_list.dart        # Liste des mois — "01 — Janvier · មករា"
-│   ├── day_list.dart          # Liste des jours — "2026/01/22 — Lundi · ចន្ទ"
-│   └── day_files.dart         # Grille fichiers + chips jours + nav arrows + upload FAB + viewer (image/vidéo)
+│   ├── coffre_api.dart        # Appels REST chetana.dev/api/coffre/* + fetchNote/saveNote
+│   ├── coffre_screen.dart     # Auth gate + PopScope + état navigation + breadcrumb
+│   ├── image_compressor.dart  # Export conditionnel web/stub
+│   ├── image_compressor_web.dart   # Canvas WebP→JPEG, max 2048px (web uniquement)
+│   ├── image_compressor_stub.dart  # Pass-through pour Android natif
+│   ├── year_list.dart         # YearListBody — liste des années + compteur mois
+│   ├── month_list.dart        # MonthListBody — liste des mois (FR+KH) + compteur jours
+│   ├── day_list.dart          # DayListBody — liste des jours (date + FR+KH)
+│   └── day_files.dart         # DayFilesScreen — tout le reste (voir ci-dessous)
 │
 └── [ClockScreen dans main.dart]
+```
+
+```
+DayFilesScreen (day_files.dart) :
+├── _DayNavBar         # < prev · Dimanche · អាទិត្យ · Jan 22 · next > · [zoom]
+├── _DaysChipBar       # Chips jours avec compteur, auto-scroll vers l'actif
+├── _NoteField         # Note pliable du jour, auto-save onTapOutside
+├── GridView (_FileTile)
+│   ├── key: ValueKey(name)    # évite réutilisation d'état
+│   ├── getUrl: _getCachedUrl  # cache signé dans le parent (évite N requêtes)
+│   └── RefreshIndicator       # pull-to-refresh
+├── _FabProgress       # ✨ compressing X/N · ⏳ uploading X/N
+└── _FileViewer (Dialog.fullscreen)
+    ├── PageView.builder (viewportFraction: 0.92)  # peek effect
+    ├── _PageContent (StatefulWidget par page)
+    │   ├── InteractiveViewer  # pinch-to-zoom images
+    │   └── Chewie             # lecteur vidéo
+    └── Share.shareUri()       # Web Share API
 ```
 
 ```
@@ -62,17 +106,20 @@ CoffreScreen
 AppBar (persistant) :
   [breadcrumb cliquable]  Coffre › 2026 › 02 › 22  [📅 date picker] [logout]
 
-DayFilesScreen :
-  [< prev]  Dimanche · អាទិត្យ  Jan 22  [next >]
-  [ 21 ]  [ 22 ★ ]  [ 25 ]  [ 28 ]   ← chips jours existants (scroll horizontal)
+Back Android (PopScope) :
+  _day != null   → _day = null
+  _month != null → _month = null
+  _year != null  → _year = null
+  _year == null  → pop (quitte)
 ```
 
 ```
 Upload flow :
 
-FAB "+" → FilePicker.pickFiles(type: FileType.media)
-       → POST /api/coffre/sign-upload { path, contentType }
-       → PUT <signed_url> avec bytes (http.put direct vers GCS)
+FAB "+" → FilePicker.pickFiles(allowMultiple: true)
+       → [phase compressing] compressImage() → canvas WebP ou JPEG, max 2048px
+       → [phase uploading]   POST /api/coffre/sign-upload { path, contentType }
+       → PUT <signed_url> avec bytes compressés (http.put direct vers GCS)
        → listObjects() refresh
 ```
 
@@ -93,6 +140,17 @@ Tous les endpoints requièrent `Authorization: Bearer <google_id_token>`.
 
 ---
 
+## GCS — Convention de nommage
+
+```
+YYYY/MM/DD/filename.ext    ← photos et vidéos
+YYYY/MM/DD/note.txt        ← note du jour (filtrée hors de la grille)
+```
+
+`note.txt` est exclue de l'affichage dans la grille mais chargée séparément via `fetchNote()`.
+
+---
+
 ## Tech Stack
 
 | Layer | Technologie |
@@ -101,7 +159,10 @@ Tous les endpoints requièrent `Authorization: Bearer <google_id_token>`.
 | Framework | Flutter 3 (stable) |
 | Auth | google_sign_in ^6.2.2 (web clientId) |
 | Upload | file_picker ^8.1.4 + http ^1.2.2 |
+| Compression | canvas API (dart:html) — WebP/JPEG |
 | Timezones | `timezone: ^0.10.0` |
+| Vidéo | video_player ^2.9.2 + chewie ^1.8.5 |
+| Partage | share_plus ^10.1.4 |
 | Stockage | Google Cloud Storage (bucket `chet-lys-coffre`) |
 | Cible Web | PWA — Chrome, Safari, Firefox |
 | Hébergement web | Vercel (static, outputDirectory: build/web) |
@@ -121,10 +182,10 @@ flutter run -d chrome
 
 ```bash
 flutter build web --release
-vercel --prod
+npx vercel --prod
 ```
 
-> **Note** : `build/web` est commité dans le repo (le seul sous-dossier de `build/` non ignoré) car Vercel ne peut pas installer Flutter pour compiler côté serveur. Lors de chaque mise à jour, rebuilder puis `vercel --prod`.
+> **Note** : `build/web` est commité dans le repo (le seul sous-dossier de `build/` non ignoré) car Vercel ne peut pas installer Flutter pour compiler côté serveur. Lors de chaque mise à jour, rebuilder puis `npx vercel --prod`.
 
 ### Android
 
@@ -139,7 +200,7 @@ flutter run -d <device-id>
 
 ---
 
-## Variables d'environnement (backend chetana-cv)
+## Variables d'environnement (backend chetana.dev)
 
 | Variable | Description |
 |---|---|
