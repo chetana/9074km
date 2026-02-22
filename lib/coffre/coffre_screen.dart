@@ -7,7 +7,18 @@ import 'day_list.dart';
 import 'day_files.dart';
 
 class CoffreScreen extends StatefulWidget {
-  const CoffreScreen({super.key});
+  final String? initialYear;
+  final String? initialMonth;
+  final String? initialDay;
+  final String? initialFile;
+
+  const CoffreScreen({
+    super.key,
+    this.initialYear,
+    this.initialMonth,
+    this.initialDay,
+    this.initialFile,
+  });
 
   @override
   State<CoffreScreen> createState() => _CoffreScreenState();
@@ -25,6 +36,10 @@ class _CoffreScreenState extends State<CoffreScreen> {
     super.initState();
     _user = AuthService.instance.currentUser;
     if (_user == null) _trySilent();
+    // Navigation initiale depuis un deep link
+    _year = widget.initialYear;
+    _month = widget.initialMonth;
+    _day = widget.initialDay;
   }
 
   Future<void> _trySilent() async {
@@ -198,6 +213,7 @@ class _CoffreScreenState extends State<CoffreScreen> {
       year: _year!,
       month: _month!,
       day: _day!,
+      initialFile: widget.initialFile,
       onPrevDay: () => _changeDay(-1),
       onNextDay: () => _changeDay(1),
       onDayJump: (d) => setState(() => _day = d),

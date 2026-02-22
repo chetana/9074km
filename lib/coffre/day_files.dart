@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chewie/chewie.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'auth_service.dart';
@@ -16,6 +17,7 @@ class DayFilesScreen extends StatefulWidget {
   final String year;
   final String month;
   final String day;
+  final String? initialFile;
   final VoidCallback? onPrevDay;
   final VoidCallback? onNextDay;
   final void Function(String day)? onDayJump;
@@ -25,6 +27,7 @@ class DayFilesScreen extends StatefulWidget {
     required this.year,
     required this.month,
     required this.day,
+    this.initialFile,
     this.onPrevDay,
     this.onNextDay,
     this.onDayJump,
@@ -52,6 +55,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
   final Map<String, String?> _urlCache = {};
   Map<String, String> _meta = {};
   Map<String, List<String>> _reactions = {};
+  bool _deepLinkHandled = false;
 
   String get _prefix => '${widget.year}/${widget.month}/${widget.day}/';
   String get _monthPrefix => '${widget.year}/${widget.month}/';
@@ -149,6 +153,17 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
           !i.name.endsWith('/note.txt') &&
           !i.name.endsWith('/meta.json') &&
           !i.name.endsWith('/reactions.json')).toList());
+      // Auto-ouverture pour deep link (une seule fois)
+      if (widget.initialFile != null && !_deepLinkHandled && _items != null) {
+        _deepLinkHandled = true;
+        final idx = _items!.indexWhere(
+            (i) => i.name.split('/').last == widget.initialFile);
+        if (idx >= 0) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _openViewer(idx);
+          });
+        }
+      }
     } catch (e) {
       setState(() => _error = e.toString());
     }
@@ -1169,9 +1184,30 @@ class _FileViewerState extends State<_FileViewer> {
   bool _loadingPrev = false;
   bool _loadingNext = false;
   bool _showUi = true;
+  bool _showCopiedToast = false;
   late Map<String, List<String>> _reactions;
 
   static const _availableEmojis = ['❤️', '😍', '😂', '🥹', '🔥', '👏'];
+
+  static const _deepLinkBase = 'https://chetlys.vercel.app';
+
+  String _buildDeepLink() {
+    final item = _items[_currentIndex];
+    final parts = item.name.split('/');
+    if (parts.length < 4) return _deepLinkBase;
+    final f = Uri.encodeComponent(parts[3]);
+    return '$_deepLinkBase/?tab=coffre&y=${parts[0]}&m=${parts[1]}&d=${parts[2]}&f=$f';
+  }
+
+  Future<void> _copyLink() async {
+    final url = _buildDeepLink();
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) return;
+    setState(() => _showCopiedToast = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _showCopiedToast = false);
+    });
+  }
 
   CoffreItem get _currentItem => _items[_currentIndex];
 
@@ -1368,6 +1404,11 @@ class _FileViewerState extends State<_FileViewer> {
                             ),
                           ),
                           IconButton(
+                            icon: const Icon(Icons.link, color: Colors.white),
+                            onPressed: _copyLink,
+                            tooltip: 'Copier le lien',
+                          ),
+                          IconButton(
                             icon: const Icon(Icons.share, color: Colors.white),
                             onPressed: _share,
                             tooltip: 'Partager',
@@ -1427,6 +1468,43 @@ class _FileViewerState extends State<_FileViewer> {
                             ),
                           );
                         }).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Toast "Copié · ចម្លង"
+          Positioned(
+            bottom: 110,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: _showCopiedToast ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 250),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.25),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Text(
+                      'Copié · ចម្លង',
+                      style: TextStyle(
+                        color: Color(0xFF1A1A2E),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ),

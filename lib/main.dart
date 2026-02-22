@@ -44,7 +44,34 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
-  final _screens = const [ClockScreen(), CoffreScreen()];
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    // Lecture des paramètres de deep link depuis l'URL (web uniquement)
+    String? deepY, deepM, deepD, deepF;
+    try {
+      final params = Uri.base.queryParameters;
+      if (params['tab'] == 'coffre') {
+        _index = 1;
+        deepY = params['y'];
+        deepM = params['m'];
+        deepD = params['d'];
+        final rawF = params['f'];
+        deepF = rawF != null ? Uri.decodeComponent(rawF) : null;
+      }
+    } catch (_) {}
+    _screens = [
+      const ClockScreen(),
+      CoffreScreen(
+        initialYear: deepY,
+        initialMonth: deepM,
+        initialDay: deepD,
+        initialFile: deepF,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
