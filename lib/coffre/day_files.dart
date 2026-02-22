@@ -597,6 +597,14 @@ class _DaysChipBarState extends State<_DaysChipBar> {
     return '$dd$countStr\n${kmDays[date.weekday - 1]}';
   }
 
+  bool _isToday(String dd) {
+    final now = DateTime.now();
+    final y = int.tryParse(widget.year);
+    final m = int.tryParse(widget.month);
+    final d = int.tryParse(dd);
+    return y == now.year && m == now.month && d == now.day;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -608,6 +616,7 @@ class _DaysChipBarState extends State<_DaysChipBar> {
         child: Row(
           children: widget.days.map((dd) {
             final isSelected = dd == widget.selected;
+            final isToday = _isToday(dd);
             return GestureDetector(
               key: isSelected ? _selectedKey : null,
               onTap: widget.onTap != null && !isSelected ? () => widget.onTap!(dd) : null,
@@ -618,19 +627,40 @@ class _DaysChipBarState extends State<_DaysChipBar> {
                   color: isSelected ? const Color(0xFFE8A4B8) : const Color(0xFF1E1E30),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isSelected ? const Color(0xFFE8A4B8) : const Color(0xFF3A3A50),
-                    width: 1,
+                    color: isSelected
+                        ? const Color(0xFFE8A4B8)
+                        : isToday
+                            ? const Color(0xFFE8A4B8).withOpacity(0.6)
+                            : const Color(0xFF3A3A50),
+                    width: isToday && !isSelected ? 1.5 : 1,
                   ),
                 ),
-                child: Text(
-                  _label(dd),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: isSelected ? const Color(0xFF0F0F1A) : const Color(0xFFB0B0C0),
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    height: 1.4,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _label(dd),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: isSelected ? const Color(0xFF0F0F1A) : const Color(0xFFB0B0C0),
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        height: 1.4,
+                      ),
+                    ),
+                    if (isToday)
+                      Container(
+                        margin: const EdgeInsets.only(top: 3),
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isSelected
+                              ? const Color(0xFF0F0F1A)
+                              : const Color(0xFFE8A4B8),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             );
