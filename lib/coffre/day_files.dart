@@ -935,6 +935,9 @@ class _FileTileState extends State<_FileTile> {
                                 imageUrl: _signedUrl!,
                                 cacheKey: widget.item.name,
                                 fit: BoxFit.cover,
+                                // Limite la résolution décodée en mémoire (thumbnails)
+                                // évite les crashs renderer sur les gros RAW (~8 MB Lumix)
+                                memCacheWidth: 600,
                                 errorWidget: (_, __, ___) => _icon(),
                                 placeholder: (_, __) => const Center(
                                   child: CircularProgressIndicator(
@@ -1603,6 +1606,9 @@ class _PageContentState extends State<_PageContent> {
           imageUrl: _url!,
           cacheKey: widget.item.name,
           fit: BoxFit.contain,
+          // Plafond mémoire pour le viewer — 1920px suffit pour un écran phone
+          // évite les crashs renderer sur les gros RAW Lumix (~8 MB, ~6000×4000px)
+          memCacheWidth: 1920,
           errorWidget: (_, __, ___) =>
               const Icon(Icons.broken_image, color: Color(0xFF9090A0), size: 48),
           placeholder: (_, __) =>
