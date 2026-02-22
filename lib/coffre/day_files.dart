@@ -209,6 +209,75 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
     });
   }
 
+  Future<void> _shareItem(CoffreItem item) async {
+    final url = await _getCachedUrl(item.name);
+    if (url == null || !mounted) return;
+    await Share.shareUri(Uri.parse(url));
+  }
+
+  Future<void> _deleteSingle(String name) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E30),
+        title: const Text('Supprimer ?', style: TextStyle(color: Color(0xFFE8E8F0))),
+        content: Text(name.split('/').last,
+            style: const TextStyle(color: Color(0xFF9090A0), fontSize: 13)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annuler', style: TextStyle(color: Color(0xFF9090A0)))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Supprimer', style: TextStyle(color: Colors.redAccent))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await deleteObject(name);
+    } catch (_) {}
+    _load();
+  }
+
+  void _showTileMenu(CoffreItem item) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E30),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(width: 36, height: 4,
+                decoration: BoxDecoration(color: const Color(0xFF5A5A70),
+                    borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.check_circle_outline, color: Color(0xFFE8A4B8)),
+              title: const Text('Sélectionner', style: TextStyle(color: Color(0xFFE8E8F0))),
+              onTap: () { Navigator.pop(context); _enterSelectionMode(item.name); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share, color: Color(0xFFE8A4B8)),
+              title: const Text('Partager', style: TextStyle(color: Color(0xFFE8E8F0))),
+              onTap: () { Navigator.pop(context); _shareItem(item); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              title: const Text('Supprimer', style: TextStyle(color: Colors.redAccent)),
+              onTap: () { Navigator.pop(context); _deleteSingle(item.name); },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _toggleSelection(String name) {
     setState(() {
       if (_selected.contains(name)) {
@@ -386,7 +455,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
             : _openViewer(i),
         onLongPress: () => _selectionMode
             ? _toggleSelection(_items![i].name)
-            : _enterSelectionMode(_items![i].name),
+            : _showTileMenu(_items![i]),
       ),
       ),  // RefreshIndicator
     );
