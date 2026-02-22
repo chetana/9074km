@@ -83,6 +83,7 @@ class _DayListBodyState extends State<DayListBody> {
       );
     }
     return ListView.builder(
+      key: PageStorageKey('day-list-${widget.year}-${widget.month}'),
       padding: const EdgeInsets.all(16),
       itemCount: _days!.length,
       itemBuilder: (_, i) {

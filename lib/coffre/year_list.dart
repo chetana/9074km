@@ -67,6 +67,7 @@ class _YearListBodyState extends State<YearListBody> {
       );
     }
     return ListView.builder(
+      key: const PageStorageKey('year-list'),
       padding: const EdgeInsets.all(16),
       itemCount: _years!.length,
       itemBuilder: (_, i) {

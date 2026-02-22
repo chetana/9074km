@@ -85,6 +85,7 @@ class _MonthListBodyState extends State<MonthListBody> {
       );
     }
     return ListView.builder(
+      key: PageStorageKey('month-list-${widget.year}'),
       padding: const EdgeInsets.all(16),
       itemCount: _months!.length,
       itemBuilder: (_, i) {
