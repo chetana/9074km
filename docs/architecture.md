@@ -387,11 +387,33 @@ _FileTile / _PageContent
     └── CachedNetworkImage(
           imageUrl: signedUrl,      ← URL signée (change toutes les heures)
           cacheKey: item.name,      ← clé stable = chemin GCS (YYYY/MM/DD/file.jpg)
+          memCacheWidth: 600,       ← grille : décode à 600px max en mémoire
+          // ou
+          memCacheWidth: 1920,      ← viewer : décode à 1920px max en mémoire
         )
 
 Le cache disque est indexé par cacheKey, pas par imageUrl.
 → même si l'URL signée change après 1h, le cache disque reste valide.
 ```
+
+### Pourquoi memCacheWidth ?
+
+Un JPEG brut d'appareil photo (ex. Lumix ~8 MB, ~6000×4000 px) décodé à pleine résolution
+occupe **~96 MB** en mémoire vive (6000 × 4000 × 4 octets RGBA). Le moteur CanvasKit de
+Flutter Web a un budget mémoire limité par onglet dans Chrome Android. Charger 2–3 de ces
+images simultanément (grille + préchargement viewer) dépasse le seuil et fait crasher le
+renderer → `errorWidget` affiché à tort.
+
+`memCacheWidth` indique à `flutter_cache_manager` de redimensionner l'image lors du décodage :
+
+| Contexte | memCacheWidth | Mémoire décodée |
+|----------|---------------|-----------------|
+| Grille (_FileTile) | 600 px | ~1–2 MB |
+| Viewer (_PageContent) | 1920 px | ~15 MB |
+| Sans limitation | — | ~96 MB (crash) |
+
+Le fichier sur disque (IndexedDB) est stocké en taille originale — `memCacheWidth` n'affecte
+que la représentation en mémoire vive lors de l'affichage.
 
 ---
 

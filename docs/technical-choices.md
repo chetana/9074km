@@ -161,6 +161,28 @@ Les images dans la grille et le viewer sont servies via des signed URLs GCS qui 
 
 La clé de cache est le chemin GCS — stable et unique — indépendamment de l'URL signée. Même après l'expiration de l'URL, l'image est servie depuis le cache disque sans réseau.
 
+### `memCacheWidth` — limitation de la mémoire décodée
+
+Les signed URLs expirent après 1h mais les images restent en cache disque. Le problème distinct est la mémoire vive au moment du décodage.
+
+Un appareil photo Lumix produit des JPEG de ~8 MB (6000×4000 px). Lors du décodage Flutter :
+
+```
+6000 × 4000 × 4 octets (RGBA) = 96 MB par image
+```
+
+CanvasKit (moteur de rendu Flutter Web) a des limites de mémoire par onglet. Charger 2 à 3 images de cette taille simultanément crashe le renderer → errorWidget affiché au lieu de l'image.
+
+**Solution** : paramètre `memCacheWidth` de `CachedNetworkImage` qui force le décodage à une largeur maximale :
+
+| Contexte | `memCacheWidth` | Mémoire décodée | Qualité |
+|----------|----------------|-----------------|---------|
+| Grille (thumbnail) | `600` | ~1–2 MB | Suffisante pour miniature |
+| Viewer plein écran | `1920` | ~15 MB | Suffisante pour écran Full HD |
+| Sans limite | — | ~96 MB | Crash renderer sur Lumix RAW |
+
+Flutter redimensionne l'image au décodage lui-même (pas via CSS), donc l'économie est réelle et ne dépend pas du navigateur.
+
 ---
 
 ## Réactions emoji — architecture simplifiée

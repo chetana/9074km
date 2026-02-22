@@ -45,7 +45,7 @@ Application couple cross-plateforme — double horloge, coffre à souvenirs priv
 - **Badge uploader** — nom de l'uploader sauvegardé dans `meta.json`, affiché en badge bas-gauche sur chaque photo
 
 #### Médias
-- **Cache images sur disque** — `cached_network_image` avec `cacheKey: item.name` (stable, pas l'URL signée qui change chaque heure)
+- **Cache images sur disque** — `cached_network_image` avec `cacheKey: item.name` (stable, pas l'URL signée qui change chaque heure) ; `memCacheWidth: 600` en grille et `1920` en viewer pour éviter les crashs renderer sur les gros RAW (~8 MB)
 - **Miniature vidéo réelle** — frame extraite à 0,5s via HTML VideoElement + CanvasElement (web uniquement), bouton play centré
 - **Viewer plein écran** — `Dialog.fullscreen` + `PageView` (swipe entre toutes les photos du jour)
 - **Animation d'ouverture** — ScaleTransition (0.88 → 1.0) + FadeTransition en 280ms à l'ouverture du viewer
