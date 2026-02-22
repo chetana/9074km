@@ -1008,6 +1008,7 @@ class _FileViewerState extends State<_FileViewer> {
   final Map<String, String?> _urlCache = {};
   bool _loadingPrev = false;
   bool _loadingNext = false;
+  bool _showUi = true;
 
   DateTime _dateOf(CoffreItem item) {
     final p = item.name.split('/');
@@ -1112,7 +1113,9 @@ class _FileViewerState extends State<_FileViewer> {
     final filename = _items[_currentIndex].name.split('/').last;
     return Dialog.fullscreen(
       backgroundColor: Colors.black,
-      child: Stack(
+      child: GestureDetector(
+        onTap: () => setState(() => _showUi = !_showUi),
+        child: Stack(
         children: [
           PageView.builder(
             controller: _pageController,
@@ -1127,49 +1130,57 @@ class _FileViewerState extends State<_FileViewer> {
               ),
             ),
           ),
-          // Barre supérieure avec dégradé
+          // Barre supérieure avec dégradé — disparaît au tap
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black.withOpacity(0.75), Colors.transparent],
-                ),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
-                        tooltip: 'Fermer',
+            child: AnimatedOpacity(
+              opacity: _showUi ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: IgnorePointer(
+                ignoring: !_showUi,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.black.withOpacity(0.75), Colors.transparent],
+                    ),
+                  ),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => Navigator.pop(context),
+                            tooltip: 'Fermer',
+                          ),
+                          Expanded(
+                            child: Text(
+                              filename,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Color(0xFFCCCCCC), fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.share, color: Colors.white),
+                            onPressed: _share,
+                            tooltip: 'Partager',
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: Text(
-                          filename,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Color(0xFFCCCCCC), fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.share, color: Colors.white),
-                        onPressed: _share,
-                        tooltip: 'Partager',
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
         ],
+        ),
       ),
     );
   }
