@@ -1044,7 +1044,7 @@ class _FileTileState extends State<_FileTile> {
 
 // ─── Note du jour ─────────────────────────────────────────────────────────────
 
-class _NoteField extends StatefulWidget {
+class _NoteField extends StatelessWidget {
   final String initialText;
   final bool saving;
   final Future<void> Function(String) onSave;
@@ -1055,106 +1055,160 @@ class _NoteField extends StatefulWidget {
     required this.onSave,
   });
 
+  void _openOverlay(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Fermer',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 180),
+      transitionBuilder: (ctx, anim, _, child) => FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: Tween(begin: 0.96, end: 1.0).animate(
+            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: child,
+        ),
+      ),
+      pageBuilder: (ctx, _, __) => _NoteOverlay(
+        initialText: initialText,
+        onSave: onSave,
+      ),
+    );
+  }
+
   @override
-  State<_NoteField> createState() => _NoteFieldState();
+  Widget build(BuildContext context) {
+    final hasNote = initialText.isNotEmpty;
+    return Column(
+      children: [
+        InkWell(
+          onTap: () => _openOverlay(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.edit_note, size: 16, color: Color(0xFFE8A4B8)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    hasNote ? initialText : 'Ajouter une note…',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: hasNote ? const Color(0xFFD0D0E0) : const Color(0xFF5A5A70),
+                      fontSize: 12,
+                      fontStyle: hasNote ? FontStyle.normal : FontStyle.italic,
+                    ),
+                  ),
+                ),
+                if (saving)
+                  const SizedBox(
+                    width: 12, height: 12,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 1.5, color: Color(0xFFE8A4B8)),
+                  )
+                else
+                  const Icon(Icons.chevron_right, size: 16, color: Color(0xFF3A3A50)),
+              ],
+            ),
+          ),
+        ),
+        const Divider(height: 1, color: Color(0xFF1E1E30)),
+      ],
+    );
+  }
 }
 
-class _NoteFieldState extends State<_NoteField> {
+class _NoteOverlay extends StatefulWidget {
+  final String initialText;
+  final Future<void> Function(String) onSave;
+
+  const _NoteOverlay({required this.initialText, required this.onSave});
+
+  @override
+  State<_NoteOverlay> createState() => _NoteOverlayState();
+}
+
+class _NoteOverlayState extends State<_NoteOverlay> {
   late TextEditingController _ctrl;
-  bool _expanded = false;
 
   @override
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.initialText);
-    _expanded = widget.initialText.isNotEmpty;
-  }
-
-  @override
-  void didUpdateWidget(_NoteField old) {
-    super.didUpdateWidget(old);
-    if (old.initialText != widget.initialText) {
-      _ctrl.text = widget.initialText;
-      _expanded = widget.initialText.isNotEmpty;
-    }
   }
 
   @override
   void dispose() {
+    widget.onSave(_ctrl.text);
     _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      color: const Color(0xFF0F0F1A),
-      child: Column(
-        children: [
-          // Barre titre cliquable pour plier/déplier
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              child: Row(
+    return GestureDetector(
+      // Tap en dehors de la carte = fermer (le barrier gère ça, mais on absorbe les taps internes)
+      onTap: () => Navigator.of(context).pop(),
+      behavior: HitTestBehavior.opaque,
+      child: Center(
+        child: GestureDetector(
+          onTap: () {}, // absorbe les taps sur la carte pour ne pas fermer
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xEA0D0D1F),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.edit_note, size: 16, color: Color(0xFFE8A4B8)),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      _expanded
-                          ? (_ctrl.text.isEmpty ? 'Note du jour…' : _ctrl.text)
-                          : (_ctrl.text.isEmpty ? 'Ajouter une note…' : _ctrl.text),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: _ctrl.text.isEmpty
-                            ? const Color(0xFF5A5A70)
-                            : const Color(0xFFD0D0E0),
-                        fontSize: 12,
-                        fontStyle: _ctrl.text.isEmpty ? FontStyle.italic : FontStyle.normal,
+                  Row(
+                    children: [
+                      const Icon(Icons.edit_note, size: 13, color: Color(0xFFE8A4B8)),
+                      const SizedBox(width: 5),
+                      const Text(
+                        'Note du jour · ចំណាំ',
+                        style: TextStyle(
+                          color: Color(0xFFE8A4B8),
+                          fontSize: 11,
+                          letterSpacing: 0.4,
+                        ),
                       ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: const Icon(Icons.close, size: 14, color: Color(0xFF5A5A70)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _ctrl,
+                    maxLines: null,
+                    minLines: 3,
+                    autofocus: true,
+                    style: const TextStyle(
+                      color: Color(0xFFE8E8F0),
+                      fontSize: 15,
+                      height: 1.6,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'Écris quelque chose pour ce jour…',
+                      hintStyle: TextStyle(color: Color(0xFF5A5A70), fontSize: 14),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  if (widget.saving)
-                    const SizedBox(
-                      width: 12, height: 12,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 1.5, color: Color(0xFFE8A4B8)),
-                    )
-                  else
-                    Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more,
-                      size: 16,
-                      color: const Color(0xFF5A5A70),
-                    ),
                 ],
               ),
             ),
           ),
-          // Champ texte déployable
-          if (_expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: TextField(
-                controller: _ctrl,
-                maxLines: null,
-                minLines: 2,
-                autofocus: _ctrl.text.isEmpty,
-                style: const TextStyle(color: Color(0xFFE8E8F0), fontSize: 13),
-                decoration: const InputDecoration(
-                  hintText: 'Écris quelque chose pour ce jour…',
-                  hintStyle: TextStyle(color: Color(0xFF5A5A70), fontSize: 13),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                onSubmitted: (v) => widget.onSave(v),
-                onTapOutside: (_) => widget.onSave(_ctrl.text),
-              ),
-            ),
-          const Divider(height: 1, color: Color(0xFF1E1E30)),
-        ],
+        ),
       ),
     );
   }
