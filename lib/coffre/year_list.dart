@@ -72,7 +72,7 @@ class _YearListBodyState extends State<YearListBody> {
       itemBuilder: (_, i) {
         final year = _years![i];
         final n = _monthCounts[year];
-        final sub = n == null ? null : '$n mois';
+        final sub = n == null ? null : '$n mois · $n ខែ';
         return _TimelineCard(
           label: year,
           subtitle: sub,

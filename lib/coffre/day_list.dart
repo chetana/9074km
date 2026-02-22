@@ -13,6 +13,7 @@ class DayListBody extends StatefulWidget {
 
 class _DayListBodyState extends State<DayListBody> {
   List<String>? _days;
+  Map<String, int> _fileCounts = {};
   String? _error;
 
   @override
@@ -31,6 +32,17 @@ class _DayListBodyState extends State<DayListBody> {
           .toList()
         ..sort((a, b) => b.compareTo(a));
       setState(() => _days = days);
+      // Compteurs en parallèle (note.txt exclu)
+      final entries = await Future.wait(days.map((d) async {
+        try {
+          final r = await listObjects('${widget.year}/${widget.month}/$d/');
+          final count = r.items.where((i) => !i.name.endsWith('/note.txt')).length;
+          return MapEntry(d, count);
+        } catch (_) {
+          return MapEntry(d, 0);
+        }
+      }));
+      if (mounted) setState(() => _fileCounts = Map.fromEntries(entries));
     } catch (e) {
       setState(() => _error = e.toString());
     }
@@ -75,8 +87,11 @@ class _DayListBodyState extends State<DayListBody> {
       itemCount: _days!.length,
       itemBuilder: (_, i) {
         final dd = _days![i];
+        final n = _fileCounts[dd];
+        final sub = n == null ? null : '$n fichiers · $n ឯកសារ';
         return _Card(
           label: _dayLabel(dd),
+          subtitle: sub,
           onTap: () => widget.onDaySelected(dd),
         );
       },
@@ -86,8 +101,9 @@ class _DayListBodyState extends State<DayListBody> {
 
 class _Card extends StatelessWidget {
   final String label;
+  final String? subtitle;
   final VoidCallback onTap;
-  const _Card({required this.label, required this.onTap});
+  const _Card({required this.label, required this.onTap, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +116,9 @@ class _Card extends StatelessWidget {
       ),
       child: ListTile(
         title: Text(label, style: const TextStyle(color: Color(0xFFE8E8F0), fontSize: 15)),
+        subtitle: subtitle != null
+            ? Text(subtitle!, style: const TextStyle(color: Color(0xFF9090A0), fontSize: 12))
+            : null,
         trailing: const Icon(Icons.chevron_right, color: Color(0xFFE8A4B8)),
         onTap: onTap,
       ),

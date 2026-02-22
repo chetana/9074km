@@ -90,7 +90,7 @@ class _MonthListBodyState extends State<MonthListBody> {
       itemBuilder: (_, i) {
         final mm = _months![i];
         final n = _dayCounts[mm];
-        final sub = n == null ? null : '$n jours';
+        final sub = n == null ? null : '$n jours · $n ថ្ងៃ';
         return _Card(
           label: _label(mm),
           subtitle: sub,
