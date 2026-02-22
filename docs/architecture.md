@@ -14,6 +14,7 @@ lib/
 │   ├── main()                # init timezones + runApp
 │   ├── ChetLysApp            # MaterialApp — thème sombre #0F0F1A
 │   ├── HomeScreen            # StatefulWidget — BottomNavigationBar (2 onglets)
+│   │                         # initState() parse Uri.base.queryParameters (deep link)
 │   ├── ClockScreen           # Stateful — Timer 1s, double fuseau horaire
 │   ├── _ClockCard            # Card par personne (heure, date, status bilingue FR+KH)
 │   ├── _DaysTogetherBadge    # "💍 Jour X ensemble" depuis _coupleStartDate (13 jan 2026)
@@ -28,6 +29,7 @@ lib/
     │                              # fetchMeta / saveMeta        (meta.json)
     │                              # fetchReactions / saveReactions (reactions.json)
     ├── coffre_screen.dart         # Auth gate + PopScope + routing state + breadcrumb AppBar
+    │                              # initialYear/Month/Day/File → navigation directe (deep link)
     ├── image_compressor.dart      # Export conditionnel (dart.library.html)
     ├── image_compressor_web.dart  # Canvas WebP→JPEG, max 2048px — web uniquement
     ├── image_compressor_stub.dart # Pass-through — Android natif
@@ -95,15 +97,16 @@ Après le chargement principal, les listes lancent des requêtes parallèles pou
 DayFilesScreen
 │
 ├── État principal (_DayFilesScreenState)
-│   ├── _items          : List<CoffreItem>?       (fichiers du jour, hors note/meta/reactions)
-│   ├── _days           : List<String>?            (jours du mois avec contenu)
-│   ├── _dayCounts      : Map<String, int>         (fichiers par jour)
-│   ├── _urlCache       : Map<String, String?>     (signed URLs en mémoire 1h)
-│   ├── _note           : String                   (texte note du jour)
-│   ├── _meta           : Map<String, String>      (filename → prénomUploader)
-│   ├── _reactions      : Map<String, List<String>>(filename → [emoji, ...])
-│   ├── _columns        : int (2/3/4)              (colonnes grille)
-│   └── _phase          : idle / compressing / uploading
+│   ├── _items            : List<CoffreItem>?       (fichiers du jour, hors note/meta/reactions)
+│   ├── _days             : List<String>?            (jours du mois avec contenu)
+│   ├── _dayCounts        : Map<String, int>         (fichiers par jour)
+│   ├── _urlCache         : Map<String, String?>     (signed URLs en mémoire 1h)
+│   ├── _note             : String                   (texte note du jour)
+│   ├── _meta             : Map<String, String>      (filename → prénomUploader)
+│   ├── _reactions        : Map<String, List<String>>(filename → [emoji, ...])
+│   ├── _columns          : int (2/3/4)              (colonnes grille)
+│   ├── _deepLinkHandled  : bool                     (évite double-open au rebuild)
+│   └── _phase            : idle / compressing / uploading
 │
 ├── _DayNavBar
 │   ├── < prev (onPrevDay callback)
@@ -171,13 +174,26 @@ showGeneralDialog + ScaleTransition(0.88→1.0) + FadeTransition (280ms, easeOut
                 │
                 ├── Positioned(top) → AnimatedOpacity(_showUi, 200ms) ← barre supérieure
                 │   └── IgnorePointer(!_showUi)
-                │       ├── [close] [filename] [share]
+                │       ├── [close] [filename] [🔗 link] [share]
+                │       │           ↑ _copyLink() → Clipboard + _showCopiedToast
                 │       └── fond dégradé noir→transparent
                 │
-                └── Positioned(bottom) → AnimatedOpacity(_showUi, 200ms) ← barre réactions
-                    └── IgnorePointer(!_showUi)
-                        ├── [❤️] [😍] [😂] [🥹] [🔥] [👏]  ← toggle par tap
-                        └── fond dégradé noir→transparent (bas→haut)
+                ├── Positioned(bottom) → AnimatedOpacity(_showUi, 200ms) ← barre réactions
+                │   └── IgnorePointer(!_showUi)
+                │       ├── [❤️] [😍] [😂] [🥹] [🔥] [👏]  ← toggle par tap
+                │       └── fond dégradé noir→transparent (bas→haut)
+                │
+                └── Positioned(center-bottom) → AnimatedOpacity(_showCopiedToast, 250ms)
+                    └── IgnorePointer
+                        └── Container blanc arrondi → Text("Copié · ចម្លង")
+```
+
+### État du viewer (_FileViewerState)
+
+```dart
+_showUi          : bool   // toggle barre top + barre réactions
+_showCopiedToast : bool   // toast "Copié · ចម្លង" (2s)
+_reactions       : Map<String, List<String>>  // initialisé depuis widget.reactions
 ```
 
 ### Rechargement réactif
@@ -409,6 +425,75 @@ Lys : Partager → "Sur l'écran d'accueil"
         ▼
 Icône "Chet & Lys" → mode standalone (sans barre Safari)
 ```
+
+---
+
+## Deep links — partage d'une photo
+
+### Format de l'URL
+
+```
+https://chetlys.vercel.app/?tab=coffre&y=YYYY&m=MM&d=DD&f=filename.jpg
+```
+
+| Paramètre | Valeur | Exemple |
+|-----------|--------|---------|
+| `tab` | `coffre` | Sélectionne l'onglet Coffre |
+| `y` | année à 4 chiffres | `2026` |
+| `m` | mois padded | `02` |
+| `d` | jour padded | `22` |
+| `f` | nom de fichier URL-encodé | `IMG%201234.jpg` |
+
+Les caractères spéciaux dans le nom de fichier (espaces, accents, caractères Unicode) sont encodés avec `Uri.encodeComponent` à la génération et décodés avec `Uri.decodeComponent` à la réception.
+
+### Flux côté expéditeur
+
+```
+_FileViewerState._copyLink()
+    ├── _buildDeepLink()
+    │       └── Uri.encodeComponent(filename)
+    │               → "https://chetlys.vercel.app/?tab=coffre&y=...&f=photo.jpg"
+    ├── Clipboard.setData(ClipboardData(text: url))
+    └── setState(_showCopiedToast = true)
+            └── AnimatedOpacity → "Copié · ចម្លង" (2 secondes)
+```
+
+### Flux côté destinataire
+
+```
+Ouverture de l'URL dans Safari ou Chrome
+    │
+    ▼ Flutter web démarre (index.html → main.dart.js)
+    │
+HomeScreen.initState()
+    ├── Uri.base.queryParameters  ← lit les paramètres de l'URL courante
+    ├── params['tab'] == 'coffre' → _index = 1
+    └── CoffreScreen(
+              initialYear: "2026",
+              initialMonth: "02",
+              initialDay: "22",
+              initialFile: "photo.jpg",   ← Uri.decodeComponent appliqué
+        )
+    │
+CoffreScreen.initState()
+    └── _year = "2026", _month = "02", _day = "22"
+        → DayFilesScreen affiché directement (pas de passage par les listes)
+    │
+DayFilesScreen (initialFile: "photo.jpg")
+    └── _load() → listObjects(prefix)
+            └── items chargés
+                → indexWhere(filename == "photo.jpg") → idx
+                → addPostFrameCallback → _openViewer(idx)
+                        └── viewer ouvert sur la bonne photo avec animation
+```
+
+### Comportement si la photo n'existe plus
+
+Si `initialFile` ne correspond à aucun item de la liste (photo supprimée), `indexWhere` retourne `-1`, le viewer n'est pas ouvert et l'app affiche simplement la grille du jour — aucune erreur.
+
+### Pas de deep link sur Android natif
+
+Sur Android natif (`flutter run`), `Uri.base.queryParameters` retourne une map vide — les paramètres URL n'existent pas dans ce contexte. La fonctionnalité est donc web-only, ce qui correspond à l'usage cible (Lys sur iPhone via PWA Safari).
 
 ---
 

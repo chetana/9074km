@@ -53,6 +53,7 @@ Application couple cross-plateforme — double horloge, coffre à souvenirs priv
 - **Peek effect** — `viewportFraction: 0.92` → aperçu de la photo suivante/précédente sur les bords
 - **Navigation cross-day** — au bord du PageView, charge automatiquement le jour adjacent avec du contenu (jusqu'à ±60 jours)
 - **Réactions emoji** — ❤️ 😍 😂 🥹 🔥 👏 — barre en bas du viewer, toggle par tap, stocké dans `reactions.json`, badge visible sur les tuiles
+- **Lien partageable** — bouton 🔗 dans le viewer → copie un deep link dans le presse-papier + toast "Copié · ចម្លង" — le lien ouvre l'app directement sur la bonne photo
 - **Partage** — icône share dans le viewer → Web Share API (iOS Share Sheet, Android)
 - **Pinch-to-zoom** — images avec InteractiveViewer
 - **Lecteur vidéo** — Chewie (play/pause, seek bar, plein écran)
@@ -69,13 +70,14 @@ Application couple cross-plateforme — double horloge, coffre à souvenirs priv
 
 ```
 lib/
-├── main.dart                  # ChetLysApp + HomeScreen (BottomNav) + _DaysTogetherBadge
+├── main.dart                  # ChetLysApp + HomeScreen (BottomNav + deep link) + _DaysTogetherBadge
 │
 ├── coffre/
 │   ├── auth_service.dart      # GoogleSignIn singleton — signIn / disconnect / idToken / currentUser
 │   ├── coffre_api.dart        # Appels REST chetana.dev/api/coffre/* + fetchNote/saveNote
 │   │                          # + fetchMeta/saveMeta + fetchReactions/saveReactions
 │   ├── coffre_screen.dart     # Auth gate + PopScope + état navigation + breadcrumb
+│   │                          # + initialYear/Month/Day/File (deep link)
 │   ├── image_compressor.dart  # Export conditionnel web/stub
 │   ├── image_compressor_web.dart   # Canvas WebP→JPEG, max 2048px (web uniquement)
 │   ├── image_compressor_stub.dart  # Pass-through pour Android natif
@@ -110,8 +112,32 @@ DayFilesScreen (day_files.dart) :
     │   ├── CachedNetworkImage  # cache disque, cacheKey: item.name
     │   ├── InteractiveViewer   # pinch-to-zoom images
     │   └── Chewie              # lecteur vidéo
-    ├── Positioned top → AnimatedOpacity → barre titre + close + share
-    └── Positioned bottom → AnimatedOpacity → barre réactions (❤️ 😍 😂 🥹 🔥 👏)
+    ├── Positioned top → AnimatedOpacity → barre titre + close + [link] + share
+    │   └── [link] → _copyLink() → Clipboard + toast "Copié · ចម្លង"
+    ├── Positioned bottom → AnimatedOpacity → barre réactions (❤️ 😍 😂 🥹 🔥 👏)
+    └── Positioned center-bottom → AnimatedOpacity → toast "Copié · ចម្លង"
+```
+
+```
+Deep link flow :
+
+Expéditeur (dans le viewer) :
+  tap 🔗 → _buildDeepLink()
+         → https://chetlys.vercel.app/?tab=coffre&y=2026&m=02&d=22&f=photo.jpg
+         → Clipboard.setData()
+         → toast "Copié · ចម្លង" (2s)
+
+Destinataire (ouverture du lien) :
+  Safari/Chrome ouvre l'URL
+         → Flutter web démarre
+         → HomeScreen.initState() lit Uri.base.queryParameters
+         → _index = 1 (onglet Coffre)
+         → CoffreScreen(initialYear/Month/Day/File)
+         → CoffreScreen._year/_month/_day initialisés
+         → DayFilesScreen(initialFile: "photo.jpg")
+         → _load() → items chargés
+         → addPostFrameCallback → _openViewer(idx)
+         → viewer ouvert sur la photo
 ```
 
 ```

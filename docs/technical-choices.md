@@ -205,6 +205,48 @@ Sur Android natif, le stub retourne `null` → fallback vers l'icône play stati
 
 ---
 
+## Deep links — pourquoi des query params et pas un router
+
+Flutter propose plusieurs solutions pour les deep links web : `go_router`, `auto_route`, ou le routing natif `Navigator 2.0`. Ces packages ont été volontairement évités pour cette fonctionnalité.
+
+### Pourquoi pas go_router ?
+
+| Critère | go_router | Query params manuels |
+|---------|-----------|---------------------|
+| Complexité ajoutée | ⚠️ Refactoring complet de la navigation | ✅ 20 lignes dans `initState` |
+| Navigation state-based existante | ❌ Incompatible sans réécriture | ✅ Aucun changement d'architecture |
+| Usage unique | ❌ Sur-ingénierie pour 1 cas d'usage | ✅ Minimal et suffisant |
+| Comportement souhaité | Deep link one-shot à l'ouverture | ✅ Lu une fois dans `Uri.base` |
+
+La navigation de l'app est intentionnellement **state-based** (variables `_year/_month/_day` dans `CoffreScreen`). Introduire un router changerait la philosophie du projet sans apporter de valeur pour deux utilisateurs.
+
+### `Uri.base` — disponibilité cross-platform
+
+`Uri.base` est disponible dans Dart sur toutes les plateformes, mais son comportement diffère :
+- **Web** : retourne l'URL complète de la page courante, avec queryParameters
+- **Android/iOS natif** : retourne une URI sans paramètres significatifs
+
+Ce comportement suffit : sur Android, `queryParameters` est vide → aucun deep link appliqué → comportement normal. Sur web (PWA), les paramètres sont lus et la navigation est appliquée. Aucun conditional import nécessaire.
+
+### Encodage des noms de fichiers
+
+Les noms de fichiers peuvent contenir des espaces, accents ou caractères Unicode (ex: `photo été.jpg`, `IMG 001.heic`). Le cycle complet :
+
+```
+Génération  : Uri.encodeComponent("photo été.jpg")
+            → "photo%20%C3%A9t%C3%A9.jpg"
+
+Transport   : dans l'URL → copié dans le presse-papier → envoyé via message
+
+Réception   : Uri.base.queryParameters['f']
+            → Dart décode automatiquement les %XX → "photo été.jpg"
+            → Uri.decodeComponent() en plus pour double sécurité
+```
+
+La comparaison finale `item.name.split('/').last == widget.initialFile` compare deux strings décodées → match garanti.
+
+---
+
 ## Dépendances
 
 | Package | Version | Rôle |
