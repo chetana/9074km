@@ -936,8 +936,9 @@ class _FileTileState extends State<_FileTile> {
                                 cacheKey: widget.item.name,
                                 fit: BoxFit.cover,
                                 // Limite la résolution décodée en mémoire (thumbnails)
-                                // évite les crashs renderer sur les gros RAW (~8 MB Lumix)
-                                memCacheWidth: 600,
+                                // 300px = 2.5x la taille d'affichage réelle (~120px/colonne sur mobile)
+                                // évite les crashs renderer GPU quand beaucoup d'images sont visibles
+                                memCacheWidth: 300,
                                 errorWidget: (_, __, ___) => _icon(),
                                 placeholder: (_, __) => const Center(
                                   child: CircularProgressIndicator(
