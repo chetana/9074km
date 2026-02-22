@@ -88,6 +88,28 @@ Future<void> deleteObject(String path) async {
   if (res.statusCode != 200) throw Exception('delete failed: ${res.statusCode}');
 }
 
+// ─── Note du jour (YYYY/MM/DD/note.txt) ──────────────────────────────────────
+
+Future<String?> fetchNote(String year, String month, String day) async {
+  final path = '$year/$month/$day/note.txt';
+  try {
+    final url = await signDownload(path);
+    final res = await http.get(Uri.parse(url));
+    if (res.statusCode == 200) return utf8.decode(res.bodyBytes);
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> saveNote(
+    String year, String month, String day, String text) async {
+  final path = '$year/$month/$day/note.txt';
+  final bytes = Uint8List.fromList(utf8.encode(text));
+  final url = await signUpload(path, 'text/plain');
+  await uploadFile(url, bytes, 'text/plain');
+}
+
 Future<void> uploadFile(String signedUrl, Uint8List bytes, String contentType) async {
   final res = await http.put(
     Uri.parse(signedUrl),

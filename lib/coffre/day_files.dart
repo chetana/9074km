@@ -37,6 +37,9 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
   Map<String, int> _dayCounts = {};
   String? _error;
   int _columns = 3;
+  String _note = '';
+  bool _noteLoaded = false;
+  bool _noteSaving = false;
   _UploadPhase _phase = _UploadPhase.idle;
   int _current = 0;
   int _total = 0;
@@ -52,6 +55,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
     super.initState();
     _load();
     _loadDays();
+    _loadNote();
   }
 
   @override
@@ -63,13 +67,27 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
     final monthChanged = oldWidget.year != widget.year ||
         oldWidget.month != widget.month;
     if (dayChanged) {
-      setState(() { _items = null; _urlCache.clear(); });
+      setState(() { _items = null; _urlCache.clear(); _noteLoaded = false; _note = ''; });
       _load();
+      _loadNote();
     }
     if (monthChanged) {
       setState(() => _days = null);
       _loadDays();
     }
+  }
+
+  Future<void> _loadNote() async {
+    final text = await fetchNote(widget.year, widget.month, widget.day);
+    if (mounted) setState(() { _note = text ?? ''; _noteLoaded = true; });
+  }
+
+  Future<void> _saveNote(String text) async {
+    setState(() => _noteSaving = true);
+    try {
+      await saveNote(widget.year, widget.month, widget.day, text);
+    } catch (_) {}
+    if (mounted) setState(() => _noteSaving = false);
   }
 
   Future<void> _loadDays() async {
@@ -100,7 +118,8 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
     setState(() => _error = null);
     try {
       final result = await listObjects(_prefix);
-      setState(() => _items = result.items);
+      setState(() => _items =
+          result.items.where((i) => !i.name.endsWith('/note.txt')).toList());
     } catch (e) {
       setState(() => _error = e.toString());
     }
@@ -401,6 +420,12 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
                     month: widget.month,
                     onTap: widget.onDayJump,
                   ),
+                ),
+              if (_noteLoaded)
+                _NoteField(
+                  initialText: _note,
+                  saving: _noteSaving,
+                  onSave: _saveNote,
                 ),
               Expanded(child: _body()),
             ],
@@ -834,6 +859,124 @@ class _FileTileState extends State<_FileTile> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Note du jour ─────────────────────────────────────────────────────────────
+
+class _NoteField extends StatefulWidget {
+  final String initialText;
+  final bool saving;
+  final Future<void> Function(String) onSave;
+
+  const _NoteField({
+    required this.initialText,
+    required this.saving,
+    required this.onSave,
+  });
+
+  @override
+  State<_NoteField> createState() => _NoteFieldState();
+}
+
+class _NoteFieldState extends State<_NoteField> {
+  late TextEditingController _ctrl;
+  bool _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialText);
+    _expanded = widget.initialText.isNotEmpty;
+  }
+
+  @override
+  void didUpdateWidget(_NoteField old) {
+    super.didUpdateWidget(old);
+    if (old.initialText != widget.initialText) {
+      _ctrl.text = widget.initialText;
+      _expanded = widget.initialText.isNotEmpty;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      color: const Color(0xFF0F0F1A),
+      child: Column(
+        children: [
+          // Barre titre cliquable pour plier/déplier
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.edit_note, size: 16, color: Color(0xFFE8A4B8)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _expanded
+                          ? (_ctrl.text.isEmpty ? 'Note du jour…' : _ctrl.text)
+                          : (_ctrl.text.isEmpty ? 'Ajouter une note…' : _ctrl.text),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _ctrl.text.isEmpty
+                            ? const Color(0xFF5A5A70)
+                            : const Color(0xFFD0D0E0),
+                        fontSize: 12,
+                        fontStyle: _ctrl.text.isEmpty ? FontStyle.italic : FontStyle.normal,
+                      ),
+                    ),
+                  ),
+                  if (widget.saving)
+                    const SizedBox(
+                      width: 12, height: 12,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 1.5, color: Color(0xFFE8A4B8)),
+                    )
+                  else
+                    Icon(
+                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      size: 16,
+                      color: const Color(0xFF5A5A70),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          // Champ texte déployable
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: TextField(
+                controller: _ctrl,
+                maxLines: null,
+                minLines: 2,
+                autofocus: _ctrl.text.isEmpty,
+                style: const TextStyle(color: Color(0xFFE8E8F0), fontSize: 13),
+                decoration: const InputDecoration(
+                  hintText: 'Écris quelque chose pour ce jour…',
+                  hintStyle: TextStyle(color: Color(0xFF5A5A70), fontSize: 13),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                onSubmitted: (v) => widget.onSave(v),
+                onTapOutside: (_) => widget.onSave(_ctrl.text),
+              ),
+            ),
+          const Divider(height: 1, color: Color(0xFF1E1E30)),
+        ],
+      ),
     );
   }
 }
