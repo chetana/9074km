@@ -110,6 +110,60 @@ Future<void> saveNote(
   await uploadFile(url, bytes, 'text/plain');
 }
 
+// ─── Meta uploader (YYYY/MM/DD/meta.json) ────────────────────────────────────
+
+/// Returns {filename: uploaderName} or empty map on error.
+Future<Map<String, String>> fetchMeta(String year, String month, String day) async {
+  final path = '$year/$month/$day/meta.json';
+  try {
+    final url = await signDownload(path);
+    final res = await http.get(Uri.parse(url));
+    if (res.statusCode == 200) {
+      final decoded = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      return decoded.map((k, v) => MapEntry(k, v as String));
+    }
+    return {};
+  } catch (_) {
+    return {};
+  }
+}
+
+Future<void> saveMeta(
+    String year, String month, String day, Map<String, String> meta) async {
+  final path = '$year/$month/$day/meta.json';
+  final bytes = Uint8List.fromList(utf8.encode(jsonEncode(meta)));
+  final url = await signUpload(path, 'application/json');
+  await uploadFile(url, bytes, 'application/json');
+}
+
+// ─── Reactions (YYYY/MM/DD/reactions.json) ───────────────────────────────────
+
+/// Returns {filename: [emoji, ...]} or empty map on error.
+Future<Map<String, List<String>>> fetchReactions(
+    String year, String month, String day) async {
+  final path = '$year/$month/$day/reactions.json';
+  try {
+    final url = await signDownload(path);
+    final res = await http.get(Uri.parse(url));
+    if (res.statusCode == 200) {
+      final decoded = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      return decoded.map((k, v) =>
+          MapEntry(k, (v as List<dynamic>).cast<String>()));
+    }
+    return {};
+  } catch (_) {
+    return {};
+  }
+}
+
+Future<void> saveReactions(String year, String month, String day,
+    Map<String, List<String>> reactions) async {
+  final path = '$year/$month/$day/reactions.json';
+  final bytes = Uint8List.fromList(utf8.encode(jsonEncode(reactions)));
+  final url = await signUpload(path, 'application/json');
+  await uploadFile(url, bytes, 'application/json');
+}
+
 Future<void> uploadFile(String signedUrl, Uint8List bytes, String contentType) async {
   final res = await http.put(
     Uri.parse(signedUrl),

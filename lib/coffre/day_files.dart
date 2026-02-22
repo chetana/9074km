@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
+import 'auth_service.dart';
 import 'coffre_api.dart';
 import 'image_compressor.dart';
 import 'video_thumbnailer.dart';
@@ -49,6 +50,8 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
   bool _selectionMode = false;
   final Set<String> _selected = {};
   final Map<String, String?> _urlCache = {};
+  Map<String, String> _meta = {};
+  Map<String, List<String>> _reactions = {};
 
   String get _prefix => '${widget.year}/${widget.month}/${widget.day}/';
   String get _monthPrefix => '${widget.year}/${widget.month}/';
@@ -59,6 +62,8 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
     _load();
     _loadDays();
     _loadNote();
+    _loadMeta();
+    _loadReactions();
   }
 
   @override
@@ -70,9 +75,18 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
     final monthChanged = oldWidget.year != widget.year ||
         oldWidget.month != widget.month;
     if (dayChanged) {
-      setState(() { _items = null; _urlCache.clear(); _noteLoaded = false; _note = ''; });
+      setState(() {
+        _items = null;
+        _urlCache.clear();
+        _noteLoaded = false;
+        _note = '';
+        _meta = {};
+        _reactions = {};
+      });
       _load();
       _loadNote();
+      _loadMeta();
+      _loadReactions();
     }
     if (monthChanged) {
       setState(() => _days = null);
@@ -83,6 +97,16 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
   Future<void> _loadNote() async {
     final text = await fetchNote(widget.year, widget.month, widget.day);
     if (mounted) setState(() { _note = text ?? ''; _noteLoaded = true; });
+  }
+
+  Future<void> _loadMeta() async {
+    final m = await fetchMeta(widget.year, widget.month, widget.day);
+    if (mounted) setState(() => _meta = m);
+  }
+
+  Future<void> _loadReactions() async {
+    final r = await fetchReactions(widget.year, widget.month, widget.day);
+    if (mounted) setState(() => _reactions = r);
   }
 
   Future<void> _saveNote(String text) async {
@@ -121,8 +145,10 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
     setState(() => _error = null);
     try {
       final result = await listObjects(_prefix);
-      setState(() => _items =
-          result.items.where((i) => !i.name.endsWith('/note.txt')).toList());
+      setState(() => _items = result.items.where((i) =>
+          !i.name.endsWith('/note.txt') &&
+          !i.name.endsWith('/meta.json') &&
+          !i.name.endsWith('/reactions.json')).toList());
     } catch (e) {
       setState(() => _error = e.toString());
     }
@@ -186,6 +212,22 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
       } catch (_) {
         errors.add(item.filename);
       }
+    }
+
+    // Sauvegarde des métadonnées uploader
+    final uploaderName = AuthService.instance.currentUser?.displayName ?? '?';
+    final shortName = uploaderName.split(' ').first;
+    final updatedMeta = Map<String, String>.from(_meta);
+    for (final item in processed) {
+      if (!errors.contains(item.filename)) {
+        updatedMeta['$_prefix${item.filename}'.split('/').last] = shortName;
+      }
+    }
+    if (updatedMeta.isNotEmpty) {
+      try {
+        await saveMeta(widget.year, widget.month, widget.day, updatedMeta);
+        if (mounted) setState(() => _meta = updatedMeta);
+      } catch (_) {}
     }
 
     await _load();
@@ -494,19 +536,23 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
         mainAxisSpacing: 8,
       ),
       itemCount: _items!.length,
-      itemBuilder: (_, i) => _FileTile(
-        key: ValueKey(_items![i].name),
-        item: _items![i],
-        getUrl: _getCachedUrl,
-        selectionMode: _selectionMode,
-        selected: _selected.contains(_items![i].name),
-        onTap: () => _selectionMode
-            ? _toggleSelection(_items![i].name)
-            : _openViewer(i),
-        onLongPress: () => _selectionMode
-            ? _toggleSelection(_items![i].name)
-            : _showTileMenu(_items![i]),
-      ),
+      itemBuilder: (_, i) {
+        final filename = _items![i].name.split('/').last;
+        return _FileTile(
+          key: ValueKey(_items![i].name),
+          item: _items![i],
+          getUrl: _getCachedUrl,
+          selectionMode: _selectionMode,
+          selected: _selected.contains(_items![i].name),
+          uploaderName: _meta[filename],
+          onTap: () => _selectionMode
+              ? _toggleSelection(_items![i].name)
+              : _openViewer(i),
+          onLongPress: () => _selectionMode
+              ? _toggleSelection(_items![i].name)
+              : _showTileMenu(_items![i]),
+        );
+      },
       ),  // GridView
       ),  // RefreshIndicator
     );   // GestureDetector
@@ -786,6 +832,7 @@ class _FileTile extends StatefulWidget {
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final String? uploaderName;
   const _FileTile({
     super.key,
     required this.item,
@@ -794,6 +841,7 @@ class _FileTile extends StatefulWidget {
     required this.selected,
     required this.onTap,
     required this.onLongPress,
+    this.uploaderName,
   });
 
   @override
@@ -893,6 +941,27 @@ class _FileTileState extends State<_FileTile> {
                 child: widget.selected
                     ? const Icon(Icons.check, size: 14, color: Color(0xFF0F0F1A))
                     : null,
+              ),
+            ),
+          if (!widget.selectionMode && widget.uploaderName != null)
+            Positioned(
+              bottom: 4,
+              left: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  widget.uploaderName!.substring(0,
+                      widget.uploaderName!.length > 4 ? 4 : widget.uploaderName!.length),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
         ],
