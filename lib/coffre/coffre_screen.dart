@@ -107,7 +107,21 @@ class _CoffreScreenState extends State<CoffreScreen> {
     if (_user == null) {
       return _SignInGate(onSignIn: _signIn, loading: _loading);
     }
-    return Scaffold(
+    return PopScope(
+      canPop: _year == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        setState(() {
+          if (_day != null) {
+            _day = null;
+          } else if (_month != null) {
+            _month = null;
+          } else {
+            _year = null;
+          }
+        });
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFF0F0F1A),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F1A),
@@ -150,6 +164,7 @@ class _CoffreScreenState extends State<CoffreScreen> {
             )
           : null,
       body: _body(),
+    ),  // PopScope
     );
   }
 
