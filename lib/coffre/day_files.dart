@@ -213,12 +213,25 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
   }
 
   void _openViewer(int index) {
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (_) => _FileViewer(
+      barrierDismissible: false,
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 280),
+      pageBuilder: (_, __, ___) => _FileViewer(
         items: List.from(_items!),
         initialIndex: index,
       ),
+      transitionBuilder: (_, anim, __, child) {
+        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.88, end: 1.0).animate(curved),
+            child: child,
+          ),
+        );
+      },
     );
   }
 
