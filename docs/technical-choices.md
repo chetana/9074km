@@ -183,14 +183,29 @@ CanvasKit (moteur de rendu Flutter Web) a des limites de mémoire par onglet. Ch
 
 Flutter redimensionne l'image au décodage lui-même (pas via CSS), donc l'économie est réelle et ne dépend pas du navigateur.
 
-#### Ajustement secondaire : grille dense sur mobile
+#### Ajustement secondaire : grille dense sur mobile → puis proxy serveur
 
-Même à `memCacheWidth: 600`, une grille avec 20–30 photos sur mobile Chrome (Android) pouvait provoquer des crashs renderer. La cause : 600px × 600px × 4 octets = ~1.4 MB par image. Avec 20–30 tuiles simultanément visibles à l'écran, ça représente 28–42 MB de GPU memory — au-delà du budget de certains appareils.
+Même à `memCacheWidth: 600`, une grille avec 20–30 photos sur mobile Chrome (Android) pouvait provoquer des crashs renderer. Réduire à `300` améliorait la situation mais ne réglait pas le problème de fond :
 
-La valeur `300` a été choisie car :
-- Sur une grille à 3 colonnes, chaque tuile fait ~120 px de large sur un téléphone 360 px
-- 300 px = 2.5× la résolution d'affichage → qualité visuelle imperceptiblement différente de 600 px
-- 300 × 300 × 4 = ~360 KB par image → 20 images = ~7 MB total, confortable pour tous les appareils
+> **`memCacheWidth` ne réduit pas la pression lors du décodage — il réduit seulement la pression en mémoire après décodage.**
+
+Flutter doit toujours télécharger et décoder l'image originale (8 MB, 6000×4000 px) avant de la réduire à 300 px. Ce décodage initial consomme ~96 MB GPU temporairement. Sur une grille de 9 tuiles chargées simultanément, ce sont 9 × 96 MB = 864 MB de pics mémoire successifs — catastrophique sur mobile.
+
+**Solution définitive** : utiliser le **proxy og-image avec `?w=300`** directement comme source des thumbnails grille. Le serveur (via `sharp`) renvoie un JPEG déjà à 300 px. Le client ne voit jamais l'image originale :
+
+```
+Client demande  : GET /api/coffre/og-image?path=2026/02/22/lumix.jpg&w=300
+Serveur télécharge : GCS signed URL → lumix.jpg (8 MB original)
+Serveur transcode  : sharp.resize(300).jpeg(80%) → ~15 KB JPEG
+Client reçoit   : 15 KB JPEG → décodage 300×225 px → ~270 KB mémoire
+```
+
+Bénéfices combinés :
+- **Bande passante** : 8 MB → ~15 KB par thumbnail (×500)
+- **Mémoire décodage** : ~96 MB → ~270 KB par image (~360×)
+- **Formats** : HEIC, WebP, PNG, RAW — tous transcodes en JPEG avant d'arriver sur le device
+
+`memCacheWidth` reste utile dans le **viewer plein écran** (`1920`) où l'image originale est téléchargée pour la qualité maximale.
 
 ---
 
@@ -404,28 +419,42 @@ Résultat : une image `.webp` dans `og:image` est simplement ignorée par Facebo
 
 ### Proxy JPEG — `/api/coffre/og-image`
 
-**Solution** : un endpoint proxy sur chetana.dev qui transcode n'importe quel format source (WebP, HEIC, PNG…) en JPEG avant de le servir, via la librairie `sharp` (Node.js) :
+**Solution** : un endpoint proxy sur chetana.dev qui transcode n'importe quel format source (WebP, HEIC, PNG, RAW…) en JPEG avant de le servir, via la librairie `sharp` (Node.js) :
 
 ```
-GET /api/coffre/og-image?path=2026/01/13/bague_de_Chet.webp
+GET /api/coffre/og-image?path=2026/01/13/bague_de_Chet.webp[&w=300]
     │
     og-image.get.ts
         ├── signedGetUrl("2026/01/13/bague_de_Chet.webp")  → URL GCS signée
-        ├── fetch(signedUrl)                                 → télécharge le WebP original
-        ├── sharp(buffer).resize({ width: 1200 }).jpeg({ quality: 85 }) → JPEG 1200px
+        ├── fetch(signedUrl)                                 → télécharge l'original
+        ├── width = query.w ?? 1200  (clamped 1–2000)
+        ├── sharp(buffer).resize({ width }).jpeg({ quality: w≤400 ? 80 : 85 })
         └── Retourne image/jpeg avec Cache-Control: public, max-age=86400
 ```
 
-Le `og:image` dans `preview.get.ts` pointe désormais vers ce proxy :
+Le `og:image` dans `preview.get.ts` pointe vers ce proxy (sans `?w=`, donc 1200 px) :
 
 ```
 og:image = https://chetana.dev/api/coffre/og-image?path=2026/01/13/bague_de_Chet.webp
 ```
 
+La grille Flutter utilise ce même proxy avec `?w=300` :
+
+```
+imageUrl = https://chetana.dev/api/coffre/og-image?path=2026/02/22/lumix.jpg&w=300
+```
+
+#### Deux usages, un seul endpoint
+
+| Usage | Paramètre | Qualité | Taille typique |
+|-------|-----------|---------|----------------|
+| `og:image` social (WhatsApp, FB, Telegram) | `?w=1200` (défaut) | 85% | ~150–400 KB |
+| Thumbnail grille Flutter | `?w=300` | 80% | ~10–30 KB |
+
 Avantages :
-- **Compatibilité universelle** — JPEG supporté par tous les scrapers (WhatsApp, Facebook, Telegram, Twitter/X, iMessage…)
-- **Format source transparent** — l'utilisateur peut uploader du WebP, HEIC, PNG sans se soucier de la compatibilité des previews
-- **Cache 24h** côté scraper sur une réponse stable (`Cache-Control: public, max-age=86400`)
+- **Compatibilité universelle** — JPEG supporté par tous les scrapers et tous les navigateurs (HEIC, WebP, RAW transparents)
+- **Déchargement du client** — le device ne voit jamais l'image originale pour les thumbnails
+- **Cache 24h** côté scraper et `cached_network_image` local (cacheKey stable)
 - **1200px max** — taille recommandée par Facebook pour `og:image` (ratio 1.91:1 → 1200×630 idéal)
 
 ### Bug critique rencontré en production : `&` vs `&amp;` dans les attributs HTML

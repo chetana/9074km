@@ -317,9 +317,9 @@ coffre_api.dart  (toutes les fonctions ajoutent le Bearer token)
 | `GET /api/coffre/sign-download?path=` | ✅ Bearer | Signed URL GET (1h) |
 | `DELETE /api/coffre/delete?path=` | ✅ Bearer | Supprime un objet GCS |
 | `GET /api/coffre/preview?y=&m=&d=&f=` | ❌ public | HTML og:image + redirect Flutter |
-| `GET /api/coffre/og-image?path=` | ❌ public | Proxy JPEG — transcode WebP/HEIC via sharp |
+| `GET /api/coffre/og-image?path=[&w=]` | ❌ public | Proxy JPEG via sharp — `w=1200` (social), `w=300` (thumbnails) |
 
-Les deux derniers endpoints sont sans auth — nécessaire pour les bots scrapers des messageries.
+Les deux derniers endpoints sont sans auth — nécessaire pour les bots scrapers des messageries. L'accès reste sécurisé de facto : les chemins GCS ne sont connaissables qu'après auth via l'API `list`.
 
 ---
 
@@ -396,37 +396,46 @@ Système (horloge OS / navigateur)
 ## Cache images
 
 ```
-_FileTile / _PageContent
+_FileTile (grille)
     └── CachedNetworkImage(
-          imageUrl: signedUrl,      ← URL signée (change toutes les heures)
-          cacheKey: item.name,      ← clé stable = chemin GCS (YYYY/MM/DD/file.jpg)
-          memCacheWidth: 300,       ← grille : 300px = 2.5× taille d'affichage (~120px/col)
-          // ou
-          memCacheWidth: 1920,      ← viewer : décode à 1920px max en mémoire
+          imageUrl: "https://chetana.dev/api/coffre/og-image?path=YYYY/MM/DD/file.jpg&w=300",
+          cacheKey: item.name + "__thumb",  ← clé stable pour le cache disque
+          // pas de memCacheWidth — l'image reçue est déjà 300px
+        )
+
+_PageContent (viewer)
+    └── CachedNetworkImage(
+          imageUrl: signedUrl,      ← signed URL GET v4 (1h)
+          cacheKey: item.name,      ← clé stable = chemin GCS
+          memCacheWidth: 1920,      ← viewer : plafond mémoire Full HD
         )
 
 Le cache disque est indexé par cacheKey, pas par imageUrl.
 → même si l'URL signée change après 1h, le cache disque reste valide.
 ```
 
-### Pourquoi memCacheWidth ?
+### Pourquoi le proxy og-image pour les thumbnails de la grille ?
 
 Un JPEG brut d'appareil photo (ex. Lumix ~8 MB, ~6000×4000 px) décodé à pleine résolution
 occupe **~96 MB** en mémoire vive (6000 × 4000 × 4 octets RGBA). Le moteur CanvasKit de
-Flutter Web a un budget mémoire limité par onglet dans Chrome Android. Charger 2–3 de ces
-images simultanément (grille + préchargement viewer) dépasse le seuil et fait crasher le
-renderer → `errorWidget` affiché à tort.
+Flutter Web a un budget mémoire limité par onglet dans Chrome Android. Sur une grille de 9
+tuiles, ces décodages simultanés font crasher le renderer → `errorWidget` affiché à tort.
 
-`memCacheWidth` indique à `flutter_cache_manager` de redimensionner l'image lors du décodage :
+`memCacheWidth: 300` ne résout pas le problème de fond : Flutter doit quand même décoder
+l'image originale (8 MB) avant de la redimensionner. La solution est de ne jamais envoyer
+l'original sur le device pour les thumbnails.
 
-| Contexte | memCacheWidth | Mémoire décodée | Justification |
-|----------|---------------|-----------------|---------------|
-| Grille (_FileTile) | 300 px | ~360 KB | ~120px/col × 3 cols, 2.5× DPR suffit |
-| Viewer (_PageContent) | 1920 px | ~15 MB | Plein écran Full HD |
-| Sans limitation | — | ~96 MB | Crash sur Lumix RAW |
+Le proxy `/api/coffre/og-image?path=...&w=300` transcode l'image côté serveur via `sharp`
+avant de l'envoyer :
 
-Le fichier sur disque (IndexedDB) est stocké en taille originale — `memCacheWidth` n'affecte
-que la représentation en mémoire vive lors de l'affichage.
+| Source | Opération | Résultat reçu par le client |
+|--------|-----------|-----------------------------|
+| Grille | og-image transcode → JPEG 300px | ~15 KB, decode ~270 KB |
+| Viewer | signedUrl → image originale | ~8 MB, decode plafonnée à 1920px |
+
+Bénéfice supplémentaire : HEIC, WebP, RAW — tous transcodes en JPEG avant d'arriver sur le
+device, garantissant la compatibilité avec tous les navigateurs (Chrome Android ne supporte
+pas HEIC nativement).
 
 ---
 
