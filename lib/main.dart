@@ -6,7 +6,7 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import 'coffre/coffre_screen.dart';
 
 /// Date de la bague — début officiel de notre histoire 💍
-const _coupleStartDate = DateTime(2026, 1, 13);
+final _coupleStartDate = DateTime(2026, 1, 13);
 
 void main() {
   tz_data.initializeTimeZones();
@@ -153,7 +153,7 @@ class _ClockScreenState extends State<ClockScreen> {
                 const SizedBox(height: 8),
 
                 // Compteur jours ensemble
-                _DaysTogetherBadge(now: paris.toDateTime()),
+                _DaysTogetherBadge(now: paris),
 
                 const SizedBox(height: 8),
 
@@ -311,7 +311,7 @@ class _ClockCard extends StatelessWidget {
 
 class _DaysTogetherBadge extends StatelessWidget {
   final DateTime now;
-  const _DaysTogetherBadge({required this.now});
+  const _DaysTogetherBadge({super.key, required this.now});
 
   @override
   Widget build(BuildContext context) {
