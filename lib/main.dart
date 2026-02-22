@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'coffre/coffre_screen.dart';
 
 void main() {
   tz_data.initializeTimeZones();
@@ -26,9 +27,43 @@ class ChetLysApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF0F0F1A),
         fontFamily: 'sans-serif',
       ),
-      home: const ClockScreen(),
+      home: const HomeScreen(),
     );
   }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _index = 0;
+  final _screens = const [ClockScreen(), CoffreScreen()];
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: _screens[_index],
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _index,
+          onTap: (i) => setState(() => _index = i),
+          backgroundColor: const Color(0xFF0F0F1A),
+          selectedItemColor: const Color(0xFFE8A4B8),
+          unselectedItemColor: const Color(0xFF9090A0),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.access_time),
+              label: 'Horloge · នាឡិកា',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.photo_library),
+              label: 'Coffre · ប្រអប់',
+            ),
+          ],
+        ),
+      );
 }
 
 class ClockScreen extends StatefulWidget {
@@ -166,14 +201,14 @@ class _ClockCard extends StatelessWidget {
 
   String get _status {
     final h = time.hour;
-    if (h >= 0 && h < 6) return '🌙 dort';
-    if (h >= 6 && h < 9) return '🌅 se réveille';
-    if (h >= 9 && h < 12) return '☀️ matinée';
-    if (h >= 12 && h < 14) return '🍽️ déjeuner';
-    if (h >= 14 && h < 18) return '☀️ après-midi';
-    if (h >= 18 && h < 21) return '🌆 soirée';
-    if (h >= 21 && h < 23) return '🌙 bientôt au lit';
-    return '🌙 dort';
+    if (h >= 0 && h < 6) return '🌙 dort · គេង';
+    if (h >= 6 && h < 9) return '🌅 se réveille · ភ្ញាក់';
+    if (h >= 9 && h < 12) return '☀️ matinée · ព្រឹក';
+    if (h >= 12 && h < 14) return '🍽️ déjeuner · អាហារថ្ងៃ';
+    if (h >= 14 && h < 18) return '☀️ après-midi · រសៀល';
+    if (h >= 18 && h < 21) return '🌆 soirée · ល្ងាច';
+    if (h >= 21 && h < 23) return '🌙 bientôt au lit · ចូលគេង';
+    return '🌙 dort · គេង';
   }
 
   @override
