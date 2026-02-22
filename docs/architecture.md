@@ -11,25 +11,33 @@ L'application est un **widget Flutter pur** avec deux onglets : une double horlo
 ```
 lib/
 ├── main.dart
-│   ├── main()             # init timezones + runApp
-│   ├── ChetLysApp         # MaterialApp — thème sombre #0F0F1A
-│   ├── HomeScreen         # StatefulWidget — BottomNavigationBar (2 onglets)
-│   ├── ClockScreen        # Stateful — Timer 1s, double fuseau horaire
-│   ├── _ClockCard         # Card par personne (heure, date, status bilingue FR+KH)
-│   └── _DistanceIndicator # 9 074 km + décalage horaire
+│   ├── main()                # init timezones + runApp
+│   ├── ChetLysApp            # MaterialApp — thème sombre #0F0F1A
+│   ├── HomeScreen            # StatefulWidget — BottomNavigationBar (2 onglets)
+│   ├── ClockScreen           # Stateful — Timer 1s, double fuseau horaire
+│   ├── _ClockCard            # Card par personne (heure, date, status bilingue FR+KH)
+│   ├── _DaysTogetherBadge    # "💍 Jour X ensemble" depuis _coupleStartDate (13 jan 2026)
+│   └── _DistanceIndicator    # 9 074 km + décalage horaire
 │
 └── coffre/
-    ├── auth_service.dart       # Singleton AuthService — GoogleSignIn web
-    ├── coffre_api.dart         # Fonctions REST vers chetana.dev/api/coffre/*
-    │                           # + fetchNote() / saveNote() pour note.txt
-    ├── coffre_screen.dart      # Auth gate + PopScope + routing state + breadcrumb AppBar
-    ├── image_compressor.dart   # Export conditionnel (dart.library.html)
-    ├── image_compressor_web.dart   # Canvas WebP→JPEG, max 2048px — web uniquement
-    ├── image_compressor_stub.dart  # Pass-through — Android natif
-    ├── year_list.dart          # YearListBody — liste des années + compteur mois
-    ├── month_list.dart         # MonthListBody — liste des mois (FR+KH) + compteur jours
-    ├── day_list.dart           # DayListBody — liste des jours (date + FR+KH)
-    └── day_files.dart          # DayFilesScreen — tout l'écran jour (voir détail ci-dessous)
+    ├── auth_service.dart          # Singleton AuthService — GoogleSignIn web
+    │                              # signIn() / disconnect() / idToken() / currentUser
+    ├── coffre_api.dart            # Fonctions REST vers chetana.dev/api/coffre/*
+    │                              # listObjects / signUpload / signDownload / deleteObject
+    │                              # fetchNote / saveNote
+    │                              # fetchMeta / saveMeta        (meta.json)
+    │                              # fetchReactions / saveReactions (reactions.json)
+    ├── coffre_screen.dart         # Auth gate + PopScope + routing state + breadcrumb AppBar
+    ├── image_compressor.dart      # Export conditionnel (dart.library.html)
+    ├── image_compressor_web.dart  # Canvas WebP→JPEG, max 2048px — web uniquement
+    ├── image_compressor_stub.dart # Pass-through — Android natif
+    ├── video_thumbnailer.dart     # Export conditionnel (dart.library.html)
+    ├── video_thumbnailer_web.dart # HTMLVideoElement + CanvasElement, frame à 0.5s — web
+    ├── video_thumbnailer_stub.dart# Retourne null — Android natif
+    ├── year_list.dart             # YearListBody — liste des années + compteur mois
+    ├── month_list.dart            # MonthListBody — liste des mois (FR+KH) + compteur jours
+    ├── day_list.dart              # DayListBody — liste des jours (date + FR+KH)
+    └── day_files.dart             # DayFilesScreen — tout l'écran jour (voir détail ci-dessous)
 ```
 
 ---
@@ -63,12 +71,21 @@ Coffre › 2026 › 02 › 22      [📅]  [logout]
 - `_year != null` → efface `_year` (remonte aux années)
 - `_year == null` → `canPop: true` → quitte l'onglet normalement
 
+### Mémorisation scroll (PageStorageKey)
+
+Chaque `ListView.builder` dans les listes porte une `PageStorageKey` unique :
+- `YearListBody` : `PageStorageKey('year-list')`
+- `MonthListBody` : `PageStorageKey('month-list-$year')`
+- `DayListBody` : `PageStorageKey('day-list-$year-$month')`
+
+Flutter restaure automatiquement la position de scroll au retour dans la liste.
+
 ### Compteurs dans les listes
 
 Après le chargement principal, les listes lancent des requêtes parallèles pour enrichir l'affichage :
 - `YearListBody` : pour chaque année, `listObjects('YYYY/')` → compte les mois → affiche "X mois · X ខែ"
 - `MonthListBody` : pour chaque mois, `listObjects('YYYY/MM/')` → compte les jours → affiche "X jours · X ថ្ងៃ"
-- `DayListBody` : pour chaque jour, `listObjects('YYYY/MM/DD/')` → compte les fichiers (note.txt exclu) → affiche "X fichiers · X ឯកសារ"
+- `DayListBody` : pour chaque jour, `listObjects('YYYY/MM/DD/')` → compte les fichiers (note.txt, meta.json, reactions.json exclus) → affiche "X fichiers · X ឯកសារ"
 
 ---
 
@@ -76,6 +93,18 @@ Après le chargement principal, les listes lancent des requêtes parallèles pou
 
 ```
 DayFilesScreen
+│
+├── État principal (_DayFilesScreenState)
+│   ├── _items          : List<CoffreItem>?       (fichiers du jour, hors note/meta/reactions)
+│   ├── _days           : List<String>?            (jours du mois avec contenu)
+│   ├── _dayCounts      : Map<String, int>         (fichiers par jour)
+│   ├── _urlCache       : Map<String, String?>     (signed URLs en mémoire 1h)
+│   ├── _note           : String                   (texte note du jour)
+│   ├── _meta           : Map<String, String>      (filename → prénomUploader)
+│   ├── _reactions      : Map<String, List<String>>(filename → [emoji, ...])
+│   ├── _columns        : int (2/3/4)              (colonnes grille)
+│   └── _phase          : idle / compressing / uploading
+│
 ├── _DayNavBar
 │   ├── < prev (onPrevDay callback)
 │   ├── Dimanche · អាទិត្យ  Jan 22   (label FR+KH)
@@ -85,6 +114,7 @@ DayFilesScreen
 ├── _DaysChipBar  (StatefulWidget)
 │   ├── ScrollController + GlobalKey sur chip active
 │   ├── Auto-scroll vers chip active (initState + didUpdateWidget)
+│   ├── Highlight "aujourd'hui" : bordure rose + point rose sous le label
 │   ├── Compteur par jour : chargé en parallèle dans _loadDays()
 │   │   → Map<String, int> _dayCounts via Future.wait(listObjects par jour)
 │   └── Chip actif mis en évidence, tap → onDayJump → CoffreScreen._day
@@ -94,31 +124,66 @@ DayFilesScreen
 │   ├── TextField multi-lignes, auto-save onTapOutside / onSubmitted
 │   └── Stocké en GCS : YYYY/MM/DD/note.txt (filtré hors de la grille)
 │
-├── GridView (_FileTile)
-│   ├── key: ValueKey(name)         # évite réutilisation d'état
-│   ├── getUrl: _getCachedUrl       # cache parent Map<String, String?>
-│   ├── RefreshIndicator            # pull-to-refresh → _load()
-│   ├── SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: _columns)
-│   └── onLongPress → _showTileMenu (bottom sheet : Sélectionner / Partager / Supprimer)
+├── GestureDetector (pinch-to-zoom colonnes)
+│   ├── onScaleStart : mémorise l'état initial
+│   ├── scale > 1.2 → _columns-- (min 2)   ← écartement des doigts
+│   └── scale < 0.8 → _columns++ (max 4)   ← resserrement des doigts
 │
-├── _FabProgress  (upload en 2 phases)
-│   ├── Phase compressing : ✨ icône + X/N
-│   └── Phase uploading   : ⏳ spinner + X/N
+├── RefreshIndicator → pull-to-refresh → _load()
 │
-└── _FileViewer (Dialog.fullscreen)
-    ├── PageView.builder (PageController viewportFraction: 0.92)  ← peek effect
-    ├── onPageChanged → _loadAdjacent() si bord atteint (cross-day ±60j)
-    ├── _urlCache Map<String, String?> partagé entre toutes les pages
-    ├── Share.shareUri(signedUrl)    ← Web Share API iOS + Android
-    └── _PageContent (StatefulWidget, une instance par page)
-        ├── InteractiveViewer   # pinch-to-zoom images
-        └── ChewieController   # lecteur vidéo (autoPlay: false)
+└── GridView (_FileTile)
+    ├── key: ValueKey(name)         # évite réutilisation d'état
+    ├── getUrl: _getCachedUrl       # cache parent Map<String, String?>
+    ├── uploaderName                # depuis _meta[filename]
+    ├── reactions                   # depuis _reactions[filename]
+    ├── onLongPress → _showTileMenu (bottom sheet : Sélectionner / Partager / Supprimer)
+    └── _FileTile (StatefulWidget)
+        ├── Image : CachedNetworkImage (cacheKey: item.name, cache disque)
+        ├── Vidéo : _videoThumbnail() → generateVideoThumbnail() → frame 0.5s
+        ├── Badge bas-gauche : prénomUploader (depuis _meta) — fond noir semi-transparent
+        └── Badge bas-droit  : emojis réactions (depuis _reactions) — jusqu'à 3 emojis
+```
+
+---
+
+## _FabProgress (upload en 2 phases)
+
+```
+Phase compressing : ✨ icône + X/N
+Phase uploading   : ⏳ spinner + X/N
+```
+
+---
+
+## _FileViewer — Dialog plein écran
+
+```
+showGeneralDialog + ScaleTransition(0.88→1.0) + FadeTransition (280ms, easeOutCubic)
+        │
+        └── Dialog.fullscreen (backgroundColor: black)
+            └── GestureDetector(onTap: toggle _showUi)
+                ├── PageView.builder (PageController viewportFraction: 0.92)  ← peek effect
+                │   ├── onPageChanged → _loadAdjacent() si bord atteint (cross-day ±60j)
+                │   └── _PageContent (StatefulWidget, une instance par page)
+                │       ├── CachedNetworkImage (cacheKey: item.name)
+                │       ├── InteractiveViewer   # pinch-to-zoom images
+                │       └── ChewieController   # lecteur vidéo (autoPlay: false)
+                │
+                ├── Positioned(top) → AnimatedOpacity(_showUi, 200ms) ← barre supérieure
+                │   └── IgnorePointer(!_showUi)
+                │       ├── [close] [filename] [share]
+                │       └── fond dégradé noir→transparent
+                │
+                └── Positioned(bottom) → AnimatedOpacity(_showUi, 200ms) ← barre réactions
+                    └── IgnorePointer(!_showUi)
+                        ├── [❤️] [😍] [😂] [🥹] [🔥] [👏]  ← toggle par tap
+                        └── fond dégradé noir→transparent (bas→haut)
 ```
 
 ### Rechargement réactif
 
 `DayFilesScreen` utilise `didUpdateWidget` pour détecter les changements de date :
-- `year/month/day` change → `_items = null`, `_urlCache.clear()`, `_noteLoaded = false` + `_load()` + `_loadNote()`
+- `year/month/day` change → `_items = null`, `_urlCache.clear()`, `_noteLoaded = false`, `_meta = {}`, `_reactions = {}` + `_load()` + `_loadNote()` + `_loadMeta()` + `_loadReactions()`
 - `year/month` change → `_days = null`, `_dayCounts = {}` + `_loadDays()`
 
 ---
@@ -154,6 +219,26 @@ Pour Android natif (`image_compressor_stub.dart`) : pass-through, bytes renvoyé
 
 ---
 
+## Thumbnails vidéo
+
+```
+generateVideoThumbnail(videoUrl)   [video_thumbnailer.dart]
+        │
+        │  dart.library.html → web
+        ▼
+video_thumbnailer_web.dart
+        │
+        ├── HTMLVideoElement(src: url, muted: true, preload: 'metadata')
+        ├── onLoadedMetadata → video.currentTime = 0.5  (seek à 0.5s)
+        ├── onSeeked → CanvasElement.drawImage(video, 0, 0)
+        ├── canvas.toDataUrl('image/jpeg', 0.8) → base64 → Uint8List
+        └── timeout 8s → null si la vidéo ne répond pas
+
+Pour Android natif (video_thumbnailer_stub.dart) : retourne null → icône play statique.
+```
+
+---
+
 ## Flux de données — Coffre
 
 ```
@@ -186,9 +271,25 @@ coffre_api.dart  (toutes les fonctions ajoutent le Bearer token)
     │       └── signDownload('YYYY/MM/DD/note.txt')
     │               └── GET <signed_url> → utf8.decode(body)
     │
-    └── saveNote(year, month, day, text)
-            └── signUpload('YYYY/MM/DD/note.txt', 'text/plain')
-                    └── PUT <signed_url> avec utf8.encode(text)
+    ├── saveNote(year, month, day, text)
+    │       └── signUpload('YYYY/MM/DD/note.txt', 'text/plain')
+    │               └── PUT <signed_url> avec utf8.encode(text)
+    │
+    ├── fetchMeta(year, month, day)
+    │       └── signDownload('YYYY/MM/DD/meta.json')
+    │               └── GET <signed_url> → jsonDecode → Map<String, String>
+    │
+    ├── saveMeta(year, month, day, meta)
+    │       └── signUpload('YYYY/MM/DD/meta.json', 'application/json')
+    │               └── PUT <signed_url> avec jsonEncode(meta)
+    │
+    ├── fetchReactions(year, month, day)
+    │       └── signDownload('YYYY/MM/DD/reactions.json')
+    │               └── GET <signed_url> → jsonDecode → Map<String, List<String>>
+    │
+    └── saveReactions(year, month, day, reactions)
+            └── signUpload('YYYY/MM/DD/reactions.json', 'application/json')
+                    └── PUT <signed_url> avec jsonEncode(reactions)
 ```
 
 ---
@@ -196,15 +297,18 @@ coffre_api.dart  (toutes les fonctions ajoutent le Bearer token)
 ## GCS — Convention de nommage
 
 ```
-YYYY/MM/DD/filename.ext    ← photos et vidéos (affichées dans la grille)
-YYYY/MM/DD/note.txt        ← note du jour (filtrée hors grille, chargée séparément)
+YYYY/MM/DD/filename.ext       ← photos et vidéos (affichées dans la grille)
+YYYY/MM/DD/note.txt           ← note du jour (filtrée hors grille, chargée séparément)
+YYYY/MM/DD/meta.json          ← {"filename.jpg": "Chet"} (filtré hors grille)
+YYYY/MM/DD/reactions.json     ← {"filename.jpg": ["❤️", "😍"]} (filtré hors grille)
 
 Le prefix seul suffit pour drill-down sans DB :
-  listObjects('')           → prefixes = ['2026/']
-  listObjects('2026/')      → prefixes = ['2026/02/']
-  listObjects('2026/02/')   → prefixes = ['2026/02/22/']
-  listObjects('2026/02/22/') → items = [{name, contentType, size}, ...]
-                               + items filtrés : note.txt exclu de la grille
+  listObjects('')              → prefixes = ['2026/']
+  listObjects('2026/')         → prefixes = ['2026/02/']
+  listObjects('2026/02/')      → prefixes = ['2026/02/22/']
+  listObjects('2026/02/22/')   → items = [{name, contentType, size}, ...]
+                                 + items filtrés : note.txt, meta.json, reactions.json
+                                   exclus de la grille
 ```
 
 ---
@@ -252,7 +356,25 @@ Système (horloge OS / navigateur)
                   │
                   ├──▶ _ClockCard (Chet)  → heure / date / status FR+KH
                   ├──▶ _ClockCard (Lys)   → heure / date / status FR+KH
-                  └──▶ _DistanceIndicator → "+6h"
+                  ├──▶ _DistanceIndicator → "9 074 km" + "+6h"
+                  └──▶ _DaysTogetherBadge → "💍 Jour X ensemble · ថ្ងៃទី X"
+                           └── DateTime.now().difference(_coupleStartDate).inDays
+                               _coupleStartDate = DateTime(2026, 1, 13)
+```
+
+---
+
+## Cache images
+
+```
+_FileTile / _PageContent
+    └── CachedNetworkImage(
+          imageUrl: signedUrl,      ← URL signée (change toutes les heures)
+          cacheKey: item.name,      ← clé stable = chemin GCS (YYYY/MM/DD/file.jpg)
+        )
+
+Le cache disque est indexé par cacheKey, pas par imageUrl.
+→ même si l'URL signée change après 1h, le cache disque reste valide.
 ```
 
 ---
@@ -294,5 +416,8 @@ Icône "Chet & Lys" → mode standalone (sans barre Safari)
 
 - **Multi-upload iOS (Safari)** : Apple limite `UIImagePickerController` à 1 fichier à la fois, même avec `allowMultiple: true`. Pas de workaround côté code.
 - **Compression vidéo web** : pas de solution propre sans FFmpeg.wasm (~30 MB). Les vidéos sont uploadées telles quelles.
+- **Thumbnail vidéo Android natif** : `video_thumbnailer_stub.dart` retourne `null` → icône play statique. Pour activer sur Android natif, utiliser `video_thumbnail` ou `flutter_ffmpeg`.
 - **Compression Android natif** : `image_compressor_stub.dart` est un pass-through. Pour activer la compression sur Android natif, utiliser `flutter_image_compress`.
-- **Signed URLs 1h** : si l'app reste ouverte > 1h, les URLs en cache deviennent invalides. Un refresh manuel (pull-to-refresh) recharge les URLs.
+- **Signed URLs 1h** : si l'app reste ouverte > 1h, les URLs en cache mémoire (`_urlCache`) deviennent invalides. Le cache disque `CachedNetworkImage` ne l'est pas (clé stable). Un refresh manuel (pull-to-refresh) recharge les URLs mémoire.
+- **Réactions cross-day** : dans le viewer, les réactions ne sont chargées que pour le jour initial. Les photos chargées par navigation cross-day (±60j) n'ont pas de réactions affichées.
+- **Meta.json concurrent** : si Chet et Lys uploadent simultanément, le `saveMeta` du second écrase celui du premier. Risque très faible en pratique (usage personnel à deux).

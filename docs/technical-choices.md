@@ -20,8 +20,8 @@ Distribuer une app iOS sans compte Apple Developer ($99/an) est impossible offic
 |--------|----------|
 | App Android native | `flutter run` / `flutter build apk` |
 | PWA installable iPhone | `flutter build web` → Vercel |
-| Pas de duplication de code | Même `lib/main.dart` pour les deux |
-| Pas de backend (app stateless) | Tout calculé côté client (timezone, heure) |
+| Pas de duplication de code | Même `lib/` pour les deux |
+| Pas de backend (horloge stateless) | Tout calculé côté client (timezone, heure) |
 
 Flutter compile le même code Dart vers :
 - **Android** : bytecode ARM natif (AOT compilation)
@@ -96,12 +96,129 @@ Avantage principal : isolation propre, pas de conflit avec d'autres outils SDK.
 
 ---
 
+## Stockage GCS plutôt qu'une base de données
+
+Le coffre à souvenirs stocke les photos et vidéos directement dans **Google Cloud Storage**, sans aucune base de données. La hiérarchie `YYYY/MM/DD/` dans les noms de fichiers remplace entièrement un schéma de DB.
+
+### Avantages
+- **Zéro schéma** : ajouter une année, un mois, un jour ne demande aucune migration
+- **Listing natif** : `listObjects(prefix, delimiter: '/')` retourne exactement les prefixes du niveau suivant
+- **Signed URLs** : sécurité sans proxy — l'app demande une URL signée au backend, puis accède directement à GCS. Le backend ne transit jamais les bytes des fichiers.
+- **Coût minimal** : GCS Standard europe-west1 ≈ $0.02/GB/mois. Pour un usage couple (quelques GB/an), pratiquement gratuit.
+
+### Fichiers spéciaux par jour
+
+En plus des médias, trois fichiers JSON enrichissent chaque jour :
+
+| Fichier | Format | Rôle |
+|---------|--------|------|
+| `note.txt` | texte brut | Note personnelle du jour |
+| `meta.json` | `{filename: prénomUploader}` | Qui a uploadé quoi |
+| `reactions.json` | `{filename: ["❤️", "😍"]}` | Réactions emoji par photo |
+
+Ces trois fichiers sont filtrés hors de la grille d'affichage mais chargés séparément.
+
+### Signed URLs v4
+
+Les URLs signées sont générées côté backend (chetana.dev) avec l'algorithme HMAC-SHA256 v4 de GCS, implémenté en Node.js natif (module `crypto`) plutôt que via le SDK `@google-cloud/storage` qui ne survit pas au bundling Nitro/Rollup.
+
+- **PUT signed URL** (upload) : expire après 15 minutes
+- **GET signed URL** (téléchargement/affichage) : expire après 1 heure
+
+---
+
+## Imports conditionnels Dart (pattern web/stub)
+
+Deux fonctionnalités utilisent des API web (`dart:html`) non disponibles sur Android natif : la compression d'images et la génération de thumbnails vidéo. Le pattern d'import conditionnel Dart permet un seul fichier d'entrée :
+
+```dart
+// image_compressor.dart
+export 'image_compressor_stub.dart'
+    if (dart.library.html) 'image_compressor_web.dart';
+
+// video_thumbnailer.dart
+export 'video_thumbnailer_stub.dart'
+    if (dart.library.html) 'video_thumbnailer_web.dart';
+```
+
+- Sur **web** : `dart.library.html` est vrai → implémentation canvas réelle
+- Sur **Android** : `dart.library.html` est faux → stub (pass-through ou `null`)
+
+Ce pattern évite les `kIsWeb` dispersés dans le code et permet une compilation sans erreur sur les deux cibles.
+
+---
+
+## Cache images : `cached_network_image`
+
+Les images dans la grille et le viewer sont servies via des signed URLs GCS qui expirent après 1 heure. Utiliser `Image.network` directement forcerait un nouveau téléchargement à chaque rebuild de widget.
+
+`cached_network_image` résout ce problème en deux dimensions :
+
+| Paramètre | Valeur | Rôle |
+|-----------|--------|------|
+| `imageUrl` | signed URL (change chaque heure) | Source de téléchargement |
+| `cacheKey` | `item.name` (ex: `2026/02/22/photo.jpg`) | **Clé du cache disque** |
+
+La clé de cache est le chemin GCS — stable et unique — indépendamment de l'URL signée. Même après l'expiration de l'URL, l'image est servie depuis le cache disque sans réseau.
+
+---
+
+## Réactions emoji — architecture simplifiée
+
+Les réactions sont stockées dans un seul fichier `reactions.json` par jour (pas un fichier par photo, pas une base de données). Ce choix est justifié par :
+
+- **Usage faible** : 2 utilisateurs, quelques dizaines de photos par jour au maximum
+- **Atomicité acceptable** : le risque de conflit d'écriture concurrent est quasi nul
+- **Lecture unique** : un seul `signDownload` + `GET` pour charger toutes les réactions du jour
+
+### Flux de mise à jour
+
+```
+Viewer: tap sur ❤️
+  → _reactions[filename].toggle('❤️')
+  → setState() → UI réactive immédiatement
+  → widget.onReactionsChanged(updated) → _DayFilesScreenState._reactions
+  → saveReactions() → PUT reactions.json (async, en arrière-plan)
+```
+
+L'UI répond instantanément (optimistic update), la persistance GCS est asynchrone.
+
+---
+
+## Thumbnails vidéo — choix de l'implémentation web
+
+Le package `video_thumbnail` (pub.dev) ne supporte pas le web. Les alternatives :
+
+| Option | Pour | Contre |
+|--------|------|--------|
+| `video_thumbnail` | Simple | ❌ pas de support web |
+| `FFmpeg.wasm` | Universel | ❌ ~30 MB de bundle, latence |
+| HTMLVideoElement + Canvas | ✅ Natif navigateur, ~0 KB | ❌ web uniquement |
+
+L'implémentation retenue (`video_thumbnailer_web.dart`) :
+1. Crée un `<video>` HTML invisible avec l'URL signée
+2. Sur `loadedmetadata` → seek à 0.5 secondes
+3. Sur `seeked` → dessine la frame dans un `<canvas>`, exporte en JPEG base64
+4. Timeout 8s → `null` si la vidéo est inaccessible
+
+Sur Android natif, le stub retourne `null` → fallback vers l'icône play statique. Pour une thumbnail native Android, `video_thumbnail` (avec `path_provider`) serait l'option appropriée.
+
+---
+
 ## Dépendances
 
 | Package | Version | Rôle |
 |---------|---------|------|
 | `flutter` | SDK stable | Framework UI cross-platform |
 | `timezone` | ^0.10.0 | Base IANA timezones, DST automatique |
-| `cupertino_icons` | ^1.0.8 | Icônes iOS style (non utilisées pour l'instant) |
+| `cupertino_icons` | ^1.0.8 | Icônes iOS style |
+| `google_sign_in` | ^6.2.2 | Auth Google (web clientId) |
+| `file_picker` | ^8.1.4 | Sélection fichiers multi-plateforme |
+| `http` | ^1.2.2 | Requêtes REST (coffre_api) |
+| `intl` | ^0.19.0 | Internationalisation (dates) |
+| `video_player` | ^2.9.2 | Lecture vidéo bas niveau |
+| `chewie` | ^1.8.5 | UI player vidéo (controls, seek bar) |
+| `share_plus` | ^10.1.4 | Web Share API (iOS Share Sheet, Android) |
+| `cached_network_image` | ^3.4.1 | Cache disque images (cacheKey stable) |
 
-Volontairement minimal : pas de state management externe (Provider, Riverpod, Bloc) car l'app est stateless — un seul `StatefulWidget` avec un `Timer` suffit.
+Volontairement sans state management externe (Provider, Riverpod, Bloc) — `setState` suffit pour une app à deux utilisateurs avec navigation state-based.
