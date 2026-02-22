@@ -1,11 +1,11 @@
 {
-    "name": "chet_lys",
-    "short_name": "chet_lys",
+    "name": "Chet & Lys",
+    "short_name": "Chet & Lys",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0F0F1A",
+    "theme_color": "#0F0F1A",
+    "description": "🇫🇷 ♡ 🇰🇭 — 9 074 km entre Paris et Phnom Penh",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

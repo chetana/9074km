@@ -1,0 +1,15 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0F0F1A"/>
+      <stop offset="100%" stop-color="#1A1025"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <text x="600" y="300" font-size="140" text-anchor="middle"
+    font-family="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji, sans-serif">🇫🇷 ♡ 🇰🇭</text>
+  <text x="600" y="400" font-size="44" text-anchor="middle"
+    fill="#E8E8F0" font-family="sans-serif" letter-spacing="10">Chet &amp; Lys</text>
+  <text x="600" y="460" font-size="24" text-anchor="middle"
+    fill="#9090A0" font-family="sans-serif">9 074 km · Paris ↔ Phnom Penh</text>
+</svg>
