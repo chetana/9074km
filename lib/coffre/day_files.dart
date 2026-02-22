@@ -40,6 +40,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
   int _total = 0;
   bool _selectionMode = false;
   final Set<String> _selected = {};
+  final Map<String, String?> _urlCache = {};
 
   String get _prefix => '${widget.year}/${widget.month}/${widget.day}/';
   String get _monthPrefix => '${widget.year}/${widget.month}/';
@@ -60,7 +61,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
     final monthChanged = oldWidget.year != widget.year ||
         oldWidget.month != widget.month;
     if (dayChanged) {
-      setState(() => _items = null);
+      setState(() { _items = null; _urlCache.clear(); });
       _load();
     }
     if (monthChanged) {
@@ -165,6 +166,18 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
     }
 
     setState(() { _phase = _UploadPhase.idle; _current = 0; _total = 0; });
+  }
+
+  Future<String?> _getCachedUrl(String name) async {
+    if (_urlCache.containsKey(name)) return _urlCache[name];
+    try {
+      final url = await signDownload(name);
+      if (mounted) _urlCache[name] = url;
+      return url;
+    } catch (_) {
+      _urlCache[name] = null;
+      return null;
+    }
   }
 
   void _openViewer(int index) {
@@ -348,6 +361,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
       itemBuilder: (_, i) => _FileTile(
         key: ValueKey(_items![i].name),
         item: _items![i],
+        getUrl: _getCachedUrl,
         selectionMode: _selectionMode,
         selected: _selected.contains(_items![i].name),
         onTap: () => _selectionMode
@@ -539,6 +553,7 @@ class _DayNavBar extends StatelessWidget {
 
 class _FileTile extends StatefulWidget {
   final CoffreItem item;
+  final Future<String?> Function(String name) getUrl;
   final bool selectionMode;
   final bool selected;
   final VoidCallback onTap;
@@ -546,6 +561,7 @@ class _FileTile extends StatefulWidget {
   const _FileTile({
     super.key,
     required this.item,
+    required this.getUrl,
     required this.selectionMode,
     required this.selected,
     required this.onTap,
@@ -567,12 +583,8 @@ class _FileTileState extends State<_FileTile> {
   }
 
   Future<void> _loadUrl() async {
-    try {
-      final url = await signDownload(widget.item.name);
-      if (mounted) setState(() { _signedUrl = url; _loading = false; });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
+    final url = await widget.getUrl(widget.item.name);
+    if (mounted) setState(() { _signedUrl = url; _loading = false; });
   }
 
   bool get _isVideo {
