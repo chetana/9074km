@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chewie/chewie.dart';
@@ -53,6 +54,11 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
   bool _selectionMode = false;
   final Set<String> _selected = {};
   final Map<String, String?> _urlCache = {};
+  // Semaphore — max 3 requêtes signDownload simultanées
+  // évite de saturer le réseau mobile avec N requêtes concurrentes (N = nb photos du jour)
+  int _activeUrlFetches = 0;
+  final List<Completer<void>> _urlFetchQueue = [];
+  static const _maxUrlFetches = 3;
   Map<String, String> _meta = {};
   Map<String, List<String>> _reactions = {};
   bool _deepLinkHandled = false;
@@ -259,15 +265,38 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
     setState(() { _phase = _UploadPhase.idle; _current = 0; _total = 0; });
   }
 
+  Future<void> _acquireUrlSlot() async {
+    if (_activeUrlFetches < _maxUrlFetches) {
+      _activeUrlFetches++;
+      return;
+    }
+    final c = Completer<void>();
+    _urlFetchQueue.add(c);
+    await c.future;
+    _activeUrlFetches++;
+  }
+
+  void _releaseUrlSlot() {
+    _activeUrlFetches--;
+    if (_urlFetchQueue.isNotEmpty) {
+      _urlFetchQueue.removeAt(0).complete();
+    }
+  }
+
   Future<String?> _getCachedUrl(String name) async {
     if (_urlCache.containsKey(name)) return _urlCache[name];
+    await _acquireUrlSlot();
     try {
+      // Revérifie le cache après l'attente (un autre fetch peut l'avoir rempli)
+      if (_urlCache.containsKey(name)) return _urlCache[name];
       final url = await signDownload(name);
       if (mounted) _urlCache[name] = url;
       return url;
     } catch (_) {
       _urlCache[name] = null;
       return null;
+    } finally {
+      _releaseUrlSlot();
     }
   }
 
