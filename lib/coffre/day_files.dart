@@ -36,6 +36,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
   List<String>? _days;
   Map<String, int> _dayCounts = {};
   String? _error;
+  int _columns = 3;
   _UploadPhase _phase = _UploadPhase.idle;
   int _current = 0;
   int _total = 0;
@@ -315,6 +316,10 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
                 day: widget.day,
                 onPrev: widget.onPrevDay,
                 onNext: widget.onNextDay,
+                columns: _columns,
+                onToggleZoom: () => setState(() {
+                  _columns = _columns == 4 ? 2 : _columns + 1;
+                }),
               ),
               if (_days != null && _days!.isNotEmpty)
                 ConstrainedBox(
@@ -364,8 +369,8 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
       backgroundColor: const Color(0xFF1E1E30),
       child: GridView.builder(
       padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: _columns,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
       ),
@@ -545,6 +550,8 @@ class _DayNavBar extends StatelessWidget {
   final String year, month, day;
   final VoidCallback? onPrev;
   final VoidCallback? onNext;
+  final int columns;
+  final VoidCallback? onToggleZoom;
 
   const _DayNavBar({
     required this.year,
@@ -552,6 +559,8 @@ class _DayNavBar extends StatelessWidget {
     required this.day,
     this.onPrev,
     this.onNext,
+    this.columns = 3,
+    this.onToggleZoom,
   });
 
   String _label() {
@@ -596,6 +605,21 @@ class _DayNavBar extends StatelessWidget {
             icon: const Icon(Icons.chevron_right, color: Color(0xFFE8A4B8)),
             onPressed: onNext,
             tooltip: 'Jour suivant',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          IconButton(
+            icon: Icon(
+              columns == 2
+                  ? Icons.grid_on
+                  : columns == 3
+                      ? Icons.grid_view
+                      : Icons.view_comfy,
+              color: const Color(0xFF9090A0),
+              size: 18,
+            ),
+            onPressed: onToggleZoom,
+            tooltip: 'Changer le zoom',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
