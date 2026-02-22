@@ -1299,12 +1299,16 @@ class _FileViewerState extends State<_FileViewer> {
       for (int delta = 1; delta <= 60; delta++) {
         final candidate = refDate.add(Duration(days: direction * delta));
         final result = await listObjects(_prefixFor(candidate));
-        if (result.items.isNotEmpty) {
+        final filtered = result.items.where((i) =>
+            !i.name.endsWith('/note.txt') &&
+            !i.name.endsWith('/meta.json') &&
+            !i.name.endsWith('/reactions.json')).toList();
+        if (filtered.isNotEmpty) {
           if (!mounted) return;
           if (direction == -1) {
-            final n = result.items.length;
+            final n = filtered.length;
             setState(() {
-              _items = [...result.items, ..._items];
+              _items = [...filtered, ..._items];
               _currentIndex += n;
               _loadingPrev = false;
             });
@@ -1313,7 +1317,7 @@ class _FileViewerState extends State<_FileViewer> {
             });
           } else {
             setState(() {
-              _items = [..._items, ...result.items];
+              _items = [..._items, ...filtered];
               _loadingNext = false;
             });
           }
