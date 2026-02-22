@@ -53,7 +53,7 @@ Application couple cross-plateforme — double horloge, coffre à souvenirs priv
 - **Peek effect** — `viewportFraction: 0.92` → aperçu de la photo suivante/précédente sur les bords
 - **Navigation cross-day** — au bord du PageView, charge automatiquement le jour adjacent avec du contenu (jusqu'à ±60 jours)
 - **Réactions emoji** — ❤️ 😍 😂 🥹 🔥 👏 — barre en bas du viewer, toggle par tap, stocké dans `reactions.json`, badge visible sur les tuiles
-- **Lien partageable** — bouton 🔗 dans le viewer → copie un deep link dans le presse-papier + toast "Copié · ចម្លង" — le lien ouvre l'app directement sur la bonne photo
+- **Lien partageable** — bouton 🔗 dans le viewer → copie un deep link dans le presse-papier + toast "Copié · ចម្លង" — le lien passe par un **preview proxy** (`chetana.dev/api/coffre/preview`) qui expose les balises `og:image` pour WhatsApp/Telegram/Facebook (preview de la photo dans la conversation) et redirige les vrais utilisateurs directement sur la bonne photo dans l'app
 - **Partage** — icône share dans le viewer → Web Share API (iOS Share Sheet, Android)
 - **Pinch-to-zoom** — images avec InteractiveViewer
 - **Lecteur vidéo** — Chewie (play/pause, seek bar, plein écran)

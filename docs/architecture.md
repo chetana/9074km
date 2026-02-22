@@ -452,7 +452,19 @@ Icône "Chet & Lys" → mode standalone (sans barre Safari)
 
 ## Deep links — partage d'une photo
 
-### Format de l'URL
+### Format du lien partagé (preview proxy)
+
+Le lien copié par le bouton 🔗 pointe vers le **preview proxy** de chetana.dev — pas directement vers l'app Flutter :
+
+```
+https://chetana.dev/api/coffre/preview?y=YYYY&m=MM&d=DD&f=filename.jpg
+```
+
+Cet endpoint sert à deux choses simultanément :
+- **Bots scrapers** (WhatsApp, Telegram, Facebook) → reçoivent du HTML avec les balises `og:image`
+- **Vrais utilisateurs** → redirigés instantanément vers `https://chetlys.vercel.app/?tab=coffre&y=...`
+
+Le lien Flutter cible (après redirect) :
 
 ```
 https://chetlys.vercel.app/?tab=coffre&y=YYYY&m=MM&d=DD&f=filename.jpg
@@ -466,7 +478,7 @@ https://chetlys.vercel.app/?tab=coffre&y=YYYY&m=MM&d=DD&f=filename.jpg
 | `d` | jour padded | `22` |
 | `f` | nom de fichier URL-encodé | `IMG%201234.jpg` |
 
-Les caractères spéciaux dans le nom de fichier (espaces, accents, caractères Unicode) sont encodés avec `Uri.encodeComponent` à la génération et décodés avec `Uri.decodeComponent` à la réception.
+Les caractères spéciaux dans le nom de fichier (espaces, accents, Unicode) sont encodés avec `Uri.encodeComponent` à la génération et décodés avec `Uri.decodeComponent` à la réception.
 
 ### Flux côté expéditeur
 
@@ -474,16 +486,45 @@ Les caractères spéciaux dans le nom de fichier (espaces, accents, caractères 
 _FileViewerState._copyLink()
     ├── _buildDeepLink()
     │       └── Uri.encodeComponent(filename)
-    │               → "https://chetlys.vercel.app/?tab=coffre&y=...&f=photo.jpg"
+    │               → "https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg"
     ├── Clipboard.setData(ClipboardData(text: url))
     └── setState(_showCopiedToast = true)
             └── AnimatedOpacity → "Copié · ចម្លង" (2 secondes)
 ```
 
-### Flux côté destinataire
+### Flux du preview proxy (chetana.dev)
 
 ```
-Ouverture de l'URL dans Safari ou Chrome
+Bot scraper WhatsApp/Telegram/FB :
+    GET https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
+        │
+        preview.get.ts
+            ├── signedGetUrl("2026/02/22/photo.jpg")  → URL GCS signée valable 1h
+            ├── Construit titre : "Chet & Lys — 22 février 2026"
+            └── Retourne HTML :
+                    <meta property="og:image" content="https://storage.googleapis.com/...?X-Goog-Signature=...">
+                    <meta property="og:title" content="Chet & Lys — 22 février 2026">
+                    <script>window.location.replace("https://chetlys.vercel.app/?...")</script>
+        │
+        Bot lit og:image → télécharge l'image depuis GCS (signed URL valide)
+        Bot met en cache l'image ~24h dans ses serveurs
+        → Preview photo + titre affichés dans la conversation
+
+Utilisateur humain qui clique :
+    GET https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
+        │
+        preview.get.ts → génère une nouvelle signed URL fraîche
+        → HTML avec JS redirect
+        │
+    Navigateur exécute window.location.replace(...)
+        → https://chetlys.vercel.app/?tab=coffre&y=2026&m=02&d=22&f=photo.jpg
+        → Flutter app s'ouvre → navigation directe vers la photo
+```
+
+### Flux côté destinataire (Flutter)
+
+```
+Ouverture de https://chetlys.vercel.app/?tab=coffre&y=2026&m=02&d=22&f=photo.jpg
     │
     ▼ Flutter web démarre (index.html → main.dart.js)
     │
@@ -516,6 +557,10 @@ Si `initialFile` ne correspond à aucun item de la liste (photo supprimée), `in
 ### Pas de deep link sur Android natif
 
 Sur Android natif (`flutter run`), `Uri.base.queryParameters` retourne une map vide — les paramètres URL n'existent pas dans ce contexte. La fonctionnalité est donc web-only, ce qui correspond à l'usage cible (Lys sur iPhone via PWA Safari).
+
+### Limitation PWA iOS
+
+Si la PWA est installée sur l'écran d'accueil de l'iPhone, un lien cliqué depuis WhatsApp s'ouvre dans Safari (pas dans la PWA). L'app fonctionne identiquement en mode navigateur — la navigation vers la photo s'effectue normalement. C'est une limitation iOS : les liens externes ne peuvent pas ouvrir une PWA home screen directement.
 
 ---
 

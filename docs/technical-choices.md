@@ -269,6 +269,118 @@ La comparaison finale `item.name.split('/').last == widget.initialFile` compare 
 
 ---
 
+## Preview proxy — og:image pour WhatsApp, Telegram, Facebook
+
+### Pourquoi une app Flutter SPA ne peut pas avoir de preview nativement
+
+Quand on partage un lien sur WhatsApp, Telegram ou Facebook, ces applications envoient un **bot scraper** (un robot HTTP) visiter l'URL pour en extraire les métadonnées. Ce bot cherche des balises HTML spéciales appelées **Open Graph** :
+
+```html
+<meta property="og:image"       content="https://...">
+<meta property="og:title"       content="Chet & Lys — 22 février 2026">
+<meta property="og:description" content="Un souvenir partagé">
+```
+
+Le problème fondamental avec une SPA (Single Page Application) Flutter Web : l'`index.html` servi par Vercel est **identique pour toutes les URLs**. Il contient uniquement `<script src="main.dart.js">` — le contenu est généré côté client en JavaScript après le chargement. Or, **les bots scrapers n'exécutent pas JavaScript**. Ils lisent uniquement le HTML brut initial.
+
+Résultat : même si on ajoutait des og:tags dans `index.html`, ils seraient statiques (toujours la même image, toujours le même titre) et ne correspondraient jamais à la photo spécifique partagée.
+
+### La solution : un preview proxy côté serveur
+
+Le principe est d'avoir un **endpoint serveur** (`chetana.dev/api/coffre/preview`) qui, lui, peut générer dynamiquement du HTML différent pour chaque photo :
+
+```
+Lien copié dans l'app :
+  https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
+                 ↑
+       chetana.dev peut générer du HTML dynamique
+```
+
+Cet endpoint reçoit `y`, `m`, `d`, `f`, génère une signed URL GCS pour l'image, et retourne :
+
+```html
+<!DOCTYPE html>
+<html><head>
+  <meta property="og:image" content="https://storage.googleapis.com/chet-lys-coffre/2026/02/22/photo.jpg?X-Goog-Signature=...">
+  <meta property="og:title" content="Chet & Lys — 22 février 2026">
+  <meta property="og:description" content="Un souvenir partagé · ការចងចាំរួម">
+  <meta http-equiv="refresh" content="0;url=https://chetlys.vercel.app/?tab=coffre&y=2026&m=02&d=22&f=photo.jpg">
+  <script>window.location.replace("https://chetlys.vercel.app/?tab=coffre&...");</script>
+</head></html>
+```
+
+Deux comportements selon qui visite le lien :
+
+| Visiteur | Comportement |
+|----------|-------------|
+| Bot scraper (WhatsApp, Telegram, FB) | Lit les `og:` tags → extrait l'image, le titre → met en cache la preview |
+| Vrai utilisateur (humain) | JS redirect instantané → atterrit sur la PWA Flutter à la bonne photo |
+
+### Pourquoi les scrapers peuvent lire une signed URL GCS
+
+Une **signed URL GCS** est une URL HTTP entièrement publique — aucun header d'authentification n'est requis. La sécurité repose entièrement sur la signature cryptographique encodée dans les query params :
+
+```
+https://storage.googleapis.com/chet-lys-coffre/2026/02/22/photo.jpg
+  ?X-Goog-Algorithm=GOOG4-RSA-SHA256
+  &X-Goog-Credential=service-account%40...
+  &X-Goog-Date=20260222T143000Z
+  &X-Goog-Expires=3600
+  &X-Goog-SignedHeaders=host
+  &X-Goog-Signature=a1b2c3d4e5f6...   ← HMAC-SHA256 RSA, forgeable uniquement avec la clé privée
+```
+
+N'importe quel client HTTP (bot scraper inclus) peut télécharger cette URL sans credential. GCS vérifie lui-même la signature à chaque requête. C'est exactement le principe conçu pour permettre l'accès temporaire à des ressources privées sans exposer les credentials.
+
+### Chronologie complète d'un partage
+
+```
+T+0s  L'utilisateur tape 🔗 dans le viewer
+         → Flutter appelle _buildDeepLink()
+         → construit https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
+         → copie dans le presse-papier + toast "Copié · ចម្លង"
+
+T+1s  L'utilisateur colle le lien dans WhatsApp et envoie
+
+T+2s  Bot scraper WhatsApp visite l'URL
+         → GET https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
+         → preview.get.ts : signedGetUrl("2026/02/22/photo.jpg") → URL signée valide 1h
+         → Retourne le HTML avec og:image pointant vers la signed URL
+         → Bot lit og:image, télécharge l'image depuis GCS (signed URL encore valide)
+         → Met en cache l'image + métadonnées dans les serveurs WhatsApp
+
+T+3s  Preview affichée dans la conversation — vignette de la photo avec titre
+
+T+? h Le destinataire clique sur le lien
+         → Navigateur visite https://chetana.dev/api/coffre/preview?...
+         → preview.get.ts génère une NOUVELLE signed URL (fraîche, valide 1h)
+         → HTML servi → JS redirect vers https://chetlys.vercel.app/?tab=coffre&...
+         → Flutter app s'ouvre, viewer sur la bonne photo
+```
+
+La signed URL dans le HTML peut avoir expiré depuis le scraping, mais ça n'a aucune importance : WhatsApp/Telegram ont déjà téléchargé et mis en cache l'image au moment du scraping. Quand un vrai utilisateur clique, `preview.get.ts` génère une **nouvelle** signed URL fraîche.
+
+### Pourquoi l'endpoint preview n'a pas besoin d'auth
+
+Les autres endpoints du coffre requièrent `Authorization: Bearer <google_id_token>`. Le preview n'en a pas. Justification :
+
+- Les bots scrapers ne peuvent pas fournir un Bearer token
+- L'accès est limité au `preview` (HTML + og:image) — pas au listing de fichiers, pas à l'upload
+- Pour accéder à une photo, il faut connaître le chemin exact `y/m/d/filename` — pas devinable
+- C'est une app privée à deux utilisateurs, pas un service public
+
+### Cache des scrapers
+
+| Plateforme | Durée de cache de la preview |
+|------------|------------------------------|
+| WhatsApp | ~24h — re-scrappe si le lien est partagé à nouveau après 24h |
+| Telegram | ~24h — preview stable une fois générée |
+| Facebook Messenger | ~24h — contrôlable via l'outil de débogage OG de Meta |
+
+Cela signifie qu'une photo supprimée de GCS continuera à apparaître en preview dans les conversations pendant ~24h — comportement acceptable et attendu.
+
+---
+
 ## Dépendances
 
 | Package | Version | Rôle |
