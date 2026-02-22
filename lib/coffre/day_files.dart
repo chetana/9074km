@@ -39,6 +39,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
   Map<String, int> _dayCounts = {};
   String? _error;
   int _columns = 3;
+  double _scaleStart = 1.0;
   String _note = '';
   bool _noteLoaded = false;
   bool _noteSaving = false;
@@ -472,7 +473,16 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
             style: TextStyle(color: Color(0xFF9090A0))),
       );
     }
-    return RefreshIndicator(
+    return GestureDetector(
+      onScaleStart: (d) => _scaleStart = 1.0,
+      onScaleUpdate: (d) {
+        if (d.scale > 1.2 && _columns > 2) {
+          setState(() => _columns--);
+        } else if (d.scale < 0.8 && _columns < 4) {
+          setState(() => _columns++);
+        }
+      },
+      child: RefreshIndicator(
       onRefresh: _load,
       color: const Color(0xFFE8A4B8),
       backgroundColor: const Color(0xFF1E1E30),
@@ -497,8 +507,9 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
             ? _toggleSelection(_items![i].name)
             : _showTileMenu(_items![i]),
       ),
+      ),  // GridView
       ),  // RefreshIndicator
-    );
+    );   // GestureDetector
   }
 }
 
