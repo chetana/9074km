@@ -490,6 +490,142 @@ Cet outil affiche également les erreurs de parsing og:image, ce qui est utile p
 
 ---
 
+## Semaphore — limitation des requêtes réseau concurrentes
+
+### Symptôme
+
+Sur mobile Android (Chrome, PWA), les jours avec beaucoup de photos (20–30+) affichaient des `errorWidget` (icône image cassée) sur certaines tuiles, même après la réduction de `memCacheWidth` à 300 px. Le problème n'était donc pas la mémoire GPU, mais la saturation réseau.
+
+### Cause : N requêtes simultanées pour N photos
+
+Chaque `_FileTile` appelle `_getCachedUrl()` dans son `initState()`. Avec 25 photos dans un jour, 25 `initState()` s'exécutent simultanément → 25 appels `signDownload()` parallèles vers `chetana.dev/api/coffre/sign-download`.
+
+```
+Jour avec 25 photos → build de la GridView
+    │
+    ├── _FileTile[0].initState() → signDownload("2026/02/22/photo_01.jpg")  ┐
+    ├── _FileTile[1].initState() → signDownload("2026/02/22/photo_02.jpg")  │
+    ├── _FileTile[2].initState() → signDownload("2026/02/22/photo_03.jpg")  │ 25 requêtes
+    ├── ...                                                                  │ simultanées
+    └── _FileTile[24].initState() → signDownload("2026/02/22/photo_25.jpg") ┘
+```
+
+Conséquences sur mobile :
+- **Vercel serverless** : 25 fonctions démarrées simultanément (cold starts inclus) → latences imprévisibles
+- **Réseau mobile** : HTTP/2 multiplexe mais les connexions simultanées saturent le buffer réseau
+- **GCS** : chaque signed URL résolue déclenche un téléchargement GCS → 25 téléchargements concurrents
+- Résultat : timeouts, erreurs réseau → `errorWidget` affiché à tort
+
+### Solution : semaphore à 3 slots
+
+Un **semaphore** est un mécanisme de contrôle de concurrence qui permet au maximum N opérations de s'exécuter simultanément. Les opérations en excès attendent dans une queue et sont débloquées au fur et à mesure.
+
+```dart
+// État du semaphore dans _DayFilesScreenState
+int _activeUrlFetches = 0;
+final List<Completer<void>> _urlFetchQueue = [];
+static const _maxUrlFetches = 3;
+
+Future<void> _acquireUrlSlot() async {
+  if (_activeUrlFetches < _maxUrlFetches) {
+    _activeUrlFetches++;   // slot libre → on passe directement
+    return;
+  }
+  // Plus de slot libre → on crée un Completer et on attend qu'il soit résolu
+  final c = Completer<void>();
+  _urlFetchQueue.add(c);
+  await c.future;          // suspension ici jusqu'à _releaseUrlSlot()
+  _activeUrlFetches++;
+}
+
+void _releaseUrlSlot() {
+  _activeUrlFetches--;
+  if (_urlFetchQueue.isNotEmpty) {
+    // Débloquer le prochain en attente
+    _urlFetchQueue.removeAt(0).complete();
+  }
+}
+
+Future<String?> _getCachedUrl(String name) async {
+  if (_urlCache.containsKey(name)) return _urlCache[name];  // cache hit → direct
+  await _acquireUrlSlot();   // attend un slot libre
+  try {
+    if (_urlCache.containsKey(name)) return _urlCache[name]; // re-vérifie après attente
+    final url = await signDownload(name);
+    if (mounted) _urlCache[name] = url;
+    return url;
+  } catch (_) {
+    _urlCache[name] = null;
+    return null;
+  } finally {
+    _releaseUrlSlot();    // libère le slot dans tous les cas (succès ou erreur)
+  }
+}
+```
+
+### Chronologie avec le semaphore (25 photos, 3 slots)
+
+```
+t=0ms  Tile[0]  → acquiert slot 1 → démarre signDownload
+       Tile[1]  → acquiert slot 2 → démarre signDownload
+       Tile[2]  → acquiert slot 3 → démarre signDownload
+       Tile[3]  → queue (attend)
+       Tile[4]  → queue (attend)
+       ...
+       Tile[24] → queue (attend)
+
+t=80ms  Tile[0] reçoit sa signed URL → libère slot 1 → Tile[3] démarre
+t=95ms  Tile[1] reçoit sa signed URL → libère slot 2 → Tile[4] démarre
+t=110ms Tile[2] reçoit sa signed URL → libère slot 3 → Tile[5] démarre
+...
+```
+
+Au lieu de 25 requêtes simultanées : maximum 3 à la fois, débit constant et contrôlé.
+
+### Pourquoi 3 et pas 1 ou 10 ?
+
+| Valeur | Effet |
+|--------|-------|
+| 1 | Séquentiel — trop lent, l'utilisateur attend longtemps |
+| 3 | Équilibre vitesse / pression réseau — recommandé |
+| 10+ | Retour aux problèmes de saturation sur réseau mobile |
+
+3 requêtes simultanées permettent un pipeline efficace (pendant que l'une attend la réponse, les deux autres avancent) sans saturer ni le réseau mobile ni les fonctions serverless Vercel.
+
+### Double vérification du cache après attente
+
+```dart
+await _acquireUrlSlot();
+// ← ici, d'autres tiles ont peut-être déjà fetché cette URL pendant qu'on attendait
+if (_urlCache.containsKey(name)) return _urlCache[name]; // évite un doublon
+```
+
+Si deux tiles demandent la même URL simultanément, la première passe, la seconde attend dans la queue. Quand la seconde obtient son slot, la première a déjà rempli le cache → la seconde lit le cache sans refaire la requête. Pattern **check-then-act** autour d'une section critique.
+
+### `Completer<void>` — mécanique interne
+
+`Completer<void>` est la primitive Dart pour créer une `Future` qu'on peut résoudre manuellement :
+
+```dart
+final c = Completer<void>();
+// c.future est une Future qui ne se résout pas encore
+
+c.complete();
+// ← maintenant c.future est résolue, tout await c.future reprend son exécution
+```
+
+C'est exactement le mécanisme utilisé pour "suspendre" une coroutine dans la queue et la "réveiller" quand un slot se libère.
+
+### Import nécessaire
+
+`Completer` fait partie de `dart:async` — à importer explicitement dans les projets Flutter (pas inclus dans `dart:core`) :
+
+```dart
+import 'dart:async'; // requis pour Completer<void>
+```
+
+---
+
 ## Note overlay — bug de synchronisation d'état après sauvegarde
 
 ### Symptôme
