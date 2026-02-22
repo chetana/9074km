@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chewie/chewie.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -798,10 +799,17 @@ class _FileTileState extends State<_FileTile> {
                         ? _icon()
                         : _isVideo
                             ? _videoThumbnail()
-                            : Image.network(
-                                _signedUrl!,
+                            : CachedNetworkImage(
+                                imageUrl: _signedUrl!,
+                                cacheKey: widget.item.name,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => _icon(),
+                                errorWidget: (_, __, ___) => _icon(),
+                                placeholder: (_, __) => const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: Color(0xFFE8A4B8),
+                                  ),
+                                ),
                               ),
               ),
             ),
@@ -1246,7 +1254,17 @@ class _PageContentState extends State<_PageContent> {
       );
     }
     return InteractiveViewer(
-      child: Center(child: Image.network(_url!, fit: BoxFit.contain)),
+      child: Center(
+        child: CachedNetworkImage(
+          imageUrl: _url!,
+          cacheKey: widget.item.name,
+          fit: BoxFit.contain,
+          errorWidget: (_, __, ___) =>
+              const Icon(Icons.broken_image, color: Color(0xFF9090A0), size: 48),
+          placeholder: (_, __) =>
+              const CircularProgressIndicator(color: Color(0xFFE8A4B8)),
+        ),
+      ),
     );
   }
 }
