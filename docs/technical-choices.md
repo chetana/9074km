@@ -177,11 +177,20 @@ CanvasKit (moteur de rendu Flutter Web) a des limites de mémoire par onglet. Ch
 
 | Contexte | `memCacheWidth` | Mémoire décodée | Qualité |
 |----------|----------------|-----------------|---------|
-| Grille (thumbnail) | `600` | ~1–2 MB | Suffisante pour miniature |
+| Grille (thumbnail) | `300` | ~360 KB | Suffisante pour miniature (~120px/colonne) |
 | Viewer plein écran | `1920` | ~15 MB | Suffisante pour écran Full HD |
 | Sans limite | — | ~96 MB | Crash renderer sur Lumix RAW |
 
 Flutter redimensionne l'image au décodage lui-même (pas via CSS), donc l'économie est réelle et ne dépend pas du navigateur.
+
+#### Ajustement secondaire : grille dense sur mobile
+
+Même à `memCacheWidth: 600`, une grille avec 20–30 photos sur mobile Chrome (Android) pouvait provoquer des crashs renderer. La cause : 600px × 600px × 4 octets = ~1.4 MB par image. Avec 20–30 tuiles simultanément visibles à l'écran, ça représente 28–42 MB de GPU memory — au-delà du budget de certains appareils.
+
+La valeur `300` a été choisie car :
+- Sur une grille à 3 colonnes, chaque tuile fait ~120 px de large sur un téléphone 360 px
+- 300 px = 2.5× la résolution d'affichage → qualité visuelle imperceptiblement différente de 600 px
+- 300 × 300 × 4 = ~360 KB par image → 20 images = ~7 MB total, confortable pour tous les appareils
 
 ---
 
@@ -379,6 +388,46 @@ Les autres endpoints du coffre requièrent `Authorization: Bearer <google_id_tok
 
 Cela signifie qu'une photo supprimée de GCS continuera à apparaître en preview dans les conversations pendant ~24h — comportement acceptable et attendu.
 
+### Pourquoi WhatsApp voit la preview mais pas Facebook Messenger ni Telegram
+
+Malgré Meta propriétaire des deux, WhatsApp et Facebook Messenger utilisent des **scrapers complètement distincts** avec des spécifications différentes sur les formats d'image acceptés :
+
+| Scraper | User-Agent | Formats og:image acceptés | WebP |
+|---------|-----------|--------------------------|------|
+| WhatsApp | `WhatsApp/2.x` | JPEG, PNG, WebP | ✅ |
+| Facebook Messenger | `facebookexternalhit/1.1` | JPEG, PNG, GIF | ❌ |
+| Telegram | `TelegramBot` | JPEG, PNG | ⚠️ partiel |
+
+WhatsApp a été racheté par Meta en 2014 mais son infrastructure de scraping est restée indépendante, développée séparément. Facebook Messenger utilise le scraper historique de Facebook (`facebookexternalhit/1.1`) qui suit les specs Open Graph de 2010 — époque où WebP n'existait pas.
+
+Résultat : une image `.webp` dans `og:image` est simplement ignorée par Facebook Messenger et Telegram qui ne chargent pas l'image, abandonnent, et n'affichent aucune preview.
+
+### Proxy JPEG — `/api/coffre/og-image`
+
+**Solution** : un endpoint proxy sur chetana.dev qui transcode n'importe quel format source (WebP, HEIC, PNG…) en JPEG avant de le servir, via la librairie `sharp` (Node.js) :
+
+```
+GET /api/coffre/og-image?path=2026/01/13/bague_de_Chet.webp
+    │
+    og-image.get.ts
+        ├── signedGetUrl("2026/01/13/bague_de_Chet.webp")  → URL GCS signée
+        ├── fetch(signedUrl)                                 → télécharge le WebP original
+        ├── sharp(buffer).resize({ width: 1200 }).jpeg({ quality: 85 }) → JPEG 1200px
+        └── Retourne image/jpeg avec Cache-Control: public, max-age=86400
+```
+
+Le `og:image` dans `preview.get.ts` pointe désormais vers ce proxy :
+
+```
+og:image = https://chetana.dev/api/coffre/og-image?path=2026/01/13/bague_de_Chet.webp
+```
+
+Avantages :
+- **Compatibilité universelle** — JPEG supporté par tous les scrapers (WhatsApp, Facebook, Telegram, Twitter/X, iMessage…)
+- **Format source transparent** — l'utilisateur peut uploader du WebP, HEIC, PNG sans se soucier de la compatibilité des previews
+- **Cache 24h** côté scraper sur une réponse stable (`Cache-Control: public, max-age=86400`)
+- **1200px max** — taille recommandée par Facebook pour `og:image` (ratio 1.91:1 → 1200×630 idéal)
+
 ### Bug critique rencontré en production : `&` vs `&amp;` dans les attributs HTML
 
 #### Symptôme
@@ -438,6 +487,47 @@ Facebook met en cache les résultats de scraping ~24h. Après un fix sur l'endpo
 **https://developers.facebook.com/tools/debug/** → coller l'URL → "Scrape Again"
 
 Cet outil affiche également les erreurs de parsing og:image, ce qui est utile pour diagnostiquer ce type de problème.
+
+---
+
+## Note overlay — bug de synchronisation d'état après sauvegarde
+
+### Symptôme
+
+Après avoir écrit une note dans l'overlay et l'avoir fermé, la preview inline dans la barre affichait toujours l'ancien texte (ou le placeholder "Ajouter une note…"). Si on rouvrait l'overlay immédiatement, on retrouvait l'ancien contenu, pas ce qu'on venait de taper.
+
+La note était bien sauvegardée en GCS (un rechargement de page l'affichait correctement), mais l'état local n'était pas mis à jour.
+
+### Cause
+
+`_saveNote(String text)` dans `_DayFilesScreenState` appelait `saveNote()` (PUT vers GCS) mais ne mettait jamais à jour `_note` dans le state Flutter :
+
+```dart
+// Avant le fix — _note jamais mis à jour
+Future<void> _saveNote(String text) async {
+  setState(() => _noteSaving = true);         // ← seul le spinner est mis à jour
+  await saveNote(year, month, day, text);     // ← GCS sauvegardé ✓
+  setState(() => _noteSaving = false);        // ← _note reste à l'ancienne valeur ✗
+}
+```
+
+Résultat : `_NoteField` recevait toujours `initialText: _note` avec l'ancienne valeur. La préview restait stale jusqu'au prochain `_loadNote()` (rechargement du jour).
+
+### Fix
+
+Mettre à jour `_note` en même temps que le spinner :
+
+```dart
+Future<void> _saveNote(String text) async {
+  setState(() { _noteSaving = true; _note = text; });  // ← _note mis à jour immédiatement
+  await saveNote(year, month, day, text);
+  if (mounted) setState(() => _noteSaving = false);
+}
+```
+
+### Leçon
+
+Dans un pattern "sauvegarde optimiste" (UI mise à jour avant confirmation serveur), toujours mettre à jour **toutes** les variables d'état concernées simultanément — pas seulement les indicateurs de chargement.
 
 ---
 

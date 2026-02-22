@@ -308,6 +308,19 @@ coffre_api.dart  (toutes les fonctions ajoutent le Bearer token)
                     └── PUT <signed_url> avec jsonEncode(reactions)
 ```
 
+### Endpoints backend (chetana.dev)
+
+| Endpoint | Auth | Description |
+|----------|------|-------------|
+| `GET /api/coffre/list?prefix=` | ✅ Bearer | Liste les objets GCS avec délimiteur `/` |
+| `POST /api/coffre/sign-upload` | ✅ Bearer | Signed URL PUT (15 min) |
+| `GET /api/coffre/sign-download?path=` | ✅ Bearer | Signed URL GET (1h) |
+| `DELETE /api/coffre/delete?path=` | ✅ Bearer | Supprime un objet GCS |
+| `GET /api/coffre/preview?y=&m=&d=&f=` | ❌ public | HTML og:image + redirect Flutter |
+| `GET /api/coffre/og-image?path=` | ❌ public | Proxy JPEG — transcode WebP/HEIC via sharp |
+
+Les deux derniers endpoints sont sans auth — nécessaire pour les bots scrapers des messageries.
+
 ---
 
 ## GCS — Convention de nommage
@@ -387,7 +400,7 @@ _FileTile / _PageContent
     └── CachedNetworkImage(
           imageUrl: signedUrl,      ← URL signée (change toutes les heures)
           cacheKey: item.name,      ← clé stable = chemin GCS (YYYY/MM/DD/file.jpg)
-          memCacheWidth: 600,       ← grille : décode à 600px max en mémoire
+          memCacheWidth: 300,       ← grille : 300px = 2.5× taille d'affichage (~120px/col)
           // ou
           memCacheWidth: 1920,      ← viewer : décode à 1920px max en mémoire
         )
@@ -406,11 +419,11 @@ renderer → `errorWidget` affiché à tort.
 
 `memCacheWidth` indique à `flutter_cache_manager` de redimensionner l'image lors du décodage :
 
-| Contexte | memCacheWidth | Mémoire décodée |
-|----------|---------------|-----------------|
-| Grille (_FileTile) | 600 px | ~1–2 MB |
-| Viewer (_PageContent) | 1920 px | ~15 MB |
-| Sans limitation | — | ~96 MB (crash) |
+| Contexte | memCacheWidth | Mémoire décodée | Justification |
+|----------|---------------|-----------------|---------------|
+| Grille (_FileTile) | 300 px | ~360 KB | ~120px/col × 3 cols, 2.5× DPR suffit |
+| Viewer (_PageContent) | 1920 px | ~15 MB | Plein écran Full HD |
+| Sans limitation | — | ~96 MB | Crash sur Lumix RAW |
 
 Le fichier sur disque (IndexedDB) est stocké en taille originale — `memCacheWidth` n'affecte
 que la représentation en mémoire vive lors de l'affichage.
@@ -499,27 +512,34 @@ Bot scraper WhatsApp/Telegram/FB :
     GET https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
         │
         preview.get.ts
-            ├── signedGetUrl("2026/02/22/photo.jpg")  → URL GCS signée valable 1h
+            ├── Construit ogImageUrl = /api/coffre/og-image?path=2026/02/22/photo.jpg
             ├── Construit titre : "Chet & Lys — 22 février 2026"
             └── Retourne HTML :
-                    <meta property="og:image" content="https://storage.googleapis.com/...?X-Goog-Signature=...">
+                    <meta property="og:image" content="https://chetana.dev/api/coffre/og-image?path=...">
                     <meta property="og:title" content="Chet & Lys — 22 février 2026">
                     <script>window.location.replace("https://chetlys.vercel.app/?...")</script>
         │
-        Bot lit og:image → télécharge l'image depuis GCS (signed URL valide)
-        Bot met en cache l'image ~24h dans ses serveurs
-        → Preview photo + titre affichés dans la conversation
+        Bot lit og:image → GET https://chetana.dev/api/coffre/og-image?path=...
+            │
+            og-image.get.ts
+                ├── signedGetUrl(path) → URL GCS signée
+                ├── fetch(signedUrl)   → télécharge l'image originale (WebP, HEIC, JPEG…)
+                ├── sharp(buffer).resize(1200).jpeg(85%) → JPEG universel
+                └── Retourne image/jpeg — Cache-Control: public, max-age=86400
+        │
+        Bot met en cache le JPEG ~24h — preview affichée dans la conversation
 
 Utilisateur humain qui clique :
     GET https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
         │
-        preview.get.ts → génère une nouvelle signed URL fraîche
-        → HTML avec JS redirect
+        preview.get.ts → HTML avec JS redirect
         │
     Navigateur exécute window.location.replace(...)
         → https://chetlys.vercel.app/?tab=coffre&y=2026&m=02&d=22&f=photo.jpg
         → Flutter app s'ouvre → navigation directe vers la photo
 ```
+
+**Pourquoi le proxy og-image ?** Facebook Messenger (`facebookexternalhit/1.1`) et Telegram n'acceptent pas WebP en `og:image` — seuls JPEG/PNG/GIF sont dans leur spec. WhatsApp a un scraper distinct qui supporte WebP. Le proxy transcode tout format en JPEG, garantissant la preview sur toutes les plateformes.
 
 ### Flux côté destinataire (Flutter)
 
