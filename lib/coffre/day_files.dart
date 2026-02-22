@@ -34,6 +34,7 @@ class DayFilesScreen extends StatefulWidget {
 class _DayFilesScreenState extends State<DayFilesScreen> {
   List<CoffreItem>? _items;
   List<String>? _days;
+  Map<String, int> _dayCounts = {};
   String? _error;
   _UploadPhase _phase = _UploadPhase.idle;
   int _current = 0;
@@ -79,6 +80,16 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
           .toList()
         ..sort();
       if (mounted) setState(() => _days = days);
+      // Charge les compteurs en parallèle
+      final entries = await Future.wait(days.map((d) async {
+        try {
+          final r = await listObjects('${widget.year}/${widget.month}/$d/');
+          return MapEntry(d, r.items.length);
+        } catch (_) {
+          return MapEntry(d, 0);
+        }
+      }));
+      if (mounted) setState(() => _dayCounts = Map.fromEntries(entries));
     } catch (_) {
       // silencieux — les chips sont bonus
     }
@@ -310,6 +321,7 @@ class _DayFilesScreenState extends State<DayFilesScreen> {
                   constraints: BoxConstraints(maxHeight: maxChipsHeight),
                   child: _DaysChipBar(
                     days: _days!,
+                    counts: _dayCounts,
                     selected: widget.day,
                     year: widget.year,
                     month: widget.month,
@@ -422,6 +434,7 @@ class _FabProgress extends StatelessWidget {
 
 class _DaysChipBar extends StatefulWidget {
   final List<String> days;
+  final Map<String, int> counts;
   final String selected;
   final String year;
   final String month;
@@ -429,6 +442,7 @@ class _DaysChipBar extends StatefulWidget {
 
   const _DaysChipBar({
     required this.days,
+    required this.counts,
     required this.selected,
     required this.year,
     required this.month,
@@ -478,7 +492,9 @@ class _DaysChipBarState extends State<_DaysChipBar> {
     if (d == null || m == null || y == null) return dd;
     final date = DateTime(y, m, d);
     const kmDays = ['ចន្ទ', 'អង្គារ', 'ពុធ', 'ព្រ', 'សុក្រ', 'សៅរ៍', 'អាទិត្យ'];
-    return '$dd\n${kmDays[date.weekday - 1]}';
+    final count = widget.counts[dd];
+    final countStr = (count != null && count > 0) ? ' ($count)' : '';
+    return '$dd$countStr\n${kmDays[date.weekday - 1]}';
   }
 
   @override
