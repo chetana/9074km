@@ -11,6 +11,7 @@ class YearListBody extends StatefulWidget {
 
 class _YearListBodyState extends State<YearListBody> {
   List<String>? _years;
+  Map<String, int> _monthCounts = {};
   String? _error;
 
   @override
@@ -29,6 +30,15 @@ class _YearListBodyState extends State<YearListBody> {
           .toList()
         ..sort((a, b) => b.compareTo(a));
       setState(() => _years = years);
+      final entries = await Future.wait(years.map((y) async {
+        try {
+          final r = await listObjects('$y/');
+          return MapEntry(y, r.prefixes.length);
+        } catch (_) {
+          return MapEntry(y, 0);
+        }
+      }));
+      if (mounted) setState(() => _monthCounts = Map.fromEntries(entries));
     } catch (e) {
       setState(() => _error = e.toString());
     }
@@ -61,8 +71,11 @@ class _YearListBodyState extends State<YearListBody> {
       itemCount: _years!.length,
       itemBuilder: (_, i) {
         final year = _years![i];
+        final n = _monthCounts[year];
+        final sub = n == null ? null : '$n mois';
         return _TimelineCard(
           label: year,
+          subtitle: sub,
           onTap: () => widget.onYearSelected(year),
         );
       },
@@ -72,9 +85,10 @@ class _YearListBodyState extends State<YearListBody> {
 
 class _TimelineCard extends StatelessWidget {
   final String label;
+  final String? subtitle;
   final VoidCallback onTap;
 
-  const _TimelineCard({required this.label, required this.onTap});
+  const _TimelineCard({required this.label, required this.onTap, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +101,9 @@ class _TimelineCard extends StatelessWidget {
       ),
       child: ListTile(
         title: Text(label, style: const TextStyle(color: Color(0xFFE8E8F0), fontSize: 18)),
+        subtitle: subtitle != null
+            ? Text(subtitle!, style: const TextStyle(color: Color(0xFF9090A0), fontSize: 12))
+            : null,
         trailing: const Icon(Icons.chevron_right, color: Color(0xFFE8A4B8)),
         onTap: onTap,
       ),
