@@ -914,9 +914,18 @@ class _FileTileState extends State<_FileTile> {
   }
 
   Future<void> _loadUrl() async {
+    if (!_isVideo) {
+      // Pour les images : le proxy og-image est utilisé pour l'affichage grille
+      // → pas besoin de signed URL pour le thumbnail, affichage immédiat
+      // On précharge quand même la signed URL en background pour la vue plein écran
+      if (mounted) setState(() => _loading = false);
+      widget.getUrl(widget.item.name); // pré-cache pour le viewer, sans await
+      return;
+    }
+    // Pour les vidéos : signed URL nécessaire pour générer le thumbnail
     final url = await widget.getUrl(widget.item.name);
     if (mounted) setState(() { _signedUrl = url; _loading = false; });
-    if (url != null && _isVideo) _loadThumb(url);
+    if (url != null) _loadThumb(url);
   }
 
   Future<void> _loadThumb(String url) async {
@@ -959,18 +968,17 @@ class _FileTileState extends State<_FileTile> {
                           color: Color(0xFFE8A4B8),
                         ),
                       )
-                    : _signedUrl == null
-                        ? _icon()
-                        : _isVideo
-                            ? _videoThumbnail()
+                    : _isVideo
+                            ? (_signedUrl == null ? _icon() : _videoThumbnail())
                             : CachedNetworkImage(
-                                imageUrl: _signedUrl!,
-                                cacheKey: widget.item.name,
+                                // Proxy og-image utilisé directement pour les thumbnails grille :
+                                // - renvoie un JPEG 300px côté serveur via sharp
+                                // - évite de décoder la pleine résolution sur le client (Lumix 8 MB, 6000×4000)
+                                // - compatible HEIC, WebP, RAW, tout format
+                                imageUrl: 'https://chetana.dev/api/coffre/og-image'
+                                    '?path=${Uri.encodeComponent(widget.item.name)}&w=300',
+                                cacheKey: '${widget.item.name}__thumb',
                                 fit: BoxFit.cover,
-                                // Limite la résolution décodée en mémoire (thumbnails)
-                                // 300px = 2.5x la taille d'affichage réelle (~120px/colonne sur mobile)
-                                // évite les crashs renderer GPU quand beaucoup d'images sont visibles
-                                memCacheWidth: 300,
                                 errorWidget: (_, __, ___) => _icon(),
                                 placeholder: (_, __) => const Center(
                                   child: CircularProgressIndicator(
