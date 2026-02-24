@@ -168,9 +168,10 @@
 	const currentUrl = $derived(urlCache[currentIndex] ?? null);
 	const currentReactions = $derived(reactions[currentItem?.name] ?? []);
 
-	// Strip offset: chaque item fait 100vw, on décale en fonction de l'index + drag
+	// Peek: 20px de chaque côté, gap 8px entre slides
+	// Slide width = 100% - 40px → pas = slide + gap = 100% - 32px
 	const stripStyle = $derived(
-		`transform: translateX(calc(${-currentIndex * 100}% + ${dragDelta}px)); transition: ${isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'}`
+		`transform: translateX(calc(${-currentIndex} * (100% - 32px) + 20px + ${dragDelta}px)); transition: ${isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'}`
 	);
 </script>
 
@@ -328,7 +329,7 @@
 	.media-strip-wrapper {
 		position: absolute;
 		inset: 0;
-		overflow: hidden;
+		overflow: hidden; /* clip les photos qui débordent */
 	}
 
 	.media-strip {
@@ -336,15 +337,18 @@
 		width: 100%;
 		height: 100%;
 		will-change: transform;
+		gap: 8px; /* --gap */
 	}
 
 	.media-slide {
-		flex: 0 0 100%;
-		width: 100%;
+		flex: 0 0 calc(100% - 40px); /* 100% - 2*PEEK */
 		height: 100%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		border-radius: 12px;
+		overflow: hidden;
+		background: #111;
 	}
 
 	.media-img {
