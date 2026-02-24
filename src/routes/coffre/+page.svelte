@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { userStore, auth } from '$lib/auth';
+	import { ogImageUrl } from '$lib/api';
 	import YearList from './components/YearList.svelte';
 	import MonthList from './components/MonthList.svelte';
 	import DayList from './components/DayList.svelte';
@@ -20,6 +21,12 @@
 			day = data.d;
 		}
 	});
+
+	// Preview publique : lien partagé + non connecté
+	const isSharedLink = $derived(!!(data.y && data.m && data.d && data.f));
+	const previewSrc = $derived(
+		isSharedLink ? ogImageUrl(`${data.y}/${data.m}/${data.d}/${data.f}`, 1200) : null
+	);
 
 	function selectYear(y: string) { year = y; month = null; day = null; }
 	function selectMonth(m: string) { month = m; day = null; }
@@ -43,21 +50,45 @@
 
 <div class="page">
 	{#if !$userStore}
-		<!-- Auth gate -->
-		<div class="auth-gate">
-			<div class="lock">🗝️</div>
-			<h2>Coffre · ប្រអប់</h2>
-			<p>Connecte-toi pour accéder aux souvenirs</p>
-			<button class="btn-google" onclick={() => auth.signIn()}>
-				<svg width="18" height="18" viewBox="0 0 24 24">
-					<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-					<path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-					<path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-					<path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-				</svg>
-				Se connecter avec Google
-			</button>
-		</div>
+		{#if isSharedLink && previewSrc}
+			<!-- Preview publique : photo partagée visible sans connexion -->
+			<div class="preview-page">
+				<div class="preview-photo">
+					<img src={previewSrc} alt="Souvenir partagé" />
+				</div>
+				<div class="preview-footer">
+					<div class="preview-label">
+						<span class="preview-title">Chet & Lys</span>
+						<span class="preview-date">{data.d}/{data.m}/{data.y}</span>
+					</div>
+					<button class="btn-google" onclick={() => auth.signIn()}>
+						<svg width="16" height="16" viewBox="0 0 24 24">
+							<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+							<path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+							<path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+							<path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+						</svg>
+						Ouvrir le coffre · ប្រអប់
+					</button>
+				</div>
+			</div>
+		{:else}
+			<!-- Auth gate standard -->
+			<div class="auth-gate">
+				<div class="lock">🗝️</div>
+				<h2>Coffre · ប្រអប់</h2>
+				<p>Connecte-toi pour accéder aux souvenirs</p>
+				<button class="btn-google" onclick={() => auth.signIn()}>
+					<svg width="18" height="18" viewBox="0 0 24 24">
+						<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+						<path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+						<path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+						<path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+					</svg>
+					Se connecter avec Google
+				</button>
+			</div>
+		{/if}
 	{:else}
 		<!-- Header -->
 		<header class="header">
@@ -101,6 +132,58 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
+	}
+
+	/* Preview publique (lien partagé, non connecté) */
+	.preview-page {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		background: #000;
+	}
+
+	.preview-photo {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		overflow: hidden;
+	}
+
+	.preview-photo img {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		display: block;
+	}
+
+	.preview-footer {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 12px 16px;
+		padding-bottom: calc(12px + env(safe-area-inset-bottom));
+		background: var(--card);
+		border-top: 1px solid var(--border);
+		flex-shrink: 0;
+	}
+
+	.preview-label {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.preview-title {
+		font-size: 14px;
+		font-weight: 600;
+		color: var(--accent);
+	}
+
+	.preview-date {
+		font-size: 12px;
+		color: var(--muted);
 	}
 
 	/* Auth gate */
