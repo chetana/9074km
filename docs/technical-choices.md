@@ -1,114 +1,46 @@
 # Choix techniques
 
-## Pourquoi Flutter ?
-
-### Le problème de départ
-
-L'objectif est une application couple utilisée par deux personnes sur deux plateformes différentes :
-- **Chet** → Android (téléphone personnel)
-- **Lys** → iPhone (iOS, Phnom Penh)
-
-Distribuer une app iOS sans compte Apple Developer ($99/an) est impossible officiellement. Les alternatives gratuites (AltStore, Sideloadly) expirent tous les 7 jours et nécessitent un ordinateur à portée. Le jailbreak est exclu.
-
-**Solution** : une PWA (Progressive Web App) installable depuis Safari — aucun store, aucun frais. Lys l'ajoute à son écran d'accueil depuis Safari en deux taps, et elle se comporte comme une vraie app (plein écran, pas de barre de navigation).
+> Ce document couvre les décisions architecturales importantes, les bugs rencontrés en production,
+> et les solutions retenues. Essentiel à lire avant de modifier le backend ou le système de partage.
 
 ---
 
-### Un seul codebase, deux cibles
+## Pourquoi SvelteKit plutôt que Flutter Web ?
 
-| Besoin | Solution |
-|--------|----------|
-| App Android native | `flutter run` / `flutter build apk` |
-| PWA installable iPhone | `flutter build web` → Vercel |
-| Pas de duplication de code | Même `lib/` pour les deux |
-| Pas de backend (horloge stateless) | Tout calculé côté client (timezone, heure) |
+L'app était initialement en Flutter (conservé dans `app-flutter/`). La migration vers SvelteKit s'est imposée pour plusieurs raisons :
 
-Flutter compile le même code Dart vers :
-- **Android** : bytecode ARM natif (AOT compilation)
-- **Web** : JavaScript via `dart2js` + rendu CanvasKit (WebAssembly)
+| Critère | Flutter Web | SvelteKit |
+|---------|-------------|-----------|
+| Build Vercel | ❌ Impossible (pas de Flutter sur Vercel CI) | ✅ Natif |
+| Taille du bundle | ~2 MB WASM CanvasKit | ~50 KB JS |
+| Temps de démarrage | ~3–5s (chargement WASM) | <1s |
+| Rendu | CanvasKit (canvas custom) | HTML/CSS natif |
+| Accessibilité | Limitée | Native |
+| Maintenance | Build commité dans git | CI automatique |
 
-Sans Flutter, l'alternative aurait été d'écrire deux apps séparées (Kotlin + React/Vue) ou de choisir entre l'une ou l'autre cible. Flutter résout ça avec **un seul langage, un seul projet**.
-
----
-
-## Pourquoi pas React Native ?
-
-| Critère | Flutter | React Native |
-|---------|---------|--------------|
-| Support Web mature | ✅ `flutter build web` officiel | ⚠️ React Native Web, moins intégré |
-| PWA out-of-the-box | ✅ manifest.json généré | ❌ configuration manuelle |
-| Rendu cohérent cross-platform | ✅ CanvasKit (même moteur partout) | ❌ composants natifs → UI différente |
-| Pas de JavaScript à écrire | ✅ Dart uniquement | ❌ JS/TS obligatoire |
-| Stack déjà connue | ✅ Dart simple à apprendre | — |
+La contrainte principale avec Flutter était de devoir **committer `build/web`** dans le repo car Vercel ne peut pas compiler Flutter. Chaque déploiement nécessitait : `flutter build web --release && git add build/web && git commit && git push`. SvelteKit élimine complètement cette friction.
 
 ---
 
-## Pourquoi pas une web app classique (Vue/Nuxt) ?
+## Pourquoi une PWA et pas une app native ?
 
-L'alternative aurait été d'ajouter une route `/chet-lys` sur `chetana.dev` (Nuxt 3). C'est une option viable, mais :
-
-- **Pas de mobile natif** : Nuxt ne produit pas d'APK Android. Il faudrait deux projets séparés.
-- **GitHub diversity** : Le repo `9074km` en Flutter ajoute Dart à la couverture de langages du profil GitHub, ce que Vue/Nuxt (déjà présent sur chetana.dev) n'apporterait pas.
-- **App shell** : Flutter Web en mode `standalone` donne une vraie sensation d'app (transitions, pas de scroll bounce, barre de status) qu'une page web classique reproduit moins bien sur mobile.
+- **Lys est sur iPhone** : distribuer une app iOS sans compte Apple Developer ($99/an) est impossible officiellement
+- **Solution** : PWA installable depuis Safari → Lys l'ajoute à son écran d'accueil en deux taps
+- **Comportement app** : plein écran (`standalone`), pas de barre Safari, `safe-area-inset-bottom` géré
 
 ---
 
-## Pourquoi Vercel pour le web ?
+## Stockage GCS sans base de données
 
-- **Même infra que chetana.dev** : même workflow (`vercel --prod`), même tableau de bord.
-- **Free tier suffisant** : app statique, zéro backend, zéro base de données → aucun coût.
-- **CDN global** : les assets Flutter Web (CanvasKit WASM ~2 MB) sont servis depuis l'edge node le plus proche de Lys à Phnom Penh.
-- **HTTPS automatique** : requis pour les PWA (Service Worker ne fonctionne qu'en HTTPS).
-
-### Contrainte : pas de build Flutter sur Vercel
-
-Vercel ne propose pas Flutter dans ses environnements de build. La stratégie adoptée est de **committer `build/web`** dans le repo git :
-
-```
-.gitignore :
-  /build/*          ← ignore tout build/
-  !/build/web       ← sauf build/web (web compilé)
-```
-
-À chaque modification du code :
-```bash
-flutter build web --release
-git add build/web
-git commit -m "..."
-vercel --prod
-```
-
-C'est le seul fichier de build commité — les artefacts Android (`build/app`, 1.1 GB) restent ignorés.
-
----
-
-## Pourquoi Puro comme gestionnaire Flutter ?
-
-[Puro](https://puro.dev) est un gestionnaire de versions Flutter alternatif au SDK officiel. Il permet d'installer Flutter sans modifier le PATH global et de gérer plusieurs versions en parallèle.
-
-```bash
-winget install puro
-puro create stable      # télécharge Flutter stable dans ~/.puro/envs/stable/
-~/.puro/envs/stable/flutter/bin/flutter.bat run
-```
-
-Avantage principal : isolation propre, pas de conflit avec d'autres outils SDK.
-
----
-
-## Stockage GCS plutôt qu'une base de données
-
-Le coffre à souvenirs stocke les photos et vidéos directement dans **Google Cloud Storage**, sans aucune base de données. La hiérarchie `YYYY/MM/DD/` dans les noms de fichiers remplace entièrement un schéma de DB.
+Le coffre stocke photos et vidéos directement dans **Google Cloud Storage**. La hiérarchie `YYYY/MM/DD/` remplace un schéma de DB.
 
 ### Avantages
-- **Zéro schéma** : ajouter une année, un mois, un jour ne demande aucune migration
-- **Listing natif** : `listObjects(prefix, delimiter: '/')` retourne exactement les prefixes du niveau suivant
-- **Signed URLs** : sécurité sans proxy — l'app demande une URL signée au backend, puis accède directement à GCS. Le backend ne transit jamais les bytes des fichiers.
-- **Coût minimal** : GCS Standard europe-west1 ≈ $0.02/GB/mois. Pour un usage couple (quelques GB/an), pratiquement gratuit.
+- **Zéro schéma** : ajouter une date ne demande aucune migration
+- **Listing natif** : `listObjects(prefix, delimiter: '/')` retourne les prefixes du niveau suivant
+- **Signed URLs** : sécurité sans proxy — le backend génère une URL signée, le client accède directement à GCS
+- **Coût minimal** : GCS Standard ~$0.02/GB/mois
 
 ### Fichiers spéciaux par jour
-
-En plus des médias, trois fichiers JSON enrichissent chaque jour :
 
 | Fichier | Format | Rôle |
 |---------|--------|------|
@@ -116,600 +48,214 @@ En plus des médias, trois fichiers JSON enrichissent chaque jour :
 | `meta.json` | `{filename: prénomUploader}` | Qui a uploadé quoi |
 | `reactions.json` | `{filename: ["❤️", "😍"]}` | Réactions emoji par photo |
 
-Ces trois fichiers sont filtrés hors de la grille d'affichage mais chargés séparément.
+Ces trois fichiers sont filtrés hors de la grille (`isMediaFile()` dans `api.ts`) mais chargés séparément.
 
-### Signed URLs v4
+---
 
-Les URLs signées sont générées côté backend (chetana.dev) avec l'algorithme HMAC-SHA256 v4 de GCS, implémenté en Node.js natif (module `crypto`) plutôt que via le SDK `@google-cloud/storage` qui ne survit pas au bundling Nitro/Rollup.
+## Signed URLs v4
+
+Générées côté backend (`chetana.dev`) avec HMAC-SHA256 v4, implémenté en Node.js natif (module `crypto`) — le SDK `@google-cloud/storage` ne survit pas au bundling Nitro/Rollup.
 
 - **PUT signed URL** (upload) : expire après 15 minutes
-- **GET signed URL** (téléchargement/affichage) : expire après 1 heure
+- **GET signed URL** (téléchargement) : expire après 1 heure
 
----
-
-## Imports conditionnels Dart (pattern web/stub)
-
-Deux fonctionnalités utilisent des API web (`dart:html`) non disponibles sur Android natif : la compression d'images et la génération de thumbnails vidéo. Le pattern d'import conditionnel Dart permet un seul fichier d'entrée :
-
-```dart
-// image_compressor.dart
-export 'image_compressor_stub.dart'
-    if (dart.library.html) 'image_compressor_web.dart';
-
-// video_thumbnailer.dart
-export 'video_thumbnailer_stub.dart'
-    if (dart.library.html) 'video_thumbnailer_web.dart';
-```
-
-- Sur **web** : `dart.library.html` est vrai → implémentation canvas réelle
-- Sur **Android** : `dart.library.html` est faux → stub (pass-through ou `null`)
-
-Ce pattern évite les `kIsWeb` dispersés dans le code et permet une compilation sans erreur sur les deux cibles.
-
----
-
-## Cache images : `cached_network_image`
-
-Les images dans la grille et le viewer sont servies via des signed URLs GCS qui expirent après 1 heure. Utiliser `Image.network` directement forcerait un nouveau téléchargement à chaque rebuild de widget.
-
-`cached_network_image` résout ce problème en deux dimensions :
-
-| Paramètre | Valeur | Rôle |
-|-----------|--------|------|
-| `imageUrl` | signed URL (change chaque heure) | Source de téléchargement |
-| `cacheKey` | `item.name` (ex: `2026/02/22/photo.jpg`) | **Clé du cache disque** |
-
-La clé de cache est le chemin GCS — stable et unique — indépendamment de l'URL signée. Même après l'expiration de l'URL, l'image est servie depuis le cache disque sans réseau.
-
-### `memCacheWidth` — limitation de la mémoire décodée
-
-Les signed URLs expirent après 1h mais les images restent en cache disque. Le problème distinct est la mémoire vive au moment du décodage.
-
-Un appareil photo Lumix produit des JPEG de ~8 MB (6000×4000 px). Lors du décodage Flutter :
-
-```
-6000 × 4000 × 4 octets (RGBA) = 96 MB par image
-```
-
-CanvasKit (moteur de rendu Flutter Web) a des limites de mémoire par onglet. Charger 2 à 3 images de cette taille simultanément crashe le renderer → errorWidget affiché au lieu de l'image.
-
-**Solution** : paramètre `memCacheWidth` de `CachedNetworkImage` qui force le décodage à une largeur maximale :
-
-| Contexte | `memCacheWidth` | Mémoire décodée | Qualité |
-|----------|----------------|-----------------|---------|
-| Grille (thumbnail) | `300` | ~360 KB | Suffisante pour miniature (~120px/colonne) |
-| Viewer plein écran | `1920` | ~15 MB | Suffisante pour écran Full HD |
-| Sans limite | — | ~96 MB | Crash renderer sur Lumix RAW |
-
-Flutter redimensionne l'image au décodage lui-même (pas via CSS), donc l'économie est réelle et ne dépend pas du navigateur.
-
-#### Ajustement secondaire : grille dense sur mobile → puis proxy serveur
-
-Même à `memCacheWidth: 600`, une grille avec 20–30 photos sur mobile Chrome (Android) pouvait provoquer des crashs renderer. Réduire à `300` améliorait la situation mais ne réglait pas le problème de fond :
-
-> **`memCacheWidth` ne réduit pas la pression lors du décodage — il réduit seulement la pression en mémoire après décodage.**
-
-Flutter doit toujours télécharger et décoder l'image originale (8 MB, 6000×4000 px) avant de la réduire à 300 px. Ce décodage initial consomme ~96 MB GPU temporairement. Sur une grille de 9 tuiles chargées simultanément, ce sont 9 × 96 MB = 864 MB de pics mémoire successifs — catastrophique sur mobile.
-
-**Solution définitive** : utiliser le **proxy og-image avec `?w=300`** directement comme source des thumbnails grille. Le serveur (via `sharp`) renvoie un JPEG déjà à 300 px. Le client ne voit jamais l'image originale :
-
-```
-Client demande  : GET /api/coffre/og-image?path=2026/02/22/lumix.jpg&w=300
-Serveur télécharge : GCS signed URL → lumix.jpg (8 MB original)
-Serveur transcode  : sharp.resize(300).jpeg(80%) → ~15 KB JPEG
-Client reçoit   : 15 KB JPEG → décodage 300×225 px → ~270 KB mémoire
-```
-
-Bénéfices combinés :
-- **Bande passante** : 8 MB → ~15 KB par thumbnail (×500)
-- **Mémoire décodage** : ~96 MB → ~270 KB par image (~360×)
-- **Formats** : HEIC, WebP, PNG, RAW — tous transcodes en JPEG avant d'arriver sur le device
-
-`memCacheWidth` reste utile dans le **viewer plein écran** (`1920`) où l'image originale est téléchargée pour la qualité maximale.
-
----
-
-## Réactions emoji — architecture simplifiée
-
-Les réactions sont stockées dans un seul fichier `reactions.json` par jour (pas un fichier par photo, pas une base de données). Ce choix est justifié par :
-
-- **Usage faible** : 2 utilisateurs, quelques dizaines de photos par jour au maximum
-- **Atomicité acceptable** : le risque de conflit d'écriture concurrent est quasi nul
-- **Lecture unique** : un seul `signDownload` + `GET` pour charger toutes les réactions du jour
-
-### Flux de mise à jour
-
-```
-Viewer: tap sur ❤️
-  → _reactions[filename].toggle('❤️')
-  → setState() → UI réactive immédiatement
-  → widget.onReactionsChanged(updated) → _DayFilesScreenState._reactions
-  → saveReactions() → PUT reactions.json (async, en arrière-plan)
-```
-
-L'UI répond instantanément (optimistic update), la persistance GCS est asynchrone.
-
----
-
-## Thumbnails vidéo — choix de l'implémentation web
-
-Le package `video_thumbnail` (pub.dev) ne supporte pas le web. Les alternatives :
-
-| Option | Pour | Contre |
-|--------|------|--------|
-| `video_thumbnail` | Simple | ❌ pas de support web |
-| `FFmpeg.wasm` | Universel | ❌ ~30 MB de bundle, latence |
-| HTMLVideoElement + Canvas | ✅ Natif navigateur, ~0 KB | ❌ web uniquement |
-
-L'implémentation retenue (`video_thumbnailer_web.dart`) :
-1. Crée un `<video>` HTML invisible avec l'URL signée
-2. Sur `loadedmetadata` → seek à 0.5 secondes
-3. Sur `seeked` → dessine la frame dans un `<canvas>`, exporte en JPEG base64
-4. Timeout 8s → `null` si la vidéo est inaccessible
-
-Sur Android natif, le stub retourne `null` → fallback vers l'icône play statique. Pour une thumbnail native Android, `video_thumbnail` (avec `path_provider`) serait l'option appropriée.
-
----
-
-## Deep links — pourquoi des query params et pas un router
-
-Flutter propose plusieurs solutions pour les deep links web : `go_router`, `auto_route`, ou le routing natif `Navigator 2.0`. Ces packages ont été volontairement évités pour cette fonctionnalité.
-
-### Pourquoi pas go_router ?
-
-| Critère | go_router | Query params manuels |
-|---------|-----------|---------------------|
-| Complexité ajoutée | ⚠️ Refactoring complet de la navigation | ✅ 20 lignes dans `initState` |
-| Navigation state-based existante | ❌ Incompatible sans réécriture | ✅ Aucun changement d'architecture |
-| Usage unique | ❌ Sur-ingénierie pour 1 cas d'usage | ✅ Minimal et suffisant |
-| Comportement souhaité | Deep link one-shot à l'ouverture | ✅ Lu une fois dans `Uri.base` |
-
-La navigation de l'app est intentionnellement **state-based** (variables `_year/_month/_day` dans `CoffreScreen`). Introduire un router changerait la philosophie du projet sans apporter de valeur pour deux utilisateurs.
-
-### `Uri.base` — disponibilité cross-platform
-
-`Uri.base` est disponible dans Dart sur toutes les plateformes, mais son comportement diffère :
-- **Web** : retourne l'URL complète de la page courante, avec queryParameters
-- **Android/iOS natif** : retourne une URI sans paramètres significatifs
-
-Ce comportement suffit : sur Android, `queryParameters` est vide → aucun deep link appliqué → comportement normal. Sur web (PWA), les paramètres sont lus et la navigation est appliquée. Aucun conditional import nécessaire.
-
-### Encodage des noms de fichiers
-
-Les noms de fichiers peuvent contenir des espaces, accents ou caractères Unicode (ex: `photo été.jpg`, `IMG 001.heic`). Le cycle complet :
-
-```
-Génération  : Uri.encodeComponent("photo été.jpg")
-            → "photo%20%C3%A9t%C3%A9.jpg"
-
-Transport   : dans l'URL → copié dans le presse-papier → envoyé via message
-
-Réception   : Uri.base.queryParameters['f']
-            → Dart décode automatiquement les %XX → "photo été.jpg"
-            → Uri.decodeComponent() en plus pour double sécurité
-```
-
-La comparaison finale `item.name.split('/').last == widget.initialFile` compare deux strings décodées → match garanti.
+Le cache des signed URLs dans le client (`urlCache` dans `DayFiles.svelte`) utilise le chemin GCS comme clé — stable, contrairement à l'URL signée qui change chaque heure.
 
 ---
 
 ## Preview proxy — og:image pour WhatsApp, Telegram, Facebook
 
-### Pourquoi une app Flutter SPA ne peut pas avoir de preview nativement
+### Pourquoi une SPA ne peut pas avoir de preview nativement
 
-Quand on partage un lien sur WhatsApp, Telegram ou Facebook, ces applications envoient un **bot scraper** (un robot HTTP) visiter l'URL pour en extraire les métadonnées. Ce bot cherche des balises HTML spéciales appelées **Open Graph** :
-
-```html
-<meta property="og:image"       content="https://...">
-<meta property="og:title"       content="Chet & Lys — 22 février 2026">
-<meta property="og:description" content="Un souvenir partagé">
-```
-
-Le problème fondamental avec une SPA (Single Page Application) Flutter Web : l'`index.html` servi par Vercel est **identique pour toutes les URLs**. Il contient uniquement `<script src="main.dart.js">` — le contenu est généré côté client en JavaScript après le chargement. Or, **les bots scrapers n'exécutent pas JavaScript**. Ils lisent uniquement le HTML brut initial.
-
-Résultat : même si on ajoutait des og:tags dans `index.html`, ils seraient statiques (toujours la même image, toujours le même titre) et ne correspondraient jamais à la photo spécifique partagée.
-
-### La solution : un preview proxy côté serveur
-
-Le principe est d'avoir un **endpoint serveur** (`chetana.dev/api/coffre/preview`) qui, lui, peut générer dynamiquement du HTML différent pour chaque photo :
-
-```
-Lien copié dans l'app :
-  https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
-                 ↑
-       chetana.dev peut générer du HTML dynamique
-```
-
-Cet endpoint reçoit `y`, `m`, `d`, `f`, génère une signed URL GCS pour l'image, et retourne :
+Quand on partage un lien sur WhatsApp/Telegram/Facebook, un **bot scraper** visite l'URL pour extraire les balises Open Graph :
 
 ```html
-<!DOCTYPE html>
-<html><head>
-  <meta property="og:image" content="https://storage.googleapis.com/chet-lys-coffre/2026/02/22/photo.jpg?X-Goog-Signature=...">
-  <meta property="og:title" content="Chet & Lys — 22 février 2026">
-  <meta property="og:description" content="Un souvenir partagé · ការចងចាំរួម">
-  <meta http-equiv="refresh" content="0;url=https://chetlys.vercel.app/?tab=coffre&y=2026&m=02&d=22&f=photo.jpg">
-  <script>window.location.replace("https://chetlys.vercel.app/?tab=coffre&...");</script>
-</head></html>
+<meta property="og:image"  content="...">
+<meta property="og:title"  content="Chet & Lys — 22 février 2026">
 ```
 
-Deux comportements selon qui visite le lien :
+Problème : une SPA (SvelteKit en mode CSR, ou même SSR sans données) retourne un HTML générique. Le bot ne voit pas les métadonnées spécifiques à la photo.
 
-| Visiteur | Comportement |
-|----------|-------------|
-| Bot scraper (WhatsApp, Telegram, FB) | Lit les `og:` tags → extrait l'image, le titre → met en cache la preview |
-| Vrai utilisateur (humain) | JS redirect instantané → atterrit sur la PWA Flutter à la bonne photo |
+**Solution** : l'endpoint `chetana.dev/api/coffre/preview` génère dynamiquement du HTML avec les bonnes balises og:image pour chaque photo.
 
-### Pourquoi les scrapers peuvent lire une signed URL GCS
-
-Une **signed URL GCS** est une URL HTTP entièrement publique — aucun header d'authentification n'est requis. La sécurité repose entièrement sur la signature cryptographique encodée dans les query params :
+### Flux complet
 
 ```
-https://storage.googleapis.com/chet-lys-coffre/2026/02/22/photo.jpg
-  ?X-Goog-Algorithm=GOOG4-RSA-SHA256
-  &X-Goog-Credential=service-account%40...
-  &X-Goog-Date=20260222T143000Z
-  &X-Goog-Expires=3600
-  &X-Goog-SignedHeaders=host
-  &X-Goog-Signature=a1b2c3d4e5f6...   ← HMAC-SHA256 RSA, forgeable uniquement avec la clé privée
+T+0  Utilisateur tap 🔗 dans le viewer
+       → construit https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
+       → copie dans le presse-papier + toast "Copié · ចម្លង"
+
+T+1  Utilisateur colle le lien dans WhatsApp et envoie
+
+T+2  Bot scraper WhatsApp visite l'URL
+       → preview endpoint génère une signed URL GCS fraîche
+       → retourne HTML avec og:image pointant vers /api/coffre/og-image?path=...
+       → Bot télécharge l'image JPEG depuis le proxy og-image
+       → Met en cache dans les serveurs WhatsApp ~24h
+
+T+3  Preview visible dans la conversation
+
+T+?  Destinataire clique le lien
+       → preview endpoint génère une NOUVELLE signed URL fraîche
+       → HTML → JS redirect vers https://chetlys.vercel.app/coffre?y=&m=&d=&f=
+       → SvelteKit ouvre le viewer sur la bonne photo
 ```
 
-N'importe quel client HTTP (bot scraper inclus) peut télécharger cette URL sans credential. GCS vérifie lui-même la signature à chaque requête. C'est exactement le principe conçu pour permettre l'accès temporaire à des ressources privées sans exposer les credentials.
+### Pourquoi le proxy og-image (`/api/coffre/og-image`)
 
-### Chronologie complète d'un partage
+Les scrapers ont des exigences différentes sur les formats d'image :
 
-```
-T+0s  L'utilisateur tape 🔗 dans le viewer
-         → Flutter appelle _buildDeepLink()
-         → construit https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
-         → copie dans le presse-papier + toast "Copié · ចម្លង"
-
-T+1s  L'utilisateur colle le lien dans WhatsApp et envoie
-
-T+2s  Bot scraper WhatsApp visite l'URL
-         → GET https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
-         → preview.get.ts : signedGetUrl("2026/02/22/photo.jpg") → URL signée valide 1h
-         → Retourne le HTML avec og:image pointant vers la signed URL
-         → Bot lit og:image, télécharge l'image depuis GCS (signed URL encore valide)
-         → Met en cache l'image + métadonnées dans les serveurs WhatsApp
-
-T+3s  Preview affichée dans la conversation — vignette de la photo avec titre
-
-T+? h Le destinataire clique sur le lien
-         → Navigateur visite https://chetana.dev/api/coffre/preview?...
-         → preview.get.ts génère une NOUVELLE signed URL (fraîche, valide 1h)
-         → HTML servi → JS redirect vers https://chetlys.vercel.app/?tab=coffre&...
-         → Flutter app s'ouvre, viewer sur la bonne photo
-```
-
-La signed URL dans le HTML peut avoir expiré depuis le scraping, mais ça n'a aucune importance : WhatsApp/Telegram ont déjà téléchargé et mis en cache l'image au moment du scraping. Quand un vrai utilisateur clique, `preview.get.ts` génère une **nouvelle** signed URL fraîche.
-
-### Pourquoi l'endpoint preview n'a pas besoin d'auth
-
-Les autres endpoints du coffre requièrent `Authorization: Bearer <google_id_token>`. Le preview n'en a pas. Justification :
-
-- Les bots scrapers ne peuvent pas fournir un Bearer token
-- L'accès est limité au `preview` (HTML + og:image) — pas au listing de fichiers, pas à l'upload
-- Pour accéder à une photo, il faut connaître le chemin exact `y/m/d/filename` — pas devinable
-- C'est une app privée à deux utilisateurs, pas un service public
-
-### Cache des scrapers
-
-| Plateforme | Durée de cache de la preview |
-|------------|------------------------------|
-| WhatsApp | ~24h — re-scrappe si le lien est partagé à nouveau après 24h |
-| Telegram | ~24h — preview stable une fois générée |
-| Facebook Messenger | ~24h — contrôlable via l'outil de débogage OG de Meta |
-
-Cela signifie qu'une photo supprimée de GCS continuera à apparaître en preview dans les conversations pendant ~24h — comportement acceptable et attendu.
-
-### Pourquoi WhatsApp voit la preview mais pas Facebook Messenger ni Telegram
-
-Malgré Meta propriétaire des deux, WhatsApp et Facebook Messenger utilisent des **scrapers complètement distincts** avec des spécifications différentes sur les formats d'image acceptés :
-
-| Scraper | User-Agent | Formats og:image acceptés | WebP |
-|---------|-----------|--------------------------|------|
+| Scraper | User-Agent | Formats acceptés | WebP |
+|---------|-----------|-----------------|------|
 | WhatsApp | `WhatsApp/2.x` | JPEG, PNG, WebP | ✅ |
 | Facebook Messenger | `facebookexternalhit/1.1` | JPEG, PNG, GIF | ❌ |
 | Telegram | `TelegramBot` | JPEG, PNG | ⚠️ partiel |
 
-WhatsApp a été racheté par Meta en 2014 mais son infrastructure de scraping est restée indépendante, développée séparément. Facebook Messenger utilise le scraper historique de Facebook (`facebookexternalhit/1.1`) qui suit les specs Open Graph de 2010 — époque où WebP n'existait pas.
-
-Résultat : une image `.webp` dans `og:image` est simplement ignorée par Facebook Messenger et Telegram qui ne chargent pas l'image, abandonnent, et n'affichent aucune preview.
-
-### Proxy JPEG — `/api/coffre/og-image`
-
-**Solution** : un endpoint proxy sur chetana.dev qui transcode n'importe quel format source (WebP, HEIC, PNG, RAW…) en JPEG avant de le servir, via la librairie `sharp` (Node.js) :
+Facebook Messenger (scraper historique `facebookexternalhit/1.1`) n'accepte pas WebP. Le proxy transcode **tout format source** (WebP, HEIC, PNG, RAW…) en JPEG via `sharp` :
 
 ```
-GET /api/coffre/og-image?path=2026/01/13/bague_de_Chet.webp[&w=300]
-    │
-    og-image.get.ts
-        ├── signedGetUrl("2026/01/13/bague_de_Chet.webp")  → URL GCS signée
-        ├── fetch(signedUrl)                                 → télécharge l'original
-        ├── width = query.w ?? 1200  (clamped 1–2000)
-        ├── sharp(buffer).resize({ width }).jpeg({ quality: w≤400 ? 80 : 85 })
-        └── Retourne image/jpeg avec Cache-Control: public, max-age=86400
+GET /api/coffre/og-image?path=2026/02/22/photo.webp[&w=300]
+    ├── signedGetUrl(path) → URL GCS signée
+    ├── fetch(signedUrl)   → télécharge l'original
+    ├── width = query.w ?? 1200
+    ├── sharp(buffer).resize({ width }).jpeg({ quality: w≤400 ? 80 : 85 })
+    └── Retourne image/jpeg — Cache-Control: public, max-age=86400
 ```
 
-Le `og:image` dans `preview.get.ts` pointe vers ce proxy (sans `?w=`, donc 1200 px) :
+**Double usage** :
+| Usage | `?w=` | Taille typique |
+|-------|-------|----------------|
+| og:image social | 1200 (défaut) | ~150–400 KB |
+| Thumbnail grille | 300 | ~10–30 KB |
+
+### Bug critique : `&` vs `&amp;` dans les attributs HTML
+
+**Symptôme** : Facebook ne montrait aucune preview malgré un endpoint fonctionnel.
+
+**Cause** : une signed URL GCS contient plusieurs `&` dans ses query params. En HTML, `&` dans un attribut doit être échappé en `&amp;`. Les scrapers utilisent des parsers HTML stricts qui **tronquent l'URL au premier `&` non échappé**.
 
 ```
-og:image = https://chetana.dev/api/coffre/og-image?path=2026/01/13/bague_de_Chet.webp
+URL tronquée par le parser HTML :
+https://storage.googleapis.com/...?X-Goog-Algorithm=GOOG4-RSA-SHA256
+                                                                       ↑
+                                                     &X-Goog-Credential=... (ignoré)
 ```
 
-La grille Flutter utilise ce même proxy avec `?w=300` :
-
-```
-imageUrl = https://chetana.dev/api/coffre/og-image?path=2026/02/22/lumix.jpg&w=300
-```
-
-#### Deux usages, un seul endpoint
-
-| Usage | Paramètre | Qualité | Taille typique |
-|-------|-----------|---------|----------------|
-| `og:image` social (WhatsApp, FB, Telegram) | `?w=1200` (défaut) | 85% | ~150–400 KB |
-| Thumbnail grille Flutter | `?w=300` | 80% | ~10–30 KB |
-
-Avantages :
-- **Compatibilité universelle** — JPEG supporté par tous les scrapers et tous les navigateurs (HEIC, WebP, RAW transparents)
-- **Déchargement du client** — le device ne voit jamais l'image originale pour les thumbnails
-- **Cache 24h** côté scraper et `cached_network_image` local (cacheKey stable)
-- **1200px max** — taille recommandée par Facebook pour `og:image` (ratio 1.91:1 → 1200×630 idéal)
-
-### Bug critique rencontré en production : `&` vs `&amp;` dans les attributs HTML
-
-#### Symptôme
-
-Facebook ne montrait aucune preview image malgré un endpoint qui semblait fonctionner. Le HTML était bien retourné, la signed URL bien générée — mais pas d'image.
-
-#### Diagnostic
-
-En inspectant le HTML brut retourné par l'endpoint (sans suivre les redirects), le tag `og:image` contenait :
-
-```html
-<meta property="og:image" content="https://storage.googleapis.com/...?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=...&X-Goog-Date=...&X-Goog-Expires=3600&X-Goog-SignedHeaders=host&X-Goog-Signature=...">
+**Fix** : dans les attributs HTML, remplacer `&` par `&amp;` :
+```typescript
+const imageUrlHtml = imageUrl.replace(/&/g, '&amp;')
+// Utilisé dans content="..." — pas dans le JS window.location.replace()
 ```
 
-Les `&` dans la query string de la signed URL **n'étaient pas échappés** en `&amp;`.
+**Outil de debug Facebook** : https://developers.facebook.com/tools/debug/
+→ "Scrape Again" pour forcer le re-cache après un fix.
 
-#### Cause
+---
 
-La spécification HTML exige que le caractère `&` dans les valeurs d'attributs soit toujours encodé en `&amp;`. Les parsers HTML stricts (dont ceux des bots scrapers de Facebook, WhatsApp, Telegram) lisent le contenu d'un attribut jusqu'au premier `&` non échappé et **tronquent l'URL à cet endroit**.
+## Semaphore signDownload — max 3 requêtes simultanées
 
-Une signed URL GCS contient systématiquement plusieurs `&` dans ses query params :
+### Problème
 
-```
-?X-Goog-Algorithm=GOOG4-RSA-SHA256
-&X-Goog-Credential=...      ← premier & → URL tronquée ici par le parser HTML
-&X-Goog-Date=...
-&X-Goog-Expires=3600
-&X-Goog-SignedHeaders=host
-&X-Goog-Signature=...
-```
+Sur un jour avec 25+ photos, 25 appels `signDownload()` simultanés saturent :
+- Les fonctions serverless Vercel (cold starts)
+- Le réseau mobile (buffer saturé)
+→ Timeouts → images cassées dans la grille
 
-Résultat : Facebook recevait une URL invalide (tronquée avant `X-Goog-Credential`), tentait de charger une ressource GCS sans signature valide, obtenait une erreur 403, et abandonnait la preview image.
+### Solution
 
-#### Fix
-
-Avant d'injecter une URL dans un attribut HTML, tous les `&` sont remplacés par `&amp;` :
+`Semaphore` dans `semaphore.ts` limite à 3 les `signDownload` concurrents. Les suivants attendent dans une queue et sont débloqués au fur et à mesure.
 
 ```typescript
-const imageUrlHtml  = imageUrl.replace(/&/g, '&amp;')
-const flutterUrlHtml = flutterUrl.replace(/&/g, '&amp;')
+// Pourquoi 3 ?
+// 1 → trop lent (séquentiel)
+// 3 → pipeline efficace sans saturer le réseau mobile ← choix retenu
+// 10+ → retour aux problèmes de saturation
 ```
 
-Les variables `*Html` sont utilisées dans les attributs HTML (`content=`, `href=`), tandis que les variables brutes sont réservées au JavaScript (`window.location.replace(JSON.stringify(flutterUrl))`) — le JS n'est pas du HTML et n'a pas besoin d'échappement HTML.
-
-```html
-<!-- Attribut HTML : &amp; obligatoire -->
-<meta property="og:image" content="https://storage.googleapis.com/...?X-Goog-Algorithm=GOOG4-RSA-SHA256&amp;X-Goog-Credential=...">
-
-<!-- JavaScript : URL brute, JSON.stringify gère l'échappement JS -->
-<script>window.location.replace("https://chetlys.vercel.app/?tab=coffre&y=2026&m=01&d=13&f=photo.jpg");</script>
-```
-
-#### Forcer le re-scrape Facebook
-
-Facebook met en cache les résultats de scraping ~24h. Après un fix sur l'endpoint, il faut forcer un nouveau scrape via l'outil officiel :
-
-**https://developers.facebook.com/tools/debug/** → coller l'URL → "Scrape Again"
-
-Cet outil affiche également les erreurs de parsing og:image, ce qui est utile pour diagnostiquer ce type de problème.
+Double vérification du cache après attente : si deux tuiles demandent la même URL, la seconde lit le cache rempli par la première sans refaire la requête.
 
 ---
 
-## Semaphore — limitation des requêtes réseau concurrentes
+## Proxy og-image pour les thumbnails de grille
 
-### Symptôme
+Les photos brutes d'appareil (ex. Lumix JPEG ~8 MB, 6000×4000 px) ne doivent **jamais** arriver sur le client pour les thumbnails. Décoder un JPEG 8 MB occupe ~96 MB GPU. Sur une grille de 9 tuiles : pics mémoire catastrophiques sur mobile.
 
-Sur mobile Android (Chrome, PWA), les jours avec beaucoup de photos (20–30+) affichaient des `errorWidget` (icône image cassée) sur certaines tuiles, même après la réduction de `memCacheWidth` à 300 px. Le problème n'était donc pas la mémoire GPU, mais la saturation réseau.
+**Solution** : utiliser `/api/coffre/og-image?path=...&w=300` comme source des thumbnails. Le serveur renvoie un JPEG déjà à 300px (~15 KB). Le client ne voit jamais l'original.
 
-### Cause : N requêtes simultanées pour N photos
-
-Chaque `_FileTile` appelle `_getCachedUrl()` dans son `initState()`. Avec 25 photos dans un jour, 25 `initState()` s'exécutent simultanément → 25 appels `signDownload()` parallèles vers `chetana.dev/api/coffre/sign-download`.
-
-```
-Jour avec 25 photos → build de la GridView
-    │
-    ├── _FileTile[0].initState() → signDownload("2026/02/22/photo_01.jpg")  ┐
-    ├── _FileTile[1].initState() → signDownload("2026/02/22/photo_02.jpg")  │
-    ├── _FileTile[2].initState() → signDownload("2026/02/22/photo_03.jpg")  │ 25 requêtes
-    ├── ...                                                                  │ simultanées
-    └── _FileTile[24].initState() → signDownload("2026/02/22/photo_25.jpg") ┘
+```typescript
+// FileTile.svelte
+const imgSrc = isVideo ? videoThumb : ogImageUrl(name, 300);
+// ogImageUrl() → https://chetana.dev/api/coffre/og-image?path=...&w=300
 ```
 
-Conséquences sur mobile :
-- **Vercel serverless** : 25 fonctions démarrées simultanément (cold starts inclus) → latences imprévisibles
-- **Réseau mobile** : HTTP/2 multiplexe mais les connexions simultanées saturent le buffer réseau
-- **GCS** : chaque signed URL résolue déclenche un téléchargement GCS → 25 téléchargements concurrents
-- Résultat : timeouts, erreurs réseau → `errorWidget` affiché à tort
-
-### Solution : semaphore à 3 slots
-
-Un **semaphore** est un mécanisme de contrôle de concurrence qui permet au maximum N opérations de s'exécuter simultanément. Les opérations en excès attendent dans une queue et sont débloquées au fur et à mesure.
-
-```dart
-// État du semaphore dans _DayFilesScreenState
-int _activeUrlFetches = 0;
-final List<Completer<void>> _urlFetchQueue = [];
-static const _maxUrlFetches = 3;
-
-Future<void> _acquireUrlSlot() async {
-  if (_activeUrlFetches < _maxUrlFetches) {
-    _activeUrlFetches++;   // slot libre → on passe directement
-    return;
-  }
-  // Plus de slot libre → on crée un Completer et on attend qu'il soit résolu
-  final c = Completer<void>();
-  _urlFetchQueue.add(c);
-  await c.future;          // suspension ici jusqu'à _releaseUrlSlot()
-  _activeUrlFetches++;
-}
-
-void _releaseUrlSlot() {
-  _activeUrlFetches--;
-  if (_urlFetchQueue.isNotEmpty) {
-    // Débloquer le prochain en attente
-    _urlFetchQueue.removeAt(0).complete();
-  }
-}
-
-Future<String?> _getCachedUrl(String name) async {
-  if (_urlCache.containsKey(name)) return _urlCache[name];  // cache hit → direct
-  await _acquireUrlSlot();   // attend un slot libre
-  try {
-    if (_urlCache.containsKey(name)) return _urlCache[name]; // re-vérifie après attente
-    final url = await signDownload(name);
-    if (mounted) _urlCache[name] = url;
-    return url;
-  } catch (_) {
-    _urlCache[name] = null;
-    return null;
-  } finally {
-    _releaseUrlSlot();    // libère le slot dans tous les cas (succès ou erreur)
-  }
-}
-```
-
-### Chronologie avec le semaphore (25 photos, 3 slots)
-
-```
-t=0ms  Tile[0]  → acquiert slot 1 → démarre signDownload
-       Tile[1]  → acquiert slot 2 → démarre signDownload
-       Tile[2]  → acquiert slot 3 → démarre signDownload
-       Tile[3]  → queue (attend)
-       Tile[4]  → queue (attend)
-       ...
-       Tile[24] → queue (attend)
-
-t=80ms  Tile[0] reçoit sa signed URL → libère slot 1 → Tile[3] démarre
-t=95ms  Tile[1] reçoit sa signed URL → libère slot 2 → Tile[4] démarre
-t=110ms Tile[2] reçoit sa signed URL → libère slot 3 → Tile[5] démarre
-...
-```
-
-Au lieu de 25 requêtes simultanées : maximum 3 à la fois, débit constant et contrôlé.
-
-### Pourquoi 3 et pas 1 ou 10 ?
-
-| Valeur | Effet |
-|--------|-------|
-| 1 | Séquentiel — trop lent, l'utilisateur attend longtemps |
-| 3 | Équilibre vitesse / pression réseau — recommandé |
-| 10+ | Retour aux problèmes de saturation sur réseau mobile |
-
-3 requêtes simultanées permettent un pipeline efficace (pendant que l'une attend la réponse, les deux autres avancent) sans saturer ni le réseau mobile ni les fonctions serverless Vercel.
-
-### Double vérification du cache après attente
-
-```dart
-await _acquireUrlSlot();
-// ← ici, d'autres tiles ont peut-être déjà fetché cette URL pendant qu'on attendait
-if (_urlCache.containsKey(name)) return _urlCache[name]; // évite un doublon
-```
-
-Si deux tiles demandent la même URL simultanément, la première passe, la seconde attend dans la queue. Quand la seconde obtient son slot, la première a déjà rempli le cache → la seconde lit le cache sans refaire la requête. Pattern **check-then-act** autour d'une section critique.
-
-### `Completer<void>` — mécanique interne
-
-`Completer<void>` est la primitive Dart pour créer une `Future` qu'on peut résoudre manuellement :
-
-```dart
-final c = Completer<void>();
-// c.future est une Future qui ne se résout pas encore
-
-c.complete();
-// ← maintenant c.future est résolue, tout await c.future reprend son exécution
-```
-
-C'est exactement le mécanisme utilisé pour "suspendre" une coroutine dans la queue et la "réveiller" quand un slot se libère.
-
-### Import nécessaire
-
-`Completer` fait partie de `dart:async` — à importer explicitement dans les projets Flutter (pas inclus dans `dart:core`) :
-
-```dart
-import 'dart:async'; // requis pour Completer<void>
-```
+Avantage secondaire : HEIC, WebP, RAW — tous transcodes en JPEG → compatibilité universelle.
 
 ---
 
-## Note overlay — bug de synchronisation d'état après sauvegarde
+## Réactions emoji — architecture simplifiée
 
-### Symptôme
+Un seul `reactions.json` par jour (pas un fichier par photo, pas de DB).
 
-Après avoir écrit une note dans l'overlay et l'avoir fermé, la preview inline dans la barre affichait toujours l'ancien texte (ou le placeholder "Ajouter une note…"). Si on rouvrait l'overlay immédiatement, on retrouvait l'ancien contenu, pas ce qu'on venait de taper.
+**Justification** : 2 utilisateurs, quelques dizaines de photos max → risque de conflit d'écriture concurrent quasi nul. Un seul `signDownload` + `GET` charge toutes les réactions du jour.
 
-La note était bien sauvegardée en GCS (un rechargement de page l'affichait correctement), mais l'état local n'était pas mis à jour.
-
-### Cause
-
-`_saveNote(String text)` dans `_DayFilesScreenState` appelait `saveNote()` (PUT vers GCS) mais ne mettait jamais à jour `_note` dans le state Flutter :
-
-```dart
-// Avant le fix — _note jamais mis à jour
-Future<void> _saveNote(String text) async {
-  setState(() => _noteSaving = true);         // ← seul le spinner est mis à jour
-  await saveNote(year, month, day, text);     // ← GCS sauvegardé ✓
-  setState(() => _noteSaving = false);        // ← _note reste à l'ancienne valeur ✗
-}
-```
-
-Résultat : `_NoteField` recevait toujours `initialText: _note` avec l'ancienne valeur. La préview restait stale jusqu'au prochain `_loadNote()` (rechargement du jour).
-
-### Fix
-
-Mettre à jour `_note` en même temps que le spinner :
-
-```dart
-Future<void> _saveNote(String text) async {
-  setState(() { _noteSaving = true; _note = text; });  // ← _note mis à jour immédiatement
-  await saveNote(year, month, day, text);
-  if (mounted) setState(() => _noteSaving = false);
-}
-```
-
-### Leçon
-
-Dans un pattern "sauvegarde optimiste" (UI mise à jour avant confirmation serveur), toujours mettre à jour **toutes** les variables d'état concernées simultanément — pas seulement les indicateurs de chargement.
+**Optimistic update** : l'UI est mise à jour immédiatement, la persistance GCS est asynchrone.
 
 ---
 
-## Dépendances
+## Auth Google — GSI One Tap
 
-| Package | Version | Rôle |
-|---------|---------|------|
-| `flutter` | SDK stable | Framework UI cross-platform |
-| `timezone` | ^0.10.0 | Base IANA timezones, DST automatique |
-| `cupertino_icons` | ^1.0.8 | Icônes iOS style |
-| `google_sign_in` | ^6.2.2 | Auth Google (web clientId) |
-| `file_picker` | ^8.1.4 | Sélection fichiers multi-plateforme |
-| `http` | ^1.2.2 | Requêtes REST (coffre_api) |
-| `intl` | ^0.19.0 | Internationalisation (dates) |
-| `video_player` | ^2.9.2 | Lecture vidéo bas niveau |
-| `chewie` | ^1.8.5 | UI player vidéo (controls, seek bar) |
-| `share_plus` | ^10.1.4 | Web Share API (iOS Share Sheet, Android) |
-| `cached_network_image` | ^3.4.1 | Cache disque images (cacheKey stable) |
+`auth.ts` utilise Google Identity Services (GSI) :
+- Auto-select au chargement si une session existe
+- Token JWT stocké en `sessionStorage` (même session uniquement, pas `localStorage`)
+- Expiration vérifiée à la restauration (`exp * 1000 > Date.now()`)
+- `getToken()` retourne le JWT courant → `Authorization: Bearer <token>` sur tous les appels API
 
-Volontairement sans state management externe (Provider, Riverpod, Bloc) — `setState` suffit pour une app à deux utilisateurs avec navigation state-based.
+---
+
+## Cache signed URLs (DayFiles)
+
+`urlCache = new Map<string, string>()` dans `DayFiles.svelte` — en mémoire, clé = chemin GCS.
+
+Limites :
+- Invalidé à chaque changement de jour (composant remonte)
+- Après 1h, les URLs expirent — un rechargement de la page les rafraîchit
+- Pas de cache disque (contrairement à `cached_network_image` en Flutter) — SvelteKit s'appuie sur le cache HTTP du navigateur via `Cache-Control: max-age=86400` du proxy og-image
+
+---
+
+## Note du jour — bug synchronisation (résolu)
+
+**Symptôme** : après sauvegarde d'une note, la préview affichait l'ancien texte.
+
+**Cause** : `handleNoteSave()` sauvegardait en GCS mais ne mettait pas à jour le state local `note`.
+
+**Fix** : mettre à jour `note = text` en même temps que le `saveNote()` API call (optimistic update).
+
+```typescript
+// DayFiles.svelte
+async function handleNoteSave(text: string) {
+    note = text;                              // ← mise à jour immédiate du state local
+    await apiSaveNote(year, month, day, text); // ← persistance GCS async
+}
+```
+
+**Leçon** : dans un pattern "sauvegarde optimiste", toujours mettre à jour **toutes** les variables d'état concernées simultanément.
+
+---
+
+## Limitations iOS PWA
+
+- Un lien cliqué depuis WhatsApp s'ouvre dans Safari (pas dans la PWA installée) — limitation iOS, pas de workaround
+- Upload multi-fichiers : Apple limite le picker à 1 fichier à la fois sur Safari iOS
+- Les liens sharés fonctionnent identiquement en mode navigateur et en mode PWA
+
+---
+
+## Dépendances notables
+
+| Package | Rôle |
+|---------|------|
+| `date-fns` + `date-fns-tz` | Formatage dates bilingues + timezones IANA |
+| `@sveltejs/adapter-vercel` | Deploy Vercel avec SSR/CSR hybride |
+
+Volontairement sans state management externe (Pinia, Zustand, etc.) — `$state` / `$derived` Svelte 5 suffisent.

@@ -13,7 +13,7 @@
 		fetchReactions,
 		saveReactions as apiSaveReactions,
 		isMediaFile,
-		shareUrl as buildShareUrl,
+		previewUrl as buildShareUrl,
 		type CoffreItem
 	} from '$lib/api';
 	import { compressImage } from '$lib/compressor';

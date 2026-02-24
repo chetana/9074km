@@ -1,256 +1,92 @@
-# Architecture — chet_lys
+# Architecture — chet_lys (SvelteKit)
+
+> Migration Flutter → SvelteKit effectuée en février 2026.
+> L'app Flutter originale est conservée dans `app-flutter/` pour référence.
 
 ## Vue d'ensemble
 
-L'application est un **widget Flutter pur** avec deux onglets : une double horloge (sans backend) et un coffre à souvenirs (avec backend GCS via chetana.dev).
+Application couple **PWA** avec deux onglets : une double horloge (stateless) et un coffre à souvenirs (backend GCS via chetana.dev).
+
+**Stack** : SvelteKit 2 · Svelte 5 · TypeScript · Vite · Vercel (adapter-vercel)
 
 ---
 
 ## Structure du code
 
 ```
-lib/
-├── main.dart
-│   ├── main()                # init timezones + runApp
-│   ├── ChetLysApp            # MaterialApp — thème sombre #0F0F1A
-│   ├── HomeScreen            # StatefulWidget — BottomNavigationBar (2 onglets)
-│   │                         # initState() parse Uri.base.queryParameters (deep link)
-│   ├── ClockScreen           # Stateful — Timer 1s, double fuseau horaire
-│   ├── _ClockCard            # Card par personne (heure, date, status bilingue FR+KH)
-│   ├── _DaysTogetherBadge    # "💍 Jour X ensemble" depuis _coupleStartDate (13 jan 2026)
-│   └── _DistanceIndicator    # 9 074 km + décalage horaire
+src/
+├── app.css                    # Variables CSS globales (thème sombre #0F0F1A)
+├── app.html                   # Template HTML racine (PWA meta tags)
+├── lib/
+│   ├── api.ts                 # Appels REST vers chetana.dev/api/coffre/*
+│   ├── auth.ts                # Auth Google (GSI One Tap, sessionStorage)
+│   ├── compressor.ts          # Compression images canvas WebP/JPEG avant upload
+│   ├── i18n.ts                # Constantes bilingues FR+KH, statuts, dates
+│   ├── semaphore.ts           # Semaphore async (max 3 signDownload simultanés)
+│   └── thumbnailer.ts         # Thumbnail vidéo via HTMLVideoElement + Canvas
 │
-└── coffre/
-    ├── auth_service.dart          # Singleton AuthService — GoogleSignIn web
-    │                              # signIn() / disconnect() / idToken() / currentUser
-    ├── coffre_api.dart            # Fonctions REST vers chetana.dev/api/coffre/*
-    │                              # listObjects / signUpload / signDownload / deleteObject
-    │                              # fetchNote / saveNote
-    │                              # fetchMeta / saveMeta        (meta.json)
-    │                              # fetchReactions / saveReactions (reactions.json)
-    ├── coffre_screen.dart         # Auth gate + PopScope + routing state + breadcrumb AppBar
-    │                              # initialYear/Month/Day/File → navigation directe (deep link)
-    ├── image_compressor.dart      # Export conditionnel (dart.library.html)
-    ├── image_compressor_web.dart  # Canvas WebP→JPEG, max 2048px — web uniquement
-    ├── image_compressor_stub.dart # Pass-through — Android natif
-    ├── video_thumbnailer.dart     # Export conditionnel (dart.library.html)
-    ├── video_thumbnailer_web.dart # HTMLVideoElement + CanvasElement, frame à 0.5s — web
-    ├── video_thumbnailer_stub.dart# Retourne null — Android natif
-    ├── year_list.dart             # YearListBody — liste des années + compteur mois
-    ├── month_list.dart            # MonthListBody — liste des mois (FR+KH) + compteur jours
-    ├── day_list.dart              # DayListBody — liste des jours (date + FR+KH)
-    └── day_files.dart             # DayFilesScreen — tout l'écran jour (voir détail ci-dessous)
+└── routes/
+    ├── +layout.svelte         # Shell app : bottom nav + icône horloge dynamique
+    ├── +page.svelte           # Redirect / → /horloge
+    ├── horloge/
+    │   └── +page.svelte       # Double horloge Paris/Phnom Penh + compteur jours
+    └── coffre/
+        ├── +page.ts           # load() : lit les query params deep link (y, m, d, f)
+        ├── +page.svelte       # Auth gate + navigation state-based
+        └── components/
+            ├── Breadcrumb.svelte    # Coffre › 2026 › 02 › 22
+            ├── YearList.svelte      # Liste des années + compteur mois
+            ├── MonthList.svelte     # Liste des mois FR+KH + compteur jours
+            ├── DayList.svelte       # Liste des jours + compteur fichiers
+            ├── DayFiles.svelte      # Vue jour : grille + viewer + upload
+            ├── DayNavBar.svelte     # ‹ label › [zoom]
+            ├── DaysChipBar.svelte   # Chips jours avec compteur, auto-scroll
+            ├── NoteField.svelte     # Note pliable du jour, auto-save
+            ├── FileTile.svelte      # Tuile grille (image/vidéo + badges)
+            ├── FabUpload.svelte     # Bouton upload + progression 2 phases
+            └── FileViewer.svelte    # Viewer plein écran (swipe + réactions)
 ```
 
 ---
 
 ## Navigation Coffre
 
-La navigation est **state-based** (pas de `Navigator.push`). `CoffreScreen` gère les variables `_year`, `_month`, `_day` et affiche le bon widget body selon l'état.
+Navigation **state-based** dans `+page.svelte` (pas de router) :
 
 ```
-_year == null  → YearListBody
-_month == null → MonthListBody(year)
-_day == null   → DayListBody(year, month)
-else           → DayFilesScreen(year, month, day)
+year === null  → YearList
+month === null → MonthList(year)
+day === null   → DayList(year, month)
+else           → DayFiles(year, month, day)
 ```
 
-L'AppBar affiche en permanence :
-- **Breadcrumb cliquable** : `Coffre › 2026 › 02 › 22` — chaque segment remet à null les niveaux inférieurs
-- **Icône calendrier** : `showDatePicker` (thème sombre) → met à jour `_year/_month/_day` directement
-- **Icône logout** : appelle `AuthService.disconnect()` pour forcer le sélecteur de compte
-
 ```
-Coffre › 2026 › 02 › 22      [📅]  [logout]
-  ↑tap      ↑tap  ↑tap  (courant)
+Breadcrumb :  Coffre › 2026 › 02 › 22
+                ↑tap    ↑tap  ↑tap  (niveau actif)
 ```
 
-### Back Android (PopScope)
-
-`CoffreScreen` est enveloppé dans un `PopScope` :
-- `_day != null` → efface `_day` (remonte à la liste des jours)
-- `_month != null` → efface `_month` (remonte aux mois)
-- `_year != null` → efface `_year` (remonte aux années)
-- `_year == null` → `canPop: true` → quitte l'onglet normalement
-
-### Mémorisation scroll (PageStorageKey)
-
-Chaque `ListView.builder` dans les listes porte une `PageStorageKey` unique :
-- `YearListBody` : `PageStorageKey('year-list')`
-- `MonthListBody` : `PageStorageKey('month-list-$year')`
-- `DayListBody` : `PageStorageKey('day-list-$year-$month')`
-
-Flutter restaure automatiquement la position de scroll au retour dans la liste.
-
-### Compteurs dans les listes
-
-Après le chargement principal, les listes lancent des requêtes parallèles pour enrichir l'affichage :
-- `YearListBody` : pour chaque année, `listObjects('YYYY/')` → compte les mois → affiche "X mois · X ខែ"
-- `MonthListBody` : pour chaque mois, `listObjects('YYYY/MM/')` → compte les jours → affiche "X jours · X ថ្ងៃ"
-- `DayListBody` : pour chaque jour, `listObjects('YYYY/MM/DD/')` → compte les fichiers (note.txt, meta.json, reactions.json exclus) → affiche "X fichiers · X ឯកសារ"
+Deep link à l'ouverture : `?y=2026&m=02&d=22&f=photo.jpg` → navigation directe.
 
 ---
 
-## DayFilesScreen — widgets internes
+## DayFiles — composants internes
 
 ```
-DayFilesScreen
-│
-├── État principal (_DayFilesScreenState)
-│   ├── _items            : List<CoffreItem>?       (fichiers du jour, hors note/meta/reactions)
-│   ├── _days             : List<String>?            (jours du mois avec contenu)
-│   ├── _dayCounts        : Map<String, int>         (fichiers par jour)
-│   ├── _urlCache         : Map<String, String?>     (signed URLs en mémoire 1h)
-│   ├── _note             : String                   (texte note du jour)
-│   ├── _meta             : Map<String, String>      (filename → prénomUploader)
-│   ├── _reactions        : Map<String, List<String>>(filename → [emoji, ...])
-│   ├── _columns          : int (2/3/4)              (colonnes grille)
-│   ├── _deepLinkHandled  : bool                     (évite double-open au rebuild)
-│   └── _phase            : idle / compressing / uploading
-│
-├── _DayNavBar
-│   ├── < prev (onPrevDay callback)
-│   ├── Dimanche · អាទិត្យ  Jan 22   (label FR+KH)
-│   ├── next > (onNextDay callback)
-│   └── [zoom icon] toggle 2/3/4 colonnes (_columns state)
-│
-├── _DaysChipBar  (StatefulWidget)
-│   ├── ScrollController + GlobalKey sur chip active
-│   ├── Auto-scroll vers chip active (initState + didUpdateWidget)
-│   ├── Highlight "aujourd'hui" : bordure rose + point rose sous le label
-│   ├── Compteur par jour : chargé en parallèle dans _loadDays()
-│   │   → Map<String, int> _dayCounts via Future.wait(listObjects par jour)
-│   └── Chip actif mis en évidence, tap → onDayJump → CoffreScreen._day
-│
-├── _NoteField  (StatefulWidget)
-│   ├── Barre pliable — affiche aperçu du texte ou placeholder
-│   ├── TextField multi-lignes, auto-save onTapOutside / onSubmitted
-│   └── Stocké en GCS : YYYY/MM/DD/note.txt (filtré hors de la grille)
-│
-├── GestureDetector (pinch-to-zoom colonnes)
-│   ├── onScaleStart : mémorise l'état initial
-│   ├── scale > 1.2 → _columns-- (min 2)   ← écartement des doigts
-│   └── scale < 0.8 → _columns++ (max 4)   ← resserrement des doigts
-│
-├── RefreshIndicator → pull-to-refresh → _load()
-│
-└── GridView (_FileTile)
-    ├── key: ValueKey(name)         # évite réutilisation d'état
-    ├── getUrl: _getCachedUrl       # cache parent Map<String, String?>
-    ├── uploaderName                # depuis _meta[filename]
-    ├── reactions                   # depuis _reactions[filename]
-    ├── onLongPress → _showTileMenu (bottom sheet : Sélectionner / Partager / Supprimer)
-    └── _FileTile (StatefulWidget)
-        ├── Image : CachedNetworkImage (cacheKey: item.name, cache disque)
-        ├── Vidéo : _videoThumbnail() → generateVideoThumbnail() → frame 0.5s
-        ├── Badge bas-gauche : prénomUploader (depuis _meta) — fond noir semi-transparent
-        └── Badge bas-droit  : emojis réactions (depuis _reactions) — jusqu'à 3 emojis
-```
-
----
-
-## _FabProgress (upload en 2 phases)
-
-```
-Phase compressing : ✨ icône + X/N
-Phase uploading   : ⏳ spinner + X/N
-```
-
----
-
-## _FileViewer — Dialog plein écran
-
-```
-showGeneralDialog + ScaleTransition(0.88→1.0) + FadeTransition (280ms, easeOutCubic)
-        │
-        └── Dialog.fullscreen (backgroundColor: black)
-            └── GestureDetector(onTap: toggle _showUi)
-                ├── PageView.builder (PageController viewportFraction: 0.92)  ← peek effect
-                │   ├── onPageChanged → _loadAdjacent() si bord atteint (cross-day ±60j)
-                │   └── _PageContent (StatefulWidget, une instance par page)
-                │       ├── CachedNetworkImage (cacheKey: item.name)
-                │       ├── InteractiveViewer   # pinch-to-zoom images
-                │       └── ChewieController   # lecteur vidéo (autoPlay: false)
-                │
-                ├── Positioned(top) → AnimatedOpacity(_showUi, 200ms) ← barre supérieure
-                │   └── IgnorePointer(!_showUi)
-                │       ├── [close] [filename] [🔗 link] [share]
-                │       │           ↑ _copyLink() → Clipboard + _showCopiedToast
-                │       └── fond dégradé noir→transparent
-                │
-                ├── Positioned(bottom) → AnimatedOpacity(_showUi, 200ms) ← barre réactions
-                │   └── IgnorePointer(!_showUi)
-                │       ├── [❤️] [😍] [😂] [🥹] [🔥] [👏]  ← toggle par tap
-                │       └── fond dégradé noir→transparent (bas→haut)
-                │
-                └── Positioned(center-bottom) → AnimatedOpacity(_showCopiedToast, 250ms)
-                    └── IgnorePointer
-                        └── Container blanc arrondi → Text("Copié · ចម្លង")
-```
-
-### État du viewer (_FileViewerState)
-
-```dart
-_showUi          : bool   // toggle barre top + barre réactions
-_showCopiedToast : bool   // toast "Copié · ចម្លង" (2s)
-_reactions       : Map<String, List<String>>  // initialisé depuis widget.reactions
-```
-
-### Rechargement réactif
-
-`DayFilesScreen` utilise `didUpdateWidget` pour détecter les changements de date :
-- `year/month/day` change → `_items = null`, `_urlCache.clear()`, `_noteLoaded = false`, `_meta = {}`, `_reactions = {}` + `_load()` + `_loadNote()` + `_loadMeta()` + `_loadReactions()`
-- `year/month` change → `_days = null`, `_dayCounts = {}` + `_loadDays()`
-
----
-
-## Compression images
-
-```
-compressImage(bytes, filename, contentType)   [image_compressor.dart]
-        │
-        │  dart.library.html → web
-        ▼
-image_compressor_web.dart
-        │
-        ├── Blob(bytes) → ImageElement → load
-        ├── Redimensionne si > 2048px (préserve ratio)
-        ├── CanvasElement.drawImageScaled()
-        │
-        ├── canvas.toDataUrl('image/webp', 0.85)
-        │       └── Chrome/Android : WebP → si résultat < original → ✓
-        │       └── Safari          : retourne PNG (non webp) → skipped
-        │
-        └── canvas.toDataUrl('image/jpeg', 0.85)
-                └── Universel (Safari inclus) → si résultat < original → ✓
-                └── Sinon : retourne l'original intact (fallback)
-
-Gains typiques :
-  HEIC 5 MB → JPEG ~700 KB (Safari)   −86%
-  JPEG 3 MB → WebP ~300 KB (Chrome)   −90%
-  PNG  2 MB → WebP ~150 KB (Chrome)   −93%
-```
-
-Pour Android natif (`image_compressor_stub.dart`) : pass-through, bytes renvoyés tels quels.
-
----
-
-## Thumbnails vidéo
-
-```
-generateVideoThumbnail(videoUrl)   [video_thumbnailer.dart]
-        │
-        │  dart.library.html → web
-        ▼
-video_thumbnailer_web.dart
-        │
-        ├── HTMLVideoElement(src: url, muted: true, preload: 'metadata')
-        ├── onLoadedMetadata → video.currentTime = 0.5  (seek à 0.5s)
-        ├── onSeeked → CanvasElement.drawImage(video, 0, 0)
-        ├── canvas.toDataUrl('image/jpeg', 0.8) → base64 → Uint8List
-        └── timeout 8s → null si la vidéo ne répond pas
-
-Pour Android natif (video_thumbnailer_stub.dart) : retourne null → icône play statique.
+DayFiles
+├── DayNavBar          label · ‹ › · [zoom colonnes]
+├── DaysChipBar        chips jours avec compteur, auto-scroll
+├── NoteField          note pliable, auto-save onblur
+├── Grille (grid CSS)
+│   └── FileTile × N
+│       ├── img src = og-image proxy ?w=300 (jamais l'original)
+│       ├── Badge bas-gauche : prénomUploader (meta.json)
+│       └── Badge bas-droit  : emojis réactions (reactions.json)
+├── FabUpload          ✨ compressing X/N · ⏳ uploading X/N
+└── FileViewer (overlay plein écran)
+    ├── swipe entre photos du jour
+    ├── Barre top : close · filename · 🔗 link · share
+    ├── Barre bottom : réactions ❤️ 😍 😂 🥹 🔥 👏
+    └── Toast "Copié · ចម្លង"
 ```
 
 ---
@@ -258,347 +94,191 @@ Pour Android natif (video_thumbnailer_stub.dart) : retourne null → icône play
 ## Flux de données — Coffre
 
 ```
-AuthService.signIn()
-    └── GoogleSignIn.signIn()         # popup compte Google
-            └── idToken()             # JWT signé par Google (~1h)
+auth.ts → Google GSI One Tap → JWT → sessionStorage
 
-coffre_api.dart  (toutes les fonctions ajoutent le Bearer token)
-    │
-    ├── listObjects(prefix)
-    │       └── GET chetana.dev/api/coffre/list?prefix=YYYY/MM/DD/
-    │               └── GCS list avec delimiter "/" → prefixes + items
-    │
-    ├── signUpload(path, contentType)
-    │       └── POST chetana.dev/api/coffre/sign-upload
-    │               └── Signed URL PUT v4 (15 min) → Node.js crypto
-    │
-    ├── uploadFile(signedUrl, bytes, contentType)
-    │       └── PUT <signed_url> (direct vers GCS, pas via Nitro)
-    │
-    ├── signDownload(path)
-    │       └── GET chetana.dev/api/coffre/sign-download?path=
-    │               └── Signed URL GET v4 (1h)
-    │
-    ├── deleteObject(path)
-    │       └── DELETE chetana.dev/api/coffre/delete?path=
-    │               └── GCS file.delete()
-    │
-    ├── fetchNote(year, month, day)
-    │       └── signDownload('YYYY/MM/DD/note.txt')
-    │               └── GET <signed_url> → utf8.decode(body)
-    │
-    ├── saveNote(year, month, day, text)
-    │       └── signUpload('YYYY/MM/DD/note.txt', 'text/plain')
-    │               └── PUT <signed_url> avec utf8.encode(text)
-    │
-    ├── fetchMeta(year, month, day)
-    │       └── signDownload('YYYY/MM/DD/meta.json')
-    │               └── GET <signed_url> → jsonDecode → Map<String, String>
-    │
-    ├── saveMeta(year, month, day, meta)
-    │       └── signUpload('YYYY/MM/DD/meta.json', 'application/json')
-    │               └── PUT <signed_url> avec jsonEncode(meta)
-    │
-    ├── fetchReactions(year, month, day)
-    │       └── signDownload('YYYY/MM/DD/reactions.json')
-    │               └── GET <signed_url> → jsonDecode → Map<String, List<String>>
-    │
-    └── saveReactions(year, month, day, reactions)
-            └── signUpload('YYYY/MM/DD/reactions.json', 'application/json')
-                    └── PUT <signed_url> avec jsonEncode(reactions)
+api.ts (Bearer JWT sur tous les appels)
+├── listObjects(prefix)       GET  /api/coffre/list?prefix=
+├── signUpload(path, ct)      GET  /api/coffre/sign-upload?path=&contentType=
+├── uploadFile(url, bytes)    PUT  <signed_url> (direct GCS)
+├── signDownload(path)        GET  /api/coffre/sign-download?path=
+├── deleteObject(path)        DELETE /api/coffre/delete?path=
+├── fetchNote / saveNote      GET|POST /api/coffre/note?y=&m=&d=
+├── fetchMeta / saveMeta      GET|POST /api/coffre/meta?y=&m=&d=
+└── fetchReactions / saveReactions  GET|POST /api/coffre/reactions?y=&m=&d=
 ```
 
 ### Endpoints backend (chetana.dev)
 
 | Endpoint | Auth | Description |
 |----------|------|-------------|
-| `GET /api/coffre/list?prefix=` | ✅ Bearer | Liste les objets GCS avec délimiteur `/` |
-| `POST /api/coffre/sign-upload` | ✅ Bearer | Signed URL PUT (15 min) |
-| `GET /api/coffre/sign-download?path=` | ✅ Bearer | Signed URL GET (1h) |
+| `GET /api/coffre/list?prefix=` | ✅ Bearer | Liste GCS avec délimiteur `/` |
+| `GET /api/coffre/sign-upload?path=&contentType=` | ✅ Bearer | Signed URL PUT 15 min |
+| `GET /api/coffre/sign-download?path=` | ✅ Bearer | Signed URL GET 1h |
 | `DELETE /api/coffre/delete?path=` | ✅ Bearer | Supprime un objet GCS |
-| `GET /api/coffre/preview?y=&m=&d=&f=` | ❌ public | HTML og:image + redirect Flutter |
-| `GET /api/coffre/og-image?path=[&w=]` | ❌ public | Proxy JPEG via sharp — `w=1200` (social), `w=300` (thumbnails) |
-
-Les deux derniers endpoints sont sans auth — nécessaire pour les bots scrapers des messageries. L'accès reste sécurisé de facto : les chemins GCS ne sont connaissables qu'après auth via l'API `list`.
+| `GET /api/coffre/note?y=&m=&d=` | ✅ Bearer | Lit note.txt |
+| `POST /api/coffre/note?y=&m=&d=` | ✅ Bearer | Écrit note.txt |
+| `GET /api/coffre/meta?y=&m=&d=` | ✅ Bearer | Lit meta.json |
+| `POST /api/coffre/meta?y=&m=&d=` | ✅ Bearer | Écrit meta.json |
+| `GET /api/coffre/reactions?y=&m=&d=` | ✅ Bearer | Lit reactions.json |
+| `POST /api/coffre/reactions?y=&m=&d=` | ✅ Bearer | Écrit reactions.json |
+| `GET /api/coffre/preview?y=&m=&d=&f=` | ❌ public | HTML og:image + redirect PWA |
+| `GET /api/coffre/og-image?path=[&w=]` | ❌ public | Proxy JPEG via sharp |
 
 ---
 
 ## GCS — Convention de nommage
 
 ```
-YYYY/MM/DD/filename.ext       ← photos et vidéos (affichées dans la grille)
-YYYY/MM/DD/note.txt           ← note du jour (filtrée hors grille, chargée séparément)
-YYYY/MM/DD/meta.json          ← {"filename.jpg": "Chet"} (filtré hors grille)
-YYYY/MM/DD/reactions.json     ← {"filename.jpg": ["❤️", "😍"]} (filtré hors grille)
-
-Le prefix seul suffit pour drill-down sans DB :
-  listObjects('')              → prefixes = ['2026/']
-  listObjects('2026/')         → prefixes = ['2026/02/']
-  listObjects('2026/02/')      → prefixes = ['2026/02/22/']
-  listObjects('2026/02/22/')   → items = [{name, contentType, size}, ...]
-                                 + items filtrés : note.txt, meta.json, reactions.json
-                                   exclus de la grille
+YYYY/MM/DD/filename.ext     ← photos/vidéos (grille)
+YYYY/MM/DD/note.txt         ← note du jour (filtrée hors grille)
+YYYY/MM/DD/meta.json        ← {filename: prénomUploader}
+YYYY/MM/DD/reactions.json   ← {filename: ["❤️", "😍"]}
 ```
 
----
-
-## Signed URLs v4 (Node.js natif)
-
-Le SDK `@google-cloud/storage` est bundlé par Nitro/Rollup, ce qui casse les prototypes de classes (méthodes de signing inaccessibles). La solution : implémentation v4 avec le module crypto natif de Node.js dans `server/utils/gcs.ts`.
-
+Drill-down sans DB :
 ```
-Canonical request :
-  METHOD\n
-  /bucket/path\n
-  queryString\n
-  canonicalHeaders\n
-  signedHeaders\n
-  UNSIGNED-PAYLOAD
-
-→ SHA-256 → stringToSign
-→ RSA-SHA256 sign avec private_key du service account
-→ URL : https://storage.googleapis.com/bucket/path?...&X-Goog-Signature=<hex>
-```
-
----
-
-## CORS
-
-Deux niveaux de CORS nécessaires :
-
-1. **Nuxt middleware** (`server/middleware/cors.ts`) : permet à `chetlys.vercel.app` d'appeler `chetana.dev/api/coffre/*`
-2. **GCS bucket CORS** (`cors.json`) : permet à `chetlys.vercel.app` de faire des PUT directs vers GCS
-
----
-
-## Flux de données — Horloge
-
-```
-Système (horloge OS / navigateur)
-        │
-        │ DateTime.now().toUtc()   [chaque seconde]
-        ▼
-  ClockScreen._now  (UTC)
-        │
-        ├──▶ tz.TZDateTime.now('Europe/Paris')     → paris
-        └──▶ tz.TZDateTime.now('Asia/Phnom_Penh')  → phnomPenh
-                  │
-                  ├──▶ _ClockCard (Chet)  → heure / date / status FR+KH
-                  ├──▶ _ClockCard (Lys)   → heure / date / status FR+KH
-                  ├──▶ _DistanceIndicator → "9 074 km" + "+6h"
-                  └──▶ _DaysTogetherBadge → "💍 Jour X ensemble · ថ្ងៃទី X"
-                           └── DateTime.now().difference(_coupleStartDate).inDays
-                               _coupleStartDate = DateTime(2026, 1, 13)
-```
-
----
-
-## Cache images
-
-```
-_FileTile (grille)
-    └── CachedNetworkImage(
-          imageUrl: "https://chetana.dev/api/coffre/og-image?path=YYYY/MM/DD/file.jpg&w=300",
-          cacheKey: item.name + "__thumb",  ← clé stable pour le cache disque
-          // pas de memCacheWidth — l'image reçue est déjà 300px
-        )
-
-_PageContent (viewer)
-    └── CachedNetworkImage(
-          imageUrl: signedUrl,      ← signed URL GET v4 (1h)
-          cacheKey: item.name,      ← clé stable = chemin GCS
-          memCacheWidth: 1920,      ← viewer : plafond mémoire Full HD
-        )
-
-Le cache disque est indexé par cacheKey, pas par imageUrl.
-→ même si l'URL signée change après 1h, le cache disque reste valide.
-```
-
-### Pourquoi le proxy og-image pour les thumbnails de la grille ?
-
-Un JPEG brut d'appareil photo (ex. Lumix ~8 MB, ~6000×4000 px) décodé à pleine résolution
-occupe **~96 MB** en mémoire vive (6000 × 4000 × 4 octets RGBA). Le moteur CanvasKit de
-Flutter Web a un budget mémoire limité par onglet dans Chrome Android. Sur une grille de 9
-tuiles, ces décodages simultanés font crasher le renderer → `errorWidget` affiché à tort.
-
-`memCacheWidth: 300` ne résout pas le problème de fond : Flutter doit quand même décoder
-l'image originale (8 MB) avant de la redimensionner. La solution est de ne jamais envoyer
-l'original sur le device pour les thumbnails.
-
-Le proxy `/api/coffre/og-image?path=...&w=300` transcode l'image côté serveur via `sharp`
-avant de l'envoyer :
-
-| Source | Opération | Résultat reçu par le client |
-|--------|-----------|-----------------------------|
-| Grille | og-image transcode → JPEG 300px | ~15 KB, decode ~270 KB |
-| Viewer | signedUrl → image originale | ~8 MB, decode plafonnée à 1920px |
-
-Bénéfice supplémentaire : HEIC, WebP, RAW — tous transcodes en JPEG avant d'arriver sur le
-device, garantissant la compatibilité avec tous les navigateurs (Chrome Android ne supporte
-pas HEIC nativement).
-
----
-
-## Déploiement
-
-```
-Code Dart (lib/)
-        │
-        ▼ flutter build web --release
-build/web/  (HTML + JS + WASM)
-        │
-        ▼ npx vercel --prod
-Vercel CDN  →  https://chetlys.vercel.app  (projet: chet_lys)
-```
-
-> Le build est commité dans le repo car Vercel ne peut pas installer Flutter.
-
----
-
-## PWA — installation sur iPhone
-
-```
-Lys ouvre Safari → https://chetlys.vercel.app
-        │
-Safari charge index.html
-    ├── manifest.json  → nom "Chet & Lys", thème #0F0F1A
-    ├── flutter.js     → bootstrap Flutter engine
-    └── main.dart.js   → code applicatif transpilé
-        │
-Lys : Partager → "Sur l'écran d'accueil"
-        ▼
-Icône "Chet & Lys" → mode standalone (sans barre Safari)
+listObjects('')           → prefixes = ['2026/']
+listObjects('2026/')      → prefixes = ['2026/01/', '2026/02/']
+listObjects('2026/02/')   → prefixes = ['2026/02/13/', '2026/02/22/']
+listObjects('2026/02/22/')→ items = [{name, size, updated}, ...]
 ```
 
 ---
 
 ## Deep links — partage d'une photo
 
-### Format du lien partagé (preview proxy)
-
-Le lien copié par le bouton 🔗 pointe vers le **preview proxy** de chetana.dev — pas directement vers l'app Flutter :
+### Format du lien généré
 
 ```
-https://chetana.dev/api/coffre/preview?y=YYYY&m=MM&d=DD&f=filename.jpg
+https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
 ```
 
-Cet endpoint sert à deux choses simultanément :
-- **Bots scrapers** (WhatsApp, Telegram, Facebook) → reçoivent du HTML avec les balises `og:image`
-- **Vrais utilisateurs** → redirigés instantanément vers `https://chetlys.vercel.app/?tab=coffre&y=...`
-
-Le lien Flutter cible (après redirect) :
+→ Les bots WhatsApp/Telegram/Facebook voient le HTML og:image
+→ Les vrais utilisateurs sont redirigés vers :
 
 ```
-https://chetlys.vercel.app/?tab=coffre&y=YYYY&m=MM&d=DD&f=filename.jpg
+https://chetlys.vercel.app/coffre?y=2026&m=02&d=22&f=photo.jpg
 ```
 
-| Paramètre | Valeur | Exemple |
-|-----------|--------|---------|
-| `tab` | `coffre` | Sélectionne l'onglet Coffre |
-| `y` | année à 4 chiffres | `2026` |
-| `m` | mois padded | `02` |
-| `d` | jour padded | `22` |
-| `f` | nom de fichier URL-encodé | `IMG%201234.jpg` |
-
-Les caractères spéciaux dans le nom de fichier (espaces, accents, Unicode) sont encodés avec `Uri.encodeComponent` à la génération et décodés avec `Uri.decodeComponent` à la réception.
-
-### Flux côté expéditeur
+### Flux côté destinataire (SvelteKit)
 
 ```
-_FileViewerState._copyLink()
-    ├── _buildDeepLink()
-    │       └── Uri.encodeComponent(filename)
-    │               → "https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg"
-    ├── Clipboard.setData(ClipboardData(text: url))
-    └── setState(_showCopiedToast = true)
-            └── AnimatedOpacity → "Copié · ចម្លង" (2 secondes)
-```
-
-### Flux du preview proxy (chetana.dev)
-
-```
-Bot scraper WhatsApp/Telegram/FB :
-    GET https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
-        │
-        preview.get.ts
-            ├── Construit ogImageUrl = /api/coffre/og-image?path=2026/02/22/photo.jpg
-            ├── Construit titre : "Chet & Lys — 22 février 2026"
-            └── Retourne HTML :
-                    <meta property="og:image" content="https://chetana.dev/api/coffre/og-image?path=...">
-                    <meta property="og:title" content="Chet & Lys — 22 février 2026">
-                    <script>window.location.replace("https://chetlys.vercel.app/?...")</script>
-        │
-        Bot lit og:image → GET https://chetana.dev/api/coffre/og-image?path=...
-            │
-            og-image.get.ts
-                ├── signedGetUrl(path) → URL GCS signée
-                ├── fetch(signedUrl)   → télécharge l'image originale (WebP, HEIC, JPEG…)
-                ├── sharp(buffer).resize(1200).jpeg(85%) → JPEG universel
-                └── Retourne image/jpeg — Cache-Control: public, max-age=86400
-        │
-        Bot met en cache le JPEG ~24h — preview affichée dans la conversation
-
-Utilisateur humain qui clique :
-    GET https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
-        │
-        preview.get.ts → HTML avec JS redirect
-        │
-    Navigateur exécute window.location.replace(...)
-        → https://chetlys.vercel.app/?tab=coffre&y=2026&m=02&d=22&f=photo.jpg
-        → Flutter app s'ouvre → navigation directe vers la photo
-```
-
-**Pourquoi le proxy og-image ?** Facebook Messenger (`facebookexternalhit/1.1`) et Telegram n'acceptent pas WebP en `og:image` — seuls JPEG/PNG/GIF sont dans leur spec. WhatsApp a un scraper distinct qui supporte WebP. Le proxy transcode tout format en JPEG, garantissant la preview sur toutes les plateformes.
-
-### Flux côté destinataire (Flutter)
-
-```
-Ouverture de https://chetlys.vercel.app/?tab=coffre&y=2026&m=02&d=22&f=photo.jpg
+Ouverture de /coffre?y=2026&m=02&d=22&f=photo.jpg
     │
-    ▼ Flutter web démarre (index.html → main.dart.js)
+    +page.ts : load() → { y: '2026', m: '02', d: '22', f: 'photo.jpg' }
     │
-HomeScreen.initState()
-    ├── Uri.base.queryParameters  ← lit les paramètres de l'URL courante
-    ├── params['tab'] == 'coffre' → _index = 1
-    └── CoffreScreen(
-              initialYear: "2026",
-              initialMonth: "02",
-              initialDay: "22",
-              initialFile: "photo.jpg",   ← Uri.decodeComponent appliqué
-        )
+    +page.svelte : $effect → year/month/day initialisés depuis data
     │
-CoffreScreen.initState()
-    └── _year = "2026", _month = "02", _day = "22"
-        → DayFilesScreen affiché directement (pas de passage par les listes)
+    DayFiles(year, month, day, initialFile: 'photo.jpg')
     │
-DayFilesScreen (initialFile: "photo.jpg")
-    └── _load() → listObjects(prefix)
-            └── items chargés
-                → indexWhere(filename == "photo.jpg") → idx
-                → addPostFrameCallback → _openViewer(idx)
-                        └── viewer ouvert sur la bonne photo avec animation
+    loadAll() → items chargés
+    → findIndex(i.name.endsWith(initialFile)) → idx
+    → viewerIndex = idx → viewer ouvert sur la bonne photo
 ```
-
-### Comportement si la photo n'existe plus
-
-Si `initialFile` ne correspond à aucun item de la liste (photo supprimée), `indexWhere` retourne `-1`, le viewer n'est pas ouvert et l'app affiche simplement la grille du jour — aucune erreur.
-
-### Pas de deep link sur Android natif
-
-Sur Android natif (`flutter run`), `Uri.base.queryParameters` retourne une map vide — les paramètres URL n'existent pas dans ce contexte. La fonctionnalité est donc web-only, ce qui correspond à l'usage cible (Lys sur iPhone via PWA Safari).
-
-### Limitation PWA iOS
-
-Si la PWA est installée sur l'écran d'accueil de l'iPhone, un lien cliqué depuis WhatsApp s'ouvre dans Safari (pas dans la PWA). L'app fonctionne identiquement en mode navigateur — la navigation vers la photo s'effectue normalement. C'est une limitation iOS : les liens externes ne peuvent pas ouvrir une PWA home screen directement.
 
 ---
 
-## Notes de limitations connues
+## Compression images (compressor.ts)
 
-- **Multi-upload iOS (Safari)** : Apple limite `UIImagePickerController` à 1 fichier à la fois, même avec `allowMultiple: true`. Pas de workaround côté code.
-- **Compression vidéo web** : pas de solution propre sans FFmpeg.wasm (~30 MB). Les vidéos sont uploadées telles quelles.
-- **Thumbnail vidéo Android natif** : `video_thumbnailer_stub.dart` retourne `null` → icône play statique. Pour activer sur Android natif, utiliser `video_thumbnail` ou `flutter_ffmpeg`.
-- **Compression Android natif** : `image_compressor_stub.dart` est un pass-through. Pour activer la compression sur Android natif, utiliser `flutter_image_compress`.
-- **Signed URLs 1h** : si l'app reste ouverte > 1h, les URLs en cache mémoire (`_urlCache`) deviennent invalides. Le cache disque `CachedNetworkImage` ne l'est pas (clé stable). Un refresh manuel (pull-to-refresh) recharge les URLs mémoire.
-- **Réactions cross-day** : dans le viewer, les réactions ne sont chargées que pour le jour initial. Les photos chargées par navigation cross-day (±60j) n'ont pas de réactions affichées.
-- **Meta.json concurrent** : si Chet et Lys uploadent simultanément, le `saveMeta` du second écrase celui du premier. Risque très faible en pratique (usage personnel à deux).
+```
+compressImage(file)
+    ├── Blob → ImageBitmap → Canvas
+    ├── Redimensionne si > 2048px
+    ├── toBlob('image/webp', 0.85) → Chrome/Android
+    └── toBlob('image/jpeg', 0.85) → Safari fallback
+
+Gains typiques :
+  HEIC 5 MB → JPEG ~700 KB (Safari)     −86%
+  JPEG 3 MB → WebP ~300 KB (Chrome)     −90%
+  PNG  2 MB → WebP ~150 KB (Chrome)     −93%
+```
+
+---
+
+## Thumbnails vidéo (thumbnailer.ts)
+
+```
+generateVideoThumbnail(videoUrl)
+    ├── HTMLVideoElement (src: url, muted, preload: 'metadata')
+    ├── loadedmetadata → video.currentTime = 0.5
+    ├── seeked → Canvas.drawImage(video) → toBlob('image/jpeg', 0.8)
+    └── timeout 8s → null
+```
+
+---
+
+## Proxy og-image — thumbnails grille
+
+Les photos brutes d'appareil (ex. Lumix ~8 MB) ne doivent jamais arriver sur le client pour les thumbnails. Le proxy `/api/coffre/og-image?path=...&w=300` transcode côté serveur :
+
+| Source | Résultat client | Mémoire décodée |
+|--------|-----------------|-----------------|
+| Original 8 MB | ~15 KB JPEG 300px | ~270 KB |
+| Sans proxy | ~8 MB | ~96 MB → crash |
+
+La grille utilise toujours ce proxy. Le viewer utilise la signed URL directe (qualité max).
+
+---
+
+## Semaphore (semaphore.ts)
+
+Limite à 3 les requêtes `signDownload` simultanées pour éviter la saturation réseau mobile sur les jours avec beaucoup de photos. Voir `docs/technical-choices.md` pour le détail.
+
+---
+
+## Flux de données — Horloge
+
+```
+Date système (toutes les secondes)
+    │
+    ├── toZonedTime(now, 'Europe/Paris')    → paris
+    └── toZonedTime(now, 'Asia/Phnom_Penh') → pp
+          │
+          ├── fmtTime()  → HH:mm:ss
+          ├── fmtDate()  → "dimanche 22 février" (date-fns/locale fr)
+          ├── fmtDateKh()→ "អាទិត្យ 22 កុម្ភៈ"
+          ├── getStatus(hour) → {icon, fr, kh}
+          └── getDaysTogether(now) → nombre de jours depuis le 13 jan 2026
+```
+
+---
+
+## Icône horloge dynamique (layout)
+
+L'emoji horloge dans la barre de navigation change chaque seconde selon l'heure locale :
+- Heures pleines : 🕐🕑🕒🕓🕔🕕🕖🕗🕘🕙🕚🕛
+- Demi-heures : 🕜🕝🕞🕟🕠🕡🕢🕣🕤🕥🕦🕧
+
+---
+
+## Déploiement
+
+```
+git push → Vercel CI → npm run build → deploy
+```
+
+Vercel détecte SvelteKit automatiquement via `@sveltejs/adapter-vercel`. Pas besoin de committer le build (contrairement à l'époque Flutter).
+
+---
+
+## PWA — installation iPhone
+
+```
+Lys ouvre Safari → https://chetlys.vercel.app
+    │
+    ├── manifest.json : nom "Chet & Lys", thème #0F0F1A
+    └── Partager → "Sur l'écran d'accueil" → mode standalone
+```
+
+---
+
+## Limitations connues (SvelteKit)
+
+- **Réactions cross-day viewer** : non implémentées (viewer ne charge que le jour actif)
+- **Navigation cross-day viewer** : non implémentée (swipe limité au jour actif)
+- **Pull-to-refresh** : non implémenté
+- **Pinch-to-zoom grille** : non implémenté
+- **Back browser** : ne remonte pas dans le breadcrumb (gère la navigation SPA normalement)
+- **Multi-upload iOS Safari** : Apple limite le picker à 1 fichier à la fois
+- **Compression vidéo** : pas de compression, upload brut
+- **Thumbnail vidéo Android** : fonctionne (même API web que le browser desktop)
