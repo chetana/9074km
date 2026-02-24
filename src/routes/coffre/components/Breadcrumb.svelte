@@ -52,13 +52,20 @@
 		font-size: var(--fs-base);
 		color: var(--accent);
 		white-space: nowrap;
-		opacity: 0.8;
-		transition: opacity 0.15s;
-		padding: 0 var(--space-1);
+		padding: var(--space-1) var(--space-2);
+		border-radius: var(--radius-md);
+		background: transparent;
+		transition: background 0.15s, opacity 0.15s;
+		opacity: 0.85;
 	}
 
 	button:hover {
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
 		opacity: 1;
+	}
+
+	button:active {
+		background: color-mix(in srgb, var(--accent) 22%, transparent);
 	}
 
 	.sep {
