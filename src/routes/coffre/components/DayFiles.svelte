@@ -409,7 +409,7 @@
 	<!-- Grid -->
 	<div
 		class="grid"
-		style="--cols: {columns}"
+		style="--cols: {columns}; --cell-size: calc((100vw - {columns + 1} * var(--space-1)) / {columns})"
 		bind:this={gridEl}
 		onscroll={onGridScroll}
 		ontouchstart={(e) => { onGridTouchStart(e); onGridPinchStart(e); }}
@@ -523,7 +523,7 @@
 		padding: var(--space-1);
 		display: grid;
 		grid-template-columns: repeat(var(--cols), 1fr);
-		grid-auto-rows: calc((100vw - var(--space-1) * (var(--cols) + 1)) / var(--cols));
+		grid-auto-rows: var(--cell-size);
 		gap: var(--space-1);
 		-webkit-overflow-scrolling: touch;
 		padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + var(--nav-height));
