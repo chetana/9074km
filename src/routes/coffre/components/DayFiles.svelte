@@ -326,7 +326,7 @@
 	<div class="grid" style="--cols: {columns}">
 		{#if items === null}
 			<!-- Skeleton -->
-			{#each { length: 6 } as _}
+			{#each [1,2,3,4,5,6] as _}
 				<div class="skeleton"></div>
 			{/each}
 		{:else if mediaItems.length === 0}
