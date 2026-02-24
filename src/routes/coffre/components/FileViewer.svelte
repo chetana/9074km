@@ -168,10 +168,10 @@
 	const currentUrl = $derived(urlCache[currentIndex] ?? null);
 	const currentReactions = $derived(reactions[currentItem?.name] ?? []);
 
-	// Peek: 20px de chaque côté, gap 8px entre slides
-	// Slide width = 100% - 40px → pas = slide + gap = 100% - 32px
+	// Le strip se décale de (slideWidth + gap) par index, puis recalé de +peek pour centrer
+	// Tout est exprimé via les variables CSS --peek et --gap — aucun px hardcodé ici
 	const stripStyle = $derived(
-		`transform: translateX(calc(${-currentIndex} * (100% - 32px) + 20px + ${dragDelta}px)); transition: ${isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'}`
+		`transform: translateX(calc(${-currentIndex} * (var(--slide-w) + var(--gap)) + var(--peek) + ${dragDelta}px)); transition: ${isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'}`
 	);
 </script>
 
@@ -329,7 +329,10 @@
 	.media-strip-wrapper {
 		position: absolute;
 		inset: 0;
-		overflow: hidden; /* clip les photos qui débordent */
+		overflow: hidden;
+		--peek: 20px;
+		--gap: 8px;
+		--slide-w: calc(100% - 2 * var(--peek));
 	}
 
 	.media-strip {
@@ -337,11 +340,11 @@
 		width: 100%;
 		height: 100%;
 		will-change: transform;
-		gap: 8px; /* --gap */
+		gap: var(--gap);
 	}
 
 	.media-slide {
-		flex: 0 0 calc(100% - 40px); /* 100% - 2*PEEK */
+		flex: 0 0 var(--slide-w);
 		height: 100%;
 		display: flex;
 		align-items: center;
