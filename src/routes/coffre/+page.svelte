@@ -150,6 +150,7 @@
 					{year} {month} {day}
 					{initialFile}
 					onDayChange={selectDay}
+					onDateChange={(y, m, d) => { year = y; month = m; day = d; initialFile = null; pushState(); }}
 				/>
 			{:else}
 				<div class="list-scroll">

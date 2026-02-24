@@ -3,25 +3,45 @@
 		phase: 'idle' | 'compressing' | 'uploading';
 		current: number;
 		total: number;
-		onFiles: (files: FileList) => void;
+		currentDate: string; // YYYY-MM-DD
+		onFiles: (files: FileList, date: string) => void;
 	}
 
-	let { phase, current, total, onFiles }: Props = $props();
+	let { phase, current, total, currentDate, onFiles }: Props = $props();
 
 	let inputEl: HTMLInputElement;
+	let showSheet = $state(false);
+	let pickedDate = $state(currentDate);
 
-	function handleClick() {
-		if (phase === 'idle') inputEl.click();
+	// Sync pickedDate si currentDate change (navigation jour)
+	$effect(() => {
+		pickedDate = currentDate;
+	});
+
+	function handleFabClick() {
+		if (phase !== 'idle') return;
+		pickedDate = currentDate;
+		showSheet = true;
+	}
+
+	function handleConfirm() {
+		showSheet = false;
+		inputEl.click();
+	}
+
+	function handleCancel() {
+		showSheet = false;
 	}
 
 	function handleChange(e: Event) {
 		const files = (e.target as HTMLInputElement).files;
 		if (files && files.length > 0) {
-			onFiles(files);
-			// Reset input so same files can be selected again
+			onFiles(files, pickedDate);
 			(e.target as HTMLInputElement).value = '';
 		}
 	}
+
+	const today = new Date().toISOString().slice(0, 10);
 </script>
 
 <input
@@ -33,7 +53,27 @@
 	onchange={handleChange}
 />
 
-<button class="fab" class:busy={phase !== 'idle'} onclick={handleClick} aria-label="Ajouter des fichiers">
+<!-- Date picker sheet -->
+{#if showSheet}
+	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+	<div class="sheet-backdrop" onclick={handleCancel}></div>
+	<div class="sheet">
+		<p class="sheet-title">Date d'upload · ថ្ងៃ</p>
+		<input
+			class="date-input"
+			type="date"
+			max={today}
+			bind:value={pickedDate}
+		/>
+		<div class="sheet-actions">
+			<button class="btn-cancel" onclick={handleCancel}>Annuler</button>
+			<button class="btn-confirm" onclick={handleConfirm}>Choisir des photos</button>
+		</div>
+	</div>
+{/if}
+
+<!-- FAB -->
+<button class="fab" class:busy={phase !== 'idle'} onclick={handleFabClick} aria-label="Ajouter des fichiers">
 	{#if phase === 'idle'}
 		<span class="fab-icon">+</span>
 	{:else if phase === 'compressing'}
@@ -85,5 +125,70 @@
 		font-size: var(--fs-base);
 		font-weight: 600;
 		white-space: nowrap;
+	}
+
+	/* Sheet */
+	.sheet-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+		z-index: 200;
+	}
+
+	.sheet {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		background: var(--card);
+		border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+		padding: var(--space-6) var(--space-4);
+		padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+		z-index: 201;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+
+	.sheet-title {
+		font-size: var(--fs-md);
+		font-weight: 600;
+		color: var(--text);
+		text-align: center;
+	}
+
+	.date-input {
+		width: 100%;
+		padding: var(--space-3) var(--space-4);
+		border-radius: var(--radius-md);
+		border: 1px solid var(--border);
+		background: var(--bg);
+		color: var(--text);
+		font-size: var(--fs-lg);
+		text-align: center;
+	}
+
+	.sheet-actions {
+		display: flex;
+		gap: var(--space-3);
+	}
+
+	.btn-cancel {
+		flex: 1;
+		padding: var(--space-3);
+		border-radius: var(--radius-md);
+		border: 1px solid var(--border);
+		color: var(--muted);
+		font-size: var(--fs-base);
+	}
+
+	.btn-confirm {
+		flex: 2;
+		padding: var(--space-3);
+		border-radius: var(--radius-md);
+		background: var(--accent);
+		color: #0f0f1a;
+		font-size: var(--fs-base);
+		font-weight: 600;
 	}
 </style>

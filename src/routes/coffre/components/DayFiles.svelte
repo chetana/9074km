@@ -34,9 +34,10 @@
 		day: string;
 		initialFile: string | null;
 		onDayChange: (day: string) => void;
+		onDateChange: (year: string, month: string, day: string) => void;
 	}
 
-	let { year, month, day, initialFile, onDayChange }: Props = $props();
+	let { year, month, day, initialFile, onDayChange, onDateChange }: Props = $props();
 
 	// --- State ---
 	let items = $state<CoffreItem[] | null>(null);
@@ -244,7 +245,10 @@
 	}
 
 	// --- Upload ---
-	async function handleUpload(files: FileList) {
+	async function handleUpload(files: FileList, uploadDate: string) {
+		// uploadDate = YYYY-MM-DD (peut différer du jour affiché)
+		const [upY, upM, upD] = uploadDate.split('-');
+
 		const fileArray = Array.from(files);
 		uploadTotal = fileArray.length;
 		uploadCurrent = 0;
@@ -274,7 +278,7 @@
 		for (let i = 0; i < compressed.length; i++) {
 			uploadCurrent = i + 1;
 			const { blob, contentType, filename } = compressed[i];
-			const path = `${year}/${month}/${day}/${filename}`;
+			const path = `${upY}/${upM}/${upD}/${filename}`;
 			try {
 				const signedUrl = await signUpload(path, contentType);
 				const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -285,15 +289,22 @@
 			}
 		}
 
-		// Save meta
+		// Save meta sur la date d'upload
 		if (Object.keys(metaUpdates).length > 0) {
-			const newMeta = { ...meta, ...metaUpdates };
-			await saveMeta(year, month, day, newMeta);
-			meta = newMeta;
+			const currentMeta = (upY === year && upM === month && upD === day) ? meta : {};
+			const newMeta = { ...currentMeta, ...metaUpdates };
+			await saveMeta(upY, upM, upD, newMeta);
+			if (upY === year && upM === month && upD === day) meta = newMeta;
 		}
 
 		uploadPhase = 'idle';
-		loadAll();
+
+		// Naviguer vers la date d'upload si différente
+		if (upY !== year || upM !== month || upD !== day) {
+			onDateChange(upY, upM, upD);
+		} else {
+			loadAll();
+		}
 	}
 
 	// --- Delete ---
@@ -449,6 +460,7 @@
 		phase={uploadPhase}
 		current={uploadCurrent}
 		total={uploadTotal}
+		currentDate={`${year}-${month}-${day}`}
 		onFiles={handleUpload}
 	/>
 
