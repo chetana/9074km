@@ -13,6 +13,7 @@
 	let year = $state<string | null>(null);
 	let month = $state<string | null>(null);
 	let day = $state<string | null>(null);
+	let initialFile = $state<string | null>(null); // consommé une seule fois au deep link
 	let skipPush = false; // éviter de pousser quand on revient via popstate
 
 	// Handle deep link on first load
@@ -21,6 +22,7 @@
 			year = data.y;
 			month = data.m;
 			day = data.d;
+			initialFile = data.f ?? null;
 		}
 	});
 
@@ -35,13 +37,13 @@
 		history.pushState({ year, month, day }, '');
 	}
 
-	function selectYear(y: string) { year = y; month = null; day = null; pushState(); }
-	function selectMonth(m: string) { month = m; day = null; pushState(); }
-	function selectDay(d: string) { day = d; pushState(); }
+	function selectYear(y: string) { year = y; month = null; day = null; initialFile = null; pushState(); }
+	function selectMonth(m: string) { month = m; day = null; initialFile = null; pushState(); }
+	function selectDay(d: string) { day = d; initialFile = null; pushState(); }
 
-	function goToCoffre() { year = null; month = null; day = null; pushState(); }
-	function goToYear() { month = null; day = null; pushState(); }
-	function goToMonth() { day = null; pushState(); }
+	function goToCoffre() { year = null; month = null; day = null; initialFile = null; pushState(); }
+	function goToYear() { month = null; day = null; initialFile = null; pushState(); }
+	function goToMonth() { day = null; initialFile = null; pushState(); }
 
 	function goToday() {
 		const now = new Date();
@@ -144,7 +146,7 @@
 			{#if day !== null}
 				<DayFiles
 					{year} {month} {day}
-					initialFile={data.f}
+					{initialFile}
 					onDayChange={selectDay}
 				/>
 			{:else}
