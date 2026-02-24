@@ -58,17 +58,18 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 	<div class="sheet-backdrop" onclick={handleCancel}></div>
 	<div class="sheet">
-		<p class="sheet-title">Date d'upload · ថ្ងៃ</p>
+		<p class="sheet-title">Choisir une date · ជ្រើសរើសថ្ងៃ</p>
 		<input
 			class="date-input"
 			type="date"
 			max={today}
 			bind:value={pickedDate}
 		/>
-		<div class="sheet-actions">
-			<button class="btn-cancel" onclick={handleCancel}>Annuler</button>
-			<button class="btn-confirm" onclick={handleConfirm}>Choisir des photos</button>
-		</div>
+		<button class="btn-confirm" onclick={handleConfirm}>
+			<span>Choisir des photos</span>
+			<span class="kh">រើសរូបភាព</span>
+		</button>
+		<button class="btn-cancel" onclick={handleCancel}>Annuler · បោះបង់</button>
 	</div>
 {/if}
 
@@ -131,27 +132,30 @@
 	.sheet-backdrop {
 		position: fixed;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
+		background: rgba(0, 0, 0, 0.6);
 		z-index: 200;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.sheet {
 		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
+		left: var(--space-4);
+		right: var(--space-4);
+		top: 50%;
+		transform: translateY(-50%);
 		background: var(--card);
-		border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
-		padding: var(--space-6) var(--space-4);
-		padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+		border-radius: var(--radius-2xl);
+		padding: var(--space-8) var(--space-6);
 		z-index: 201;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-4);
+		gap: var(--space-5);
 	}
 
 	.sheet-title {
-		font-size: var(--fs-md);
+		font-size: var(--fs-lg);
 		font-weight: 600;
 		color: var(--text);
 		text-align: center;
@@ -159,36 +163,42 @@
 
 	.date-input {
 		width: 100%;
-		padding: var(--space-3) var(--space-4);
+		padding: var(--space-4);
 		border-radius: var(--radius-md);
 		border: 1px solid var(--border);
 		background: var(--bg);
 		color: var(--text);
-		font-size: var(--fs-lg);
+		font-size: var(--fs-xl);
 		text-align: center;
 	}
 
-	.sheet-actions {
+	.btn-confirm {
+		width: 100%;
+		padding: var(--space-4);
+		border-radius: var(--radius-md);
+		background: var(--accent);
+		color: #0f0f1a;
+		font-size: var(--fs-lg);
+		font-weight: 600;
 		display: flex;
-		gap: var(--space-3);
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-1);
+	}
+
+	.btn-confirm .kh {
+		font-size: var(--fs-sm);
+		opacity: 0.7;
+		font-weight: 400;
 	}
 
 	.btn-cancel {
-		flex: 1;
+		width: 100%;
 		padding: var(--space-3);
 		border-radius: var(--radius-md);
 		border: 1px solid var(--border);
 		color: var(--muted);
 		font-size: var(--fs-base);
-	}
-
-	.btn-confirm {
-		flex: 2;
-		padding: var(--space-3);
-		border-radius: var(--radius-md);
-		background: var(--accent);
-		color: #0f0f1a;
-		font-size: var(--fs-base);
-		font-weight: 600;
+		text-align: center;
 	}
 </style>
