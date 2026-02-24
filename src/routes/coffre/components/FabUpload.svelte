@@ -66,6 +66,7 @@
 			bind:value={pickedDate}
 		/>
 		<button class="btn-confirm" onclick={handleConfirm}>
+			<span class="btn-emoji">🖼️ 📸</span>
 			<span>Choisir des photos</span>
 			<span class="kh">រើសរូបភាព</span>
 		</button>
@@ -184,6 +185,11 @@
 		flex-direction: column;
 		align-items: center;
 		gap: var(--space-1);
+	}
+
+	.btn-emoji {
+		font-size: var(--fs-2xl);
+		line-height: 1;
 	}
 
 	.btn-confirm .kh {
