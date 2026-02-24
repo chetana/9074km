@@ -68,21 +68,21 @@
 	.note-collapsed {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: var(--space-2);
 		width: 100%;
-		padding: 10px 16px;
+		padding: var(--space-3) var(--space-4);
 		background: var(--card);
 		border-bottom: 1px solid var(--border);
 		text-align: left;
 	}
 
 	.note-icon {
-		font-size: 14px;
+		font-size: var(--fs-md);
 		flex-shrink: 0;
 	}
 
 	.note-preview {
-		font-size: 13px;
+		font-size: var(--fs-base);
 		color: var(--text);
 		white-space: nowrap;
 		overflow: hidden;
@@ -90,7 +90,7 @@
 	}
 
 	.note-placeholder {
-		font-size: 13px;
+		font-size: var(--fs-base);
 		color: var(--muted);
 		font-style: italic;
 	}
@@ -121,30 +121,30 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 12px 16px;
+		padding: var(--space-3) var(--space-4);
 		border-bottom: 1px solid var(--border);
 		flex-shrink: 0;
 	}
 
 	.note-title {
-		font-size: 15px;
+		font-size: var(--fs-lg);
 		font-weight: 600;
 	}
 
 	.done-btn {
-		font-size: 14px;
+		font-size: var(--fs-md);
 		color: var(--accent);
 		font-weight: 600;
-		padding: 4px 8px;
+		padding: var(--space-1) var(--space-2);
 	}
 
 	.note-textarea {
 		flex: 1;
-		padding: 16px;
+		padding: var(--space-4);
 		background: transparent;
 		border: none;
 		outline: none;
-		font-size: 15px;
+		font-size: var(--fs-lg);
 		line-height: 1.6;
 		resize: none;
 	}

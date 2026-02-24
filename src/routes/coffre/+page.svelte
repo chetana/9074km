@@ -192,9 +192,9 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 12px;
-		padding: 12px 16px;
-		padding-bottom: calc(12px + env(safe-area-inset-bottom));
+		gap: var(--space-3);
+		padding: var(--space-3) var(--space-4);
+		padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
 		background: var(--card);
 		border-top: 1px solid var(--border);
 		flex-shrink: 0;
@@ -203,17 +203,17 @@
 	.preview-label {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--space-1);
 	}
 
 	.preview-title {
-		font-size: 14px;
+		font-size: var(--fs-md);
 		font-weight: 600;
 		color: var(--accent);
 	}
 
 	.preview-date {
-		font-size: 12px;
+		font-size: var(--fs-sm);
 		color: var(--muted);
 	}
 
@@ -224,34 +224,34 @@
 		align-items: center;
 		justify-content: center;
 		height: 100%;
-		gap: 16px;
-		padding: 32px;
+		gap: var(--space-4);
+		padding: var(--space-8);
 		text-align: center;
 	}
 
-	.lock { font-size: 48px; }
+	.lock { font-size: 3rem; }
 
 	h2 {
-		font-size: 22px;
+		font-size: var(--fs-2xl);
 		color: var(--accent);
 	}
 
 	p {
 		color: var(--muted);
-		font-size: 14px;
+		font-size: var(--fs-md);
 	}
 
 	.btn-google {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		gap: var(--space-3);
 		background: var(--card);
 		border: 1px solid var(--border);
-		border-radius: 24px;
-		padding: 12px 20px;
-		font-size: 14px;
+		border-radius: var(--radius-2xl);
+		padding: var(--space-3) var(--space-4);
+		font-size: var(--fs-md);
 		color: var(--text);
-		margin-top: 8px;
+		margin-top: var(--space-2);
 		transition: border-color 0.2s;
 	}
 
@@ -264,7 +264,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 12px 16px;
+		padding: var(--space-3) var(--space-4);
 		border-bottom: 1px solid var(--border);
 		flex-shrink: 0;
 	}
@@ -272,20 +272,20 @@
 	.header-actions {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: var(--space-2);
 	}
 
 	.icon-btn {
-		font-size: 20px;
-		padding: 4px;
-		border-radius: 50%;
+		font-size: var(--fs-xl);
+		padding: var(--space-1);
+		border-radius: var(--radius-full);
 		background: none;
 	}
 
 	.avatar {
-		width: 28px;
-		height: 28px;
-		border-radius: 50%;
+		width: 1.75rem;
+		height: 1.75rem;
+		border-radius: var(--radius-full);
 		border: 1.5px solid var(--border);
 		display: block;
 	}

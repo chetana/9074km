@@ -32,8 +32,8 @@ interface Props {
 	.navbar {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		padding: 8px 12px;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-3);
 		border-bottom: 1px solid var(--border);
 		background: var(--bg);
 		position: sticky;
@@ -42,14 +42,14 @@ interface Props {
 	}
 
 	.nav-btn {
-		font-size: 24px;
+		font-size: 1.5rem;
 		color: var(--accent);
-		width: 32px;
-		height: 32px;
+		width: var(--btn-icon);
+		height: var(--btn-icon);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 8px;
+		border-radius: var(--radius-sm);
 		transition: background 0.15s;
 		flex-shrink: 0;
 	}
@@ -60,21 +60,21 @@ interface Props {
 
 	.day-label {
 		flex: 1;
-		font-size: 13px;
+		font-size: var(--fs-base);
 		color: var(--text);
 		text-align: center;
 		font-weight: 500;
 	}
 
 	.grid-btn {
-		font-size: 18px;
+		font-size: var(--fs-xl);
 		color: var(--muted);
-		width: 32px;
-		height: 32px;
+		width: var(--btn-icon);
+		height: var(--btn-icon);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 8px;
+		border-radius: var(--radius-sm);
 		flex-shrink: 0;
 		transition: color 0.15s;
 	}

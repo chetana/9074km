@@ -127,7 +127,7 @@
 		position: relative;
 		aspect-ratio: 1;
 		background: var(--card);
-		border-radius: 8px;
+		border-radius: var(--radius-sm);
 		overflow: hidden;
 		cursor: pointer;
 		border: 2px solid transparent;
@@ -151,7 +151,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 32px;
+		font-size: 2rem;
 		color: var(--muted);
 	}
 
@@ -160,31 +160,31 @@
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
-		width: 36px;
-		height: 36px;
+		width: 2.25rem;
+		height: 2.25rem;
 		background: rgba(0, 0, 0, 0.6);
 		border-radius: 50%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 14px;
+		font-size: var(--fs-md);
 		color: white;
 		pointer-events: none;
 	}
 
 	.checkbox {
 		position: absolute;
-		top: 6px;
-		right: 6px;
-		width: 22px;
-		height: 22px;
+		top: var(--space-1);
+		right: var(--space-1);
+		width: 1.375rem;
+		height: 1.375rem;
 		border-radius: 50%;
 		border: 2px solid white;
 		background: rgba(0, 0, 0, 0.4);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 12px;
+		font-size: var(--fs-sm);
 		color: white;
 	}
 
@@ -195,13 +195,13 @@
 
 	.uploader-badge {
 		position: absolute;
-		bottom: 4px;
-		left: 4px;
-		font-size: 10px;
+		bottom: var(--space-1);
+		left: var(--space-1);
+		font-size: var(--fs-xs);
 		background: rgba(0, 0, 0, 0.6);
 		color: white;
 		padding: 2px 5px;
-		border-radius: 4px;
+		border-radius: var(--space-1);
 		max-width: 60%;
 		white-space: nowrap;
 		overflow: hidden;
@@ -210,12 +210,12 @@
 
 	.reactions-badge {
 		position: absolute;
-		bottom: 4px;
-		right: 4px;
-		font-size: 13px;
+		bottom: var(--space-1);
+		right: var(--space-1);
+		font-size: var(--fs-base);
 		background: rgba(0, 0, 0, 0.5);
 		padding: 2px 4px;
-		border-radius: 6px;
+		border-radius: 0.375rem;
 		letter-spacing: 1px;
 	}
 </style>

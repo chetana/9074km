@@ -489,7 +489,7 @@
 		overflow: hidden;
 		flex-shrink: 0;
 		transition: height 0.1s;
-		font-size: 12px;
+		font-size: var(--fs-sm);
 		color: var(--muted);
 	}
 
@@ -502,16 +502,16 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 8px 16px;
+		padding: var(--space-2) var(--space-4);
 		background: var(--card);
 		border-bottom: 1px solid var(--border);
-		font-size: 13px;
+		font-size: var(--fs-base);
 		flex-shrink: 0;
 	}
 
 	.selection-actions {
 		display: flex;
-		gap: 12px;
+		gap: var(--space-3);
 		align-items: center;
 	}
 
@@ -523,19 +523,19 @@
 	.grid {
 		flex: 1;
 		overflow-y: auto;
-		padding: 4px;
+		padding: var(--space-1);
 		display: grid;
 		grid-template-columns: repeat(var(--cols), 1fr);
-		gap: 4px;
+		gap: var(--space-1);
 		-webkit-overflow-scrolling: touch;
-		padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 72px);
+		padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + var(--nav-height));
 	}
 
 	/* Skeleton */
 	.skeleton {
 		aspect-ratio: 1;
 		background: var(--card);
-		border-radius: 8px;
+		border-radius: var(--radius-sm);
 		animation: shimmer 1.4s ease-in-out infinite;
 	}
 

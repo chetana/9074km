@@ -1,10 +1,45 @@
 :root {
+	/* ── Couleurs ── */
 	--bg: #0F0F1A;
 	--card: #1E1E30;
 	--accent: #E8A4B8;
 	--text: #E8E8F0;
 	--muted: #9090A0;
 	--border: rgba(232, 164, 184, 0.3);
+
+	/* ── Espacements ── */
+	--space-1: 0.25rem;   /* 4px  */
+	--space-2: 0.5rem;    /* 8px  */
+	--space-3: 0.75rem;   /* 12px */
+	--space-4: 1rem;      /* 16px */
+	--space-6: 1.5rem;    /* 24px */
+	--space-8: 2rem;      /* 32px */
+	--space-12: 3rem;     /* 48px */
+
+	/* ── Typographie ── */
+	--fs-xs:   0.6875rem;  /* 11px */
+	--fs-sm:   0.75rem;    /* 12px */
+	--fs-base: 0.8125rem;  /* 13px */
+	--fs-md:   0.875rem;   /* 14px */
+	--fs-lg:   0.9375rem;  /* 15px */
+	--fs-xl:   1.125rem;   /* 18px */
+	--fs-2xl:  1.25rem;    /* 20px */
+	--fs-3xl:  1.375rem;   /* 22px */
+
+	/* ── Rayons ── */
+	--radius-sm:  0.5rem;   /* 8px  */
+	--radius-md:  0.75rem;  /* 12px */
+	--radius-xl:  1.25rem;  /* 20px */
+	--radius-2xl: 1.5rem;   /* 24px */
+	--radius-full: 9999px;
+
+	/* ── Tailles boutons ── */
+	--btn-icon: 2rem;      /* 32px — icône nav */
+	--btn-tap:  2.75rem;   /* 44px — tap target min */
+	--btn-fab:  3.5rem;    /* 56px — FAB */
+
+	/* ── Layout ── */
+	--nav-height: 4.5rem;  /* 72px — hauteur bottom nav */
 }
 
 *,

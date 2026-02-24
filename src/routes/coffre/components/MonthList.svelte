@@ -77,18 +77,18 @@
 	.list {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
-		padding: 16px;
+		gap: var(--space-2);
+		padding: var(--space-4);
 	}
 
 	.card {
 		display: flex;
 		align-items: center;
-		gap: 12px;
+		gap: var(--space-3);
 		background: var(--card);
 		border: 1px solid var(--border);
-		border-radius: 12px;
-		padding: 16px;
+		border-radius: var(--radius-md);
+		padding: var(--space-4);
 		text-align: left;
 		transition: border-color 0.15s;
 		width: 100%;
@@ -98,26 +98,26 @@
 
 	.label {
 		flex: 1;
-		font-size: 15px;
+		font-size: var(--fs-lg);
 		color: var(--text);
 		font-weight: 500;
 	}
 
 	.count {
-		font-size: 12px;
+		font-size: var(--fs-sm);
 		color: var(--muted);
 		white-space: nowrap;
 	}
 
 	.arrow {
-		font-size: 18px;
+		font-size: var(--fs-xl);
 		color: var(--muted);
 	}
 
 	.skeleton {
-		height: 60px;
+		height: 3.75rem;
 		background: var(--card);
-		border-radius: 12px;
+		border-radius: var(--radius-md);
 		animation: pulse 1.5s ease-in-out infinite;
 	}
 
@@ -128,24 +128,24 @@
 
 	.error {
 		text-align: center;
-		padding: 32px;
+		padding: var(--space-8);
 		color: var(--muted);
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+		gap: var(--space-3);
 		align-items: center;
 	}
 
 	.error button {
-		padding: 8px 16px;
+		padding: var(--space-2) var(--space-4);
 		border: 1px solid var(--border);
-		border-radius: 8px;
+		border-radius: var(--radius-sm);
 		color: var(--accent);
 	}
 
 	.empty {
 		text-align: center;
-		padding: 48px;
+		padding: var(--space-12);
 		color: var(--muted);
 	}
 </style>

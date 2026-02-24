@@ -46,11 +46,11 @@
 <style>
 	.fab {
 		position: fixed;
-		bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 16px);
-		right: 16px;
-		width: 56px;
-		height: 56px;
-		border-radius: 50%;
+		bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + var(--space-4));
+		right: var(--space-4);
+		width: var(--btn-fab);
+		height: var(--btn-fab);
+		border-radius: var(--radius-full);
 		background: var(--accent);
 		color: #0f0f1a;
 		box-shadow: 0 4px 16px rgba(232, 164, 184, 0.4);
@@ -71,18 +71,18 @@
 		border: 1.5px solid var(--accent);
 		cursor: default;
 		width: auto;
-		border-radius: 28px;
-		padding: 0 16px;
+		border-radius: var(--radius-2xl);
+		padding: 0 var(--space-4);
 	}
 
 	.fab-icon {
-		font-size: 28px;
+		font-size: var(--fs-2xl);
 		font-weight: 300;
 		line-height: 1;
 	}
 
 	.fab-label {
-		font-size: 13px;
+		font-size: var(--fs-base);
 		font-weight: 600;
 		white-space: nowrap;
 	}

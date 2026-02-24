@@ -107,7 +107,7 @@
 		flex-direction: column;
 		align-items: stretch;
 		min-height: 100%;
-		padding: 20px 16px 24px;
+		padding: var(--space-4) var(--space-4) var(--space-6);
 		gap: 0;
 		background:
 			radial-gradient(ellipse 80% 30% at 50% 20%, rgba(232, 164, 184, 0.08) 0%, transparent 70%),
@@ -119,22 +119,22 @@
 		position: relative;
 		background: var(--card);
 		border: 1px solid var(--border);
-		border-radius: 24px;
-		padding: 28px 24px 24px;
+		border-radius: var(--radius-2xl);
+		padding: var(--space-6) var(--space-6) var(--space-6);
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: var(--space-2);
 		overflow: hidden;
 		flex: 1;
 	}
 
 	.card-glow {
 		position: absolute;
-		top: -40px;
-		right: -20px;
-		width: 180px;
-		height: 180px;
-		border-radius: 50%;
+		top: -2.5rem;
+		right: -1.25rem;
+		width: 11.25rem;
+		height: 11.25rem;
+		border-radius: var(--radius-full);
 		pointer-events: none;
 	}
 
@@ -145,25 +145,25 @@
 	.glow-pp {
 		background: radial-gradient(circle, rgba(232, 100, 100, 0.15) 0%, transparent 70%);
 		top: auto;
-		bottom: -40px;
-		right: -20px;
+		bottom: -2.5rem;
+		right: -1.25rem;
 	}
 
 	.card-header {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		gap: var(--space-3);
 	}
 
 	.flag-box {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 11px;
+		font-size: var(--fs-xs);
 		font-weight: 800;
 		letter-spacing: 1.5px;
-		border-radius: 6px;
-		padding: 3px 7px;
+		border-radius: var(--radius-sm);
+		padding: 0.1875rem 0.4375rem;
 	}
 
 	.flag-box.fr {
@@ -179,14 +179,14 @@
 	}
 
 	.person-name {
-		font-size: 20px;
+		font-size: var(--fs-2xl);
 		font-weight: 700;
 		color: var(--text);
 		letter-spacing: 0.5px;
 	}
 
 	.time {
-		font-size: clamp(42px, 12vw, 64px);
+		font-size: clamp(2.625rem, 12vw, 4rem);
 		font-weight: 800;
 		color: var(--accent);
 		font-variant-numeric: tabular-nums;
@@ -203,17 +203,17 @@
 	.dates {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--space-1);
 	}
 
 	.date-fr {
-		font-size: 13px;
+		font-size: var(--fs-base);
 		color: var(--muted);
 		text-transform: capitalize;
 	}
 
 	.date-kh {
-		font-size: 12px;
+		font-size: var(--fs-sm);
 		color: var(--muted);
 		opacity: 0.65;
 	}
@@ -221,17 +221,17 @@
 	.status {
 		display: flex;
 		align-items: center;
-		gap: 6px;
-		margin-top: 4px;
+		gap: var(--space-2);
+		margin-top: var(--space-1);
 	}
 
 	.status-icon {
-		font-size: 18px;
+		font-size: var(--fs-xl);
 		line-height: 1;
 	}
 
 	.status-text {
-		font-size: 13px;
+		font-size: var(--fs-base);
 		color: var(--text);
 	}
 
@@ -239,8 +239,8 @@
 	.separator {
 		display: flex;
 		align-items: center;
-		gap: 12px;
-		padding: 14px 4px;
+		gap: var(--space-3);
+		padding: var(--space-3) var(--space-1);
 	}
 
 	.sep-line {
@@ -253,18 +253,18 @@
 	.sep-content {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		gap: var(--space-3);
 		flex-shrink: 0;
 	}
 
 	.sep-dist {
-		font-size: 11px;
+		font-size: var(--fs-xs);
 		color: var(--muted);
 		letter-spacing: 0.5px;
 	}
 
 	.sep-heart {
-		font-size: 16px;
+		font-size: var(--fs-lg);
 		color: var(--accent);
 		animation: heartbeat 2s ease-in-out infinite;
 	}
@@ -275,21 +275,21 @@
 	}
 
 	.sep-offset {
-		font-size: 12px;
+		font-size: var(--fs-sm);
 		font-weight: 700;
 		color: var(--accent);
 		background: rgba(232, 164, 184, 0.12);
 		border: 1px solid var(--border);
-		border-radius: 8px;
-		padding: 2px 8px;
+		border-radius: var(--radius-sm);
+		padding: var(--space-1) var(--space-2);
 	}
 
 	/* ── Compteur ── */
 	.together {
-		margin-top: 16px;
+		margin-top: var(--space-4);
 		background: var(--card);
 		border: 1px solid var(--border);
-		border-radius: 20px;
+		border-radius: var(--radius-2xl);
 		overflow: hidden;
 		position: relative;
 	}
@@ -305,30 +305,30 @@
 	.together-inner {
 		display: flex;
 		align-items: center;
-		gap: 16px;
-		padding: 18px 24px;
+		gap: var(--space-4);
+		padding: var(--space-4) var(--space-6);
 	}
 
 	.together-ring {
-		font-size: 32px;
+		font-size: var(--fs-3xl);
 		flex-shrink: 0;
 	}
 
 	.together-body {
 		display: flex;
 		flex-direction: column;
-		gap: 3px;
+		gap: var(--space-1);
 	}
 
 	.together-count {
-		font-size: 28px;
+		font-size: 1.75rem;
 		font-weight: 800;
 		color: var(--accent);
 		line-height: 1;
 	}
 
 	.together-label {
-		font-size: 12px;
+		font-size: var(--fs-sm);
 		color: var(--muted);
 		letter-spacing: 0.3px;
 	}

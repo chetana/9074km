@@ -42,19 +42,19 @@
 	.breadcrumb {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		gap: var(--space-1);
 		flex: 1;
 		min-width: 0;
 		overflow: hidden;
 	}
 
 	button {
-		font-size: 13px;
+		font-size: var(--fs-base);
 		color: var(--accent);
 		white-space: nowrap;
 		opacity: 0.8;
 		transition: opacity 0.15s;
-		padding: 0 2px;
+		padding: 0 var(--space-1);
 	}
 
 	button:hover {
@@ -63,11 +63,11 @@
 
 	.sep {
 		color: var(--muted);
-		font-size: 12px;
+		font-size: var(--fs-sm);
 	}
 
 	.current {
-		font-size: 13px;
+		font-size: var(--fs-base);
 		color: var(--text);
 		font-weight: 600;
 		white-space: nowrap;

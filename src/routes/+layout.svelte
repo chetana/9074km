@@ -80,8 +80,8 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 2px;
-		padding: 10px 8px 8px;
+		gap: var(--space-1);
+		padding: var(--space-2) var(--space-2) var(--space-2);
 		color: var(--muted);
 		transition: color 0.2s;
 	}
@@ -91,12 +91,12 @@
 	}
 
 	.icon {
-		font-size: 22px;
+		font-size: var(--fs-3xl);
 		line-height: 1;
 	}
 
 	.label {
-		font-size: 10px;
+		font-size: var(--fs-xs);
 		letter-spacing: 0.3px;
 	}
 </style>

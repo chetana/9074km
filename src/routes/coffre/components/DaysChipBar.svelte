@@ -60,9 +60,9 @@
 <style>
 	.chip-bar {
 		display: flex;
-		gap: 6px;
+		gap: 0.375rem;
 		overflow-x: auto;
-		padding: 8px 12px;
+		padding: var(--space-2) var(--space-3);
 		border-bottom: 1px solid var(--border);
 		scrollbar-width: none;
 		-webkit-overflow-scrolling: touch;
@@ -76,14 +76,14 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 2px;
-		padding: 6px 10px;
-		border-radius: 20px;
+		gap: var(--space-1);
+		padding: 0.375rem 0.625rem;
+		border-radius: var(--radius-xl);
 		border: 1.5px solid transparent;
 		background: var(--card);
 		flex-shrink: 0;
 		transition: border-color 0.15s, color 0.15s;
-		min-width: 44px;
+		min-width: var(--btn-tap);
 	}
 
 	.chip.active {
@@ -105,12 +105,12 @@
 	}
 
 	.day-num {
-		font-size: 13px;
+		font-size: var(--fs-base);
 		font-weight: 600;
 	}
 
 	.count {
-		font-size: 10px;
+		font-size: var(--fs-xs);
 		color: var(--muted);
 	}
 
