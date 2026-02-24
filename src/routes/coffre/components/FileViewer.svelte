@@ -12,22 +12,30 @@
 		items: FileItem[];
 		initialIndex: number;
 		reactions: Record<string, string[]>;
+		hasPrevDay: boolean;
+		hasNextDay: boolean;
 		onClose: () => void;
 		onReactionToggle: (filename: string, emoji: string) => void;
 		onGetUrl: (name: string) => Promise<string>;
 		onShare: (filename: string) => void;
 		onCopyLink: (filename: string) => void;
+		onPrevDay: () => void;
+		onNextDay: () => void;
 	}
 
 	let {
 		items,
 		initialIndex,
 		reactions,
+		hasPrevDay,
+		hasNextDay,
 		onClose,
 		onReactionToggle,
 		onGetUrl,
 		onShare,
-		onCopyLink
+		onCopyLink,
+		onPrevDay,
+		onNextDay
 	}: Props = $props();
 
 	let currentIndex = $state(initialIndex);
@@ -88,8 +96,10 @@
 	let touchStartY = 0;
 	let isDragging = false;
 	let dragDelta = $state(0);
+	let isAnimating = $state(false);
 
 	function onTouchStart(e: TouchEvent) {
+		if (isAnimating) return;
 		touchStartX = e.touches[0].clientX;
 		touchStartY = e.touches[0].clientY;
 		isDragging = true;
@@ -101,21 +111,30 @@
 		const dx = e.touches[0].clientX - touchStartX;
 		const dy = Math.abs(e.touches[0].clientY - touchStartY);
 		if (dy > 30 && Math.abs(dx) < dy) {
-			// Vertical scroll — cancel drag
 			isDragging = false;
 			dragDelta = 0;
 			return;
 		}
+		e.preventDefault();
 		dragDelta = dx;
 	}
 
 	function onTouchEnd() {
 		if (!isDragging) return;
 		isDragging = false;
-		if (dragDelta < -60 && currentIndex < items.length - 1) {
-			currentIndex++;
-		} else if (dragDelta > 60 && currentIndex > 0) {
-			currentIndex--;
+		const threshold = window.innerWidth * 0.25;
+		if (dragDelta < -threshold) {
+			if (currentIndex < items.length - 1) {
+				currentIndex++;
+			} else if (hasNextDay) {
+				onNextDay();
+			}
+		} else if (dragDelta > threshold) {
+			if (currentIndex > 0) {
+				currentIndex--;
+			} else if (hasPrevDay) {
+				onPrevDay();
+			}
 		}
 		dragDelta = 0;
 	}
@@ -123,8 +142,14 @@
 	// Keyboard navigation
 	function onKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Escape') onClose();
-		if (e.key === 'ArrowRight' && currentIndex < items.length - 1) currentIndex++;
-		if (e.key === 'ArrowLeft' && currentIndex > 0) currentIndex--;
+		if (e.key === 'ArrowRight') {
+			if (currentIndex < items.length - 1) currentIndex++;
+			else if (hasNextDay) onNextDay();
+		}
+		if (e.key === 'ArrowLeft') {
+			if (currentIndex > 0) currentIndex--;
+			else if (hasPrevDay) onPrevDay();
+		}
 	}
 
 	onMount(() => {
@@ -143,9 +168,9 @@
 	const currentUrl = $derived(urlCache[currentIndex] ?? null);
 	const currentReactions = $derived(reactions[currentItem?.name] ?? []);
 
-	// Slide transform with drag feedback
-	const slideStyle = $derived(
-		isDragging ? `transform: translateX(${dragDelta}px)` : 'transform: translateX(0)'
+	// Strip offset: chaque item fait 100vw, on décale en fonction de l'index + drag
+	const stripStyle = $derived(
+		`transform: translateX(calc(${-currentIndex * 100}% + ${dragDelta}px)); transition: ${isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'}`
 	);
 </script>
 
@@ -170,39 +195,48 @@
 		</div>
 	{/if}
 
-	<!-- Media area -->
+	<!-- Media strip (peek effect: all items side by side) -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="media-area" onclick={toggleBars} style={slideStyle}>
-		{#if currentUrl}
-			{#if isVideo(currentItem.name)}
-				<video
-					src={currentUrl}
-					controls
-					playsinline
-					class="media-video"
-					onclick={(e) => e.stopPropagation()}
-				></video>
-			{:else}
-				<img src={currentUrl} alt={currentItem?.name} class="media-img" />
-			{/if}
-		{:else}
-			<div class="media-loading">⏳</div>
-		{/if}
+	<div class="media-strip-wrapper" onclick={toggleBars}>
+		<div class="media-strip" style={stripStyle}>
+			{#each items as item, i}
+				{@const url = urlCache[i] ?? null}
+				<div class="media-slide">
+					{#if url}
+						{#if isVideo(item.name)}
+							<video
+								src={url}
+								controls
+								playsinline
+								class="media-video"
+								onclick={(e) => e.stopPropagation()}
+							></video>
+						{:else}
+							<img src={url} alt={item.name} class="media-img" />
+						{/if}
+					{:else if i === currentIndex}
+						<div class="media-loading">⏳</div>
+					{/if}
+				</div>
+			{/each}
+		</div>
 	</div>
 
 	<!-- Navigation arrows (desktop) -->
-	{#if currentIndex > 0}
+	{#if currentIndex > 0 || hasPrevDay}
 		<button
 			class="nav-arrow nav-prev"
-			onclick={() => currentIndex--}
+			class:cross-day={currentIndex === 0 && hasPrevDay}
+			onclick={() => currentIndex > 0 ? currentIndex-- : onPrevDay()}
 			aria-label="Précédent"
 		>‹</button>
 	{/if}
-	{#if currentIndex < items.length - 1}
+	{#if currentIndex < items.length - 1 || hasNextDay}
 		<button
 			class="nav-arrow nav-next"
-			onclick={() => currentIndex++}
+			class:cross-day={currentIndex === items.length - 1 && hasNextDay}
+			onclick={() => currentIndex < items.length - 1 ? currentIndex++ : onNextDay()}
 			aria-label="Suivant"
 		>›</button>
 	{/if}
@@ -242,11 +276,13 @@
 		inset: 0;
 		background: #000;
 		z-index: 200;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
 		overflow: hidden;
+		animation: viewer-open 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+	}
+
+	@keyframes viewer-open {
+		from { opacity: 0; transform: scale(0.96); }
+		to   { opacity: 1; transform: scale(1); }
 	}
 
 	/* Top bar */
@@ -288,19 +324,32 @@
 		flex-shrink: 0;
 	}
 
-	/* Media */
-	.media-area {
+	/* Media strip (peek effect) */
+	.media-strip-wrapper {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+	}
+
+	.media-strip {
+		display: flex;
+		width: 100%;
+		height: 100%;
+		will-change: transform;
+	}
+
+	.media-slide {
+		flex: 0 0 100%;
 		width: 100%;
 		height: 100%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: transform 0.08s linear;
 	}
 
 	.media-img {
 		max-width: 100%;
-		max-height: 100vh;
+		max-height: 100%;
 		object-fit: contain;
 		display: block;
 		user-select: none;
@@ -309,7 +358,7 @@
 
 	.media-video {
 		max-width: 100%;
-		max-height: 100vh;
+		max-height: 100%;
 	}
 
 	.media-loading {
@@ -342,6 +391,11 @@
 
 	.nav-prev { left: 8px; }
 	.nav-next { right: 8px; }
+
+	.nav-arrow.cross-day {
+		opacity: 0.5;
+		border: 1px solid rgba(232, 164, 184, 0.4);
+	}
 
 	/* Bottom bar */
 	.bottom-bar {

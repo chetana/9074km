@@ -54,6 +54,20 @@
 	let viewerIndex = $state<number | null>(null);
 	let deepLinkHandled = false;
 
+	// Pull-to-refresh
+	let isPulling = $state(false);
+	let pullDist = $state(0);
+	const PULL_THRESHOLD = 64;
+	let pullStartY = 0;
+
+	// Scroll memory (per day)
+	let gridEl: HTMLDivElement | undefined;
+	const scrollMemory = new Map<string, number>();
+
+	// Pinch-to-zoom
+	let pinchStartDist = 0;
+	let pinchStartCols = 2;
+
 	// URL cache with semaphore (max 3 concurrent fetches)
 	const urlSemaphore = new Semaphore(3);
 	let urlCache = new Map<string, string>();
@@ -108,11 +122,78 @@
 		loadDays();
 	});
 
-	// Reload when day changes
+	// Reload when day changes + save/restore scroll
 	$effect(() => {
-		const _ = day;
-		loadAll();
+		const _day = day;
+		// Save scroll before switching
+		if (gridEl) scrollMemory.set(_day, 0); // reset on new day
+		loadAll().then(() => {
+			// Restore scroll for this day
+			const saved = scrollMemory.get(_day) ?? 0;
+			if (gridEl) gridEl.scrollTop = saved;
+		});
 	});
+
+	function onGridScroll() {
+		if (gridEl) scrollMemory.set(day, gridEl.scrollTop);
+	}
+
+	// Pull-to-refresh handlers
+	function onGridTouchStart(e: TouchEvent) {
+		if (gridEl && gridEl.scrollTop === 0) {
+			pullStartY = e.touches[0].clientY;
+		}
+	}
+
+	function onGridTouchMove(e: TouchEvent) {
+		if (pullStartY === 0 || !gridEl || gridEl.scrollTop > 0) return;
+		const dy = e.touches[0].clientY - pullStartY;
+		if (dy > 0) {
+			pullDist = Math.min(dy, PULL_THRESHOLD * 1.5);
+			isPulling = true;
+		}
+	}
+
+	function onGridTouchEnd() {
+		if (isPulling && pullDist >= PULL_THRESHOLD) {
+			loadAll();
+		}
+		isPulling = false;
+		pullDist = 0;
+		pullStartY = 0;
+	}
+
+	// Pinch-to-zoom handlers
+	function onGridPinchStart(e: TouchEvent) {
+		if (e.touches.length === 2) {
+			const dx = e.touches[0].clientX - e.touches[1].clientX;
+			const dy = e.touches[0].clientY - e.touches[1].clientY;
+			pinchStartDist = Math.hypot(dx, dy);
+			pinchStartCols = columns;
+		}
+	}
+
+	function onGridPinchMove(e: TouchEvent) {
+		if (e.touches.length !== 2 || pinchStartDist === 0) return;
+		const dx = e.touches[0].clientX - e.touches[1].clientX;
+		const dy = e.touches[0].clientY - e.touches[1].clientY;
+		const dist = Math.hypot(dx, dy);
+		const ratio = dist / pinchStartDist;
+		// Pinch out (ratio > 1.3) → fewer columns, pinch in (ratio < 0.7) → more columns
+		if (ratio > 1.3 && pinchStartCols > 2) {
+			columns = pinchStartCols - 1;
+			pinchStartDist = dist;
+			pinchStartCols = columns;
+		} else if (ratio < 0.7 && pinchStartCols < 4) {
+			columns = pinchStartCols + 1;
+			pinchStartDist = dist;
+			pinchStartCols = columns;
+		}
+	}
+
+	function onGridPinchEnd() {
+		pinchStartDist = 0;
+	}
 
 	// --- URL fetching ---
 	async function getUrl(name: string): Promise<string> {
@@ -300,6 +381,8 @@
 		{days}
 		{dayCounts}
 		currentDay={day}
+		{year}
+		{month}
 		onSelect={onDayChange}
 	/>
 
@@ -317,8 +400,26 @@
 		</div>
 	{/if}
 
+	<!-- Pull-to-refresh indicator -->
+	{#if isPulling}
+		<div class="pull-indicator" style="height: {Math.min(pullDist, PULL_THRESHOLD)}px">
+			<span class:ready={pullDist >= PULL_THRESHOLD}>
+				{pullDist >= PULL_THRESHOLD ? '↑ Relâcher' : '↓ Tirer pour rafraîchir'}
+			</span>
+		</div>
+	{/if}
+
 	<!-- Grid -->
-	<div class="grid" style="--cols: {columns}">
+	<div
+		class="grid"
+		style="--cols: {columns}"
+		bind:this={gridEl}
+		onscroll={onGridScroll}
+		ontouchstart={(e) => { onGridTouchStart(e); onGridPinchStart(e); }}
+		ontouchmove={(e) => { onGridTouchMove(e); onGridPinchMove(e); }}
+		ontouchend={(e) => { onGridTouchEnd(); onGridPinchEnd(); }}
+		ontouchcancel={(e) => { onGridTouchEnd(); onGridPinchEnd(); }}
+	>
 		{#if items === null}
 			<!-- Skeleton -->
 			{#each [1,2,3,4,5,6] as _}
@@ -359,11 +460,15 @@
 			items={viewerItems()}
 			initialIndex={viewerIndex}
 			{reactions}
+			hasPrevDay={days.indexOf(day) > 0}
+			hasNextDay={days.indexOf(day) < days.length - 1}
 			onClose={() => (viewerIndex = null)}
 			onReactionToggle={handleReactionToggle}
 			onGetUrl={getUrl}
 			onShare={handleShare}
 			onCopyLink={handleCopyLink}
+			onPrevDay={() => { onDayChange(days[days.indexOf(day) - 1]); viewerIndex = null; }}
+			onNextDay={() => { onDayChange(days[days.indexOf(day) + 1]); viewerIndex = null; }}
 		/>
 	{/if}
 </div>
@@ -374,6 +479,22 @@
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
+	}
+
+	/* Pull-to-refresh */
+	.pull-indicator {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		overflow: hidden;
+		flex-shrink: 0;
+		transition: height 0.1s;
+		font-size: 12px;
+		color: var(--muted);
+	}
+
+	.pull-indicator span.ready {
+		color: var(--accent);
 	}
 
 	/* Selection bar */

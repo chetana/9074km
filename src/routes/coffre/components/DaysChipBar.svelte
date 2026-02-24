@@ -5,10 +5,12 @@
 		days: string[];
 		dayCounts: Record<string, number>;
 		currentDay: string;
+		year: string;
+		month: string;
 		onSelect: (day: string) => void;
 	}
 
-	let { days, dayCounts, currentDay, onSelect }: Props = $props();
+	let { days, dayCounts, currentDay, year, month, onSelect }: Props = $props();
 
 	let scrollContainer: HTMLDivElement;
 	let chipRefs: Record<string, HTMLButtonElement> = {};
@@ -29,24 +31,25 @@
 	});
 
 	const today = new Date();
-	const todayStr = [
-		today.getFullYear(),
-		String(today.getMonth() + 1).padStart(2, '0'),
-		String(today.getDate()).padStart(2, '0')
-	].join('-'); // Note: this is a rough check, not timezone-aware
+	const todayYear = String(today.getFullYear());
+	const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
+	const todayDay = String(today.getDate()).padStart(2, '0');
 </script>
 
 <div class="chip-bar" bind:this={scrollContainer}>
 	{#each days as d}
 		{@const isActive = d === currentDay}
+		{@const isToday = d === todayDay && month === todayMonth && year === todayYear}
 		{@const count = dayCounts[d] ?? 0}
 		<button
 			class="chip"
 			class:active={isActive}
+			class:today={isToday}
 			bind:this={chipRefs[d]}
 			onclick={() => onSelect(d)}
 		>
 			<span class="day-num">{d}</span>
+			{#if isToday}<span class="today-dot">●</span>{/if}
 			{#if count > 0}
 				<span class="count">({count})</span>
 			{/if}
@@ -114,5 +117,20 @@
 	.chip.active .count {
 		color: var(--accent);
 		opacity: 0.8;
+	}
+
+	.chip.today {
+		border-color: rgba(232, 164, 184, 0.5);
+	}
+
+	.chip.today:not(.active) .day-num {
+		color: var(--accent);
+		opacity: 0.7;
+	}
+
+	.today-dot {
+		font-size: 6px;
+		color: var(--accent);
+		line-height: 1;
 	}
 </style>

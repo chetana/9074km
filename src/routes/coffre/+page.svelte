@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
 	import { userStore, auth } from '$lib/auth';
 	import { ogImageUrl } from '$lib/api';
 	import YearList from './components/YearList.svelte';
@@ -12,6 +13,7 @@
 	let year = $state<string | null>(null);
 	let month = $state<string | null>(null);
 	let day = $state<string | null>(null);
+	let skipPush = false; // éviter de pousser quand on revient via popstate
 
 	// Handle deep link on first load
 	$effect(() => {
@@ -28,20 +30,49 @@
 		isSharedLink ? ogImageUrl(`${data.y}/${data.m}/${data.d}/${data.f}`, 1200) : null
 	);
 
-	function selectYear(y: string) { year = y; month = null; day = null; }
-	function selectMonth(m: string) { month = m; day = null; }
-	function selectDay(d: string) { day = d; }
+	function pushState() {
+		if (skipPush) { skipPush = false; return; }
+		history.pushState({ year, month, day }, '');
+	}
 
-	function goToCoffre() { year = null; month = null; day = null; }
-	function goToYear() { month = null; day = null; }
-	function goToMonth() { day = null; }
+	function selectYear(y: string) { year = y; month = null; day = null; pushState(); }
+	function selectMonth(m: string) { month = m; day = null; pushState(); }
+	function selectDay(d: string) { day = d; pushState(); }
+
+	function goToCoffre() { year = null; month = null; day = null; pushState(); }
+	function goToYear() { month = null; day = null; pushState(); }
+	function goToMonth() { day = null; pushState(); }
 
 	function goToday() {
 		const now = new Date();
 		year = String(now.getFullYear());
 		month = String(now.getMonth() + 1).padStart(2, '0');
 		day = String(now.getDate()).padStart(2, '0');
+		pushState();
 	}
+
+	function onPopState(e: PopStateEvent) {
+		skipPush = true;
+		const s = e.state;
+		if (s && typeof s === 'object') {
+			year = s.year ?? null;
+			month = s.month ?? null;
+			day = s.day ?? null;
+		} else {
+			year = null; month = null; day = null;
+		}
+	}
+
+	onMount(() => {
+		window.addEventListener('popstate', onPopState);
+		// Initialiser l'état history après que le deep link ait été appliqué
+		// (le $effect du deep link tourne avant onMount)
+		history.replaceState({ year, month, day }, '');
+	});
+
+	onDestroy(() => {
+		window.removeEventListener('popstate', onPopState);
+	});
 </script>
 
 <svelte:head>
