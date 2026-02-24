@@ -141,18 +141,22 @@
 
 		<!-- Content -->
 		<div class="content">
-			{#if year === null}
-				<YearList onSelect={selectYear} />
-			{:else if month === null}
-				<MonthList {year} onSelect={selectMonth} />
-			{:else if day === null}
-				<DayList {year} {month} onSelect={selectDay} />
-			{:else}
+			{#if day !== null}
 				<DayFiles
 					{year} {month} {day}
 					initialFile={data.f}
 					onDayChange={selectDay}
 				/>
+			{:else}
+				<div class="list-scroll">
+					{#if year === null}
+						<YearList onSelect={selectYear} />
+					{:else if month === null}
+						<MonthList {year} onSelect={selectMonth} />
+					{:else}
+						<DayList {year} {month} onSelect={selectDay} />
+					{/if}
+				</div>
 			{/if}
 		</div>
 	{/if}
@@ -293,8 +297,16 @@
 	/* Content */
 	.content {
 		flex: 1;
+		overflow: hidden;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* Scroll pour les vues liste (Year/Month/Day) */
+	.list-scroll {
+		flex: 1;
 		overflow-y: auto;
-		overflow-x: hidden;
 		-webkit-overflow-scrolling: touch;
 	}
 </style>

@@ -106,7 +106,9 @@
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-		min-height: 100%;
+		height: 100%;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
 		padding: var(--space-4) var(--space-4) var(--space-6);
 		gap: 0;
 		background:

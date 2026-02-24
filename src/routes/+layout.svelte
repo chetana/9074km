@@ -62,9 +62,10 @@
 
 	main {
 		flex: 1;
-		overflow-y: auto;
-		overflow-x: hidden;
-		-webkit-overflow-scrolling: touch;
+		overflow: hidden;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.bottom-nav {
