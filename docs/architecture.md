@@ -272,6 +272,52 @@ Lys ouvre Safari → https://chetlys.vercel.app
 
 ---
 
+## Architecture de scroll
+
+Chaque vue gère son propre scroll — les conteneurs parents transmettent la hauteur sans scroller.
+
+```
++layout.svelte
+└── main { overflow: hidden; display: flex; flex-direction: column }
+    │
+    coffre/+page.svelte
+    └── .content { overflow: hidden; display: flex; flex-direction: column }
+        ├── YearList / MonthList / DayList
+        │   └── .list-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch }
+        └── DayFiles { height: 100%; overflow: hidden }
+                └── .grid { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch }
+
+horloge/+page.svelte
+└── .page { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch }
+```
+
+---
+
+## Grille photo — tuiles carrées
+
+La grille utilise CSS Grid avec `grid-auto-rows` calculé en JS car CSS ne peut pas diviser par une custom property :
+
+```svelte
+<!-- DayFiles.svelte — columns est une valeur réactive (2, 3, ou 4) -->
+<div
+    class="grid"
+    style="--cols: {columns}; --cell-size: calc((100vw - {columns + 1} * var(--space-1)) / {columns})"
+>
+```
+
+```css
+.grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), 1fr);
+    grid-auto-rows: var(--cell-size);
+    gap: var(--space-1);
+}
+```
+
+Les tuiles (`FileTile`) utilisent `width: 100%; height: 100%` pour remplir exactement leur cellule.
+
+---
+
 ## Limitations connues (SvelteKit)
 
 - **Réactions cross-day viewer** : non implémentées (viewer ne charge que le jour actif)

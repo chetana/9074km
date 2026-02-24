@@ -259,3 +259,186 @@ async function handleNoteSave(text: string) {
 | `@sveltejs/adapter-vercel` | Deploy Vercel avec SSR/CSR hybride |
 
 Volontairement sans state management externe (Pinia, Zustand, etc.) — `$state` / `$derived` Svelte 5 suffisent.
+
+---
+
+## Désactivation SSR — bug 500 en production (résolu)
+
+**Symptôme** : `GET https://chetlys.vercel.app/coffre 500 (Internal Server Error)` dès l'arrivée sur la page.
+
+**Cause** : SvelteKit tenait d'exécuter les composants côté serveur (Vercel Edge). Or `coffre/+page.svelte` utilise des APIs purement browser : `sessionStorage` (auth token), `history.pushState` (deep links), `window.google` (GSI One Tap). Ces APIs n'existent pas en Node.js → crash immédiat.
+
+**Fix** : créer `src/routes/+layout.ts` avec une seule ligne :
+
+```typescript
+// src/routes/+layout.ts
+export const ssr = false;
+```
+
+Ce fichier désactive le SSR pour **toute l'application**. L'app devient un pur SPA (CSR) — Vercel sert un index.html statique, SvelteKit démarre côté client.
+
+**Pourquoi ce fichier n'existait pas avant** : le projet Flutter exportait déjà un build statique. Lors de la migration SvelteKit, le SSR a été laissé activé par défaut, ce qui fonctionnait en dev (Vite ne fait pas de vrai SSR) mais crashait en prod.
+
+---
+
+## Double appels API au chargement (résolu)
+
+**Symptôme** : au chargement d'un jour (`DayFiles`), les endpoints `note`, `meta`, et `reactions` étaient appelés **deux fois** chacun.
+
+**Cause** : `onMount` appelait `loadAll()` (note + meta + reactions) ET un `$effect` appelait aussi `loadAll()`. En Svelte 5, `$effect` s'exécute **immédiatement** au montage du composant, puis à nouveau si ses dépendances réactives changent — donc au premier rendu, les deux se déclenchaient en même temps.
+
+**Fix** : supprimer `loadAll()` de `onMount`, le garder uniquement dans `$effect`.
+
+```typescript
+// DayFiles.svelte — AVANT (double appel)
+onMount(() => {
+    loadDays();
+    loadAll();       // ← déclenché au montage
+});
+$effect(() => {
+    loadAll();       // ← aussi déclenché au montage → 2× chaque appel
+});
+
+// APRÈS (un seul appel)
+onMount(() => {
+    loadDays();      // ← load unique au montage
+});
+$effect(() => {
+    loadAll();       // ← s'exécute au montage + si year/month/day changent
+});
+```
+
+**Leçon** : ne jamais appeler la même fonction dans `onMount` et dans `$effect`. `$effect` couvre déjà le cas "au montage".
+
+---
+
+## Architecture de scroll — chaque vue gère son propre scroll
+
+**Problème initial** : `main` dans `+layout.svelte` avait `overflow-y: auto`, ce qui créait un seul scroller global. Avec DayFiles qui essayait d'occuper toute la hauteur, ça bloquait le scroll ou le rendait erratique.
+
+**Pattern retenu** : les containers parents ne scrollent pas — ils transmettent la hauteur. Chaque vue leaf gère son propre scroll.
+
+```
++layout.svelte → main { overflow: hidden; display: flex; flex-direction: column }
+    ↓
+coffre/+page.svelte → .content { overflow: hidden; display: flex; flex-direction: column }
+    ├── YearList / MonthList / DayList → enveloppés dans .list-scroll { flex: 1; overflow-y: auto }
+    └── DayFiles → { height: 100%; overflow: hidden }
+            └── .grid { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch }
+
+horloge/+page.svelte → .page { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch }
+```
+
+**Règle** : dès qu'un composant a besoin de scroller, il ajoute `overflow-y: auto` à son propre conteneur. Les parents utilisent `overflow: hidden` + `min-height: 0` pour que le flex ne dépasse pas.
+
+---
+
+## Grille photo carrée — calcul JS obligatoire
+
+**Problème** : obtenir des tuiles carrées dans une CSS Grid where le nombre de colonnes vient d'une variable réactive Svelte.
+
+**Tentative naïve** (ne fonctionne pas) :
+```css
+.grid {
+    grid-auto-rows: calc((100vw - var(--space-1) * (var(--cols) + 1)) / var(--cols));
+}
+```
+CSS ne peut pas **diviser par une custom property** (`var(--cols)` est une chaîne, pas un nombre). Le navigateur ignore le `calc()` entier.
+
+**Solution** : calculer la taille de cellule en JS là où `columns` est un vrai nombre, puis l'injecter comme custom property résolue :
+
+```svelte
+<!-- DayFiles.svelte -->
+<div
+    class="grid"
+    style="--cols: {columns}; --cell-size: calc((100vw - {columns + 1} * var(--space-1)) / {columns})"
+>
+```
+
+```css
+.grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), 1fr);
+    grid-auto-rows: var(--cell-size);   /* ← fonctionne car --cell-size est déjà résolu */
+}
+```
+
+`--cell-size` contient un `calc()` avec une valeur numérique littérale (`{columns + 1}` = ex. `4`), pas une custom property → le navigateur peut le résoudre.
+
+**FileTile** : les tuiles utilisent `width: 100%; height: 100%` pour remplir exactement la cellule définie par `grid-auto-rows`.
+
+---
+
+## Thumbnails carrés côté serveur (og-image proxy)
+
+**Problème** : le proxy `og-image` retournait des images aux proportions originales (paysage, portrait…). Dans la grille carrée, les images n'étaient pas centrées/cropées.
+
+**Fix** dans `chetana.dev/server/api/coffre/og-image.get.ts` : pour `w <= 600` (usage thumbnail), sharp crop carré centré :
+
+```typescript
+const isThumb = width <= 600
+const jpeg = await sharp(buffer)
+    .resize(isThumb
+        ? { width, height: width, fit: 'cover', position: 'centre', withoutEnlargement: true }
+        : { width, withoutEnlargement: true }
+    )
+    .jpeg({ quality: width <= 400 ? 80 : 85 })
+    .toBuffer()
+```
+
+`fit: 'cover'` + `position: 'centre'` = crop centré, comme `object-fit: cover` en CSS. Les images verticales (portrait) sont cropées en haut/bas, les horizontales sur les côtés.
+
+---
+
+## Système de design — variables CSS
+
+Toutes les valeurs hardcodées (px, rem) ont été remplacées par des tokens CSS définis dans `app.css` :
+
+| Catégorie | Variables | Exemple |
+|-----------|-----------|---------|
+| Espacement | `--space-1` … `--space-16` | `--space-1: 0.25rem` |
+| Typographie | `--fs-xs` … `--fs-3xl` | `--fs-base: 1rem` |
+| Bordures | `--radius-sm` … `--radius-full` | `--radius-full: 9999px` |
+| Boutons | `--btn-fab`, `--btn-tap` | `--btn-fab: 3.5rem` |
+| Navigation | `--nav-height` | `--nav-height: 4rem` |
+
+**Composants mis à jour** : `NoteField`, `FabUpload`, `Breadcrumb`, `YearList`, `MonthList`, `DayList`, `FileViewer`, `horloge/+page.svelte`, `+layout.svelte`.
+
+**Règle** : ne jamais écrire une valeur px ou rem dans un style composant. Toujours référencer un token. Exception : les valeurs dérivées de calculs dynamiques (ex. `grid-auto-rows`) qui nécessitent une interpolation JS.
+
+---
+
+## Compression images upload — pipeline complet
+
+`src/lib/compressor.ts` transforme les fichiers avant upload :
+
+```
+compressImage(file)
+    ├── Si non-image (vidéo) → retourne l'original sans traitement
+    ├── createImageBitmap() → extrait les dimensions
+    ├── Resize si > 2048px (côté long) en conservant le ratio
+    ├── Canvas → toBlob('image/webp', 0.85)
+    │       Si webpBlob.size < original → upload WebP (Chrome, Android)
+    ├── Canvas → toBlob('image/jpeg', 0.85)
+    │       Si jpegBlob.size < original → upload JPEG (Safari iOS)
+    └── Fallback → original si les deux sont plus lourds (rare)
+```
+
+Gains observés :
+- HEIC 5 MB → JPEG ~700 KB sur Safari (−86%)
+- JPEG 3 MB → WebP ~300 KB sur Chrome (−90%)
+- PNG 2 MB → WebP ~150 KB (−93%)
+
+**Important** : WebP n'est pas supporté par `toBlob` sur Safari iOS → Safari produit automatiquement du JPEG. Chrome produit du WebP. Les deux sont compatibles avec le proxy og-image côté serveur (sharp transcodes tout en JPEG de toute façon).
+
+---
+
+## meta `mobile-web-app-capable` (Chrome PWA)
+
+`app.html` avait uniquement `apple-mobile-web-app-capable` (pour Safari/iOS). Chrome avait un avertissement de dépréciation car la valeur standard est `mobile-web-app-capable`.
+
+**Fix** : ajouter les deux :
+```html
+<meta name="mobile-web-app-capable" content="yes" />       <!-- Chrome, Android -->
+<meta name="apple-mobile-web-app-capable" content="yes" /> <!-- Safari, iOS -->
+```

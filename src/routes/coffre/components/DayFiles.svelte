@@ -318,14 +318,15 @@
 
 	// --- Reactions ---
 	async function handleReactionToggle(filename: string, emoji: string) {
-		const current = reactions[filename] ?? [];
+		const key = filename.split('/').pop() ?? filename;
+		const current = reactions[key] ?? [];
 		let updated: string[];
 		if (current.includes(emoji)) {
 			updated = current.filter((e) => e !== emoji);
 		} else {
 			updated = [...current, emoji];
 		}
-		reactions = { ...reactions, [filename]: updated };
+		reactions = { ...reactions, [key]: updated };
 		await apiSaveReactions(year, month, day, reactions);
 	}
 
@@ -432,7 +433,7 @@
 					name={item.name}
 					signedUrl={urlCache.get(item.name) ?? null}
 					uploader={meta[item.name.split('/').pop() ?? ''] ?? null}
-					reactions={reactions[item.name] ?? []}
+					reactions={reactions[item.name.split('/').pop() ?? ''] ?? []}
 					selected={selected.has(item.name)}
 					{selectionMode}
 					{thumbWidth}

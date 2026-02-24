@@ -166,7 +166,7 @@
 
 	const currentItem = $derived(items[currentIndex]);
 	const currentUrl = $derived(urlCache[currentIndex] ?? null);
-	const currentReactions = $derived(reactions[currentItem?.name] ?? []);
+	const currentReactions = $derived(reactions[currentItem?.name?.split('/').pop() ?? ''] ?? []);
 
 	// Le strip se décale de (slideWidth + gap) par index, puis recalé de +peek pour centrer
 	// Tout est exprimé via les variables CSS --peek et --gap — aucun px hardcodé ici
