@@ -1,0 +1,141 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { listObjects } from '$lib/api';
+
+	interface Props {
+		onSelect: (year: string) => void;
+	}
+
+	let { onSelect }: Props = $props();
+
+	interface YearEntry { year: string; monthCount: number }
+
+	let items = $state<YearEntry[] | null>(null);
+	let error = $state<string | null>(null);
+
+	async function load() {
+		error = null;
+		items = null;
+		try {
+			const result = await listObjects('');
+			const years = result.prefixes
+				.map((p) => p.replace('/', ''))
+				.filter((p) => /^\d{4}$/.test(p))
+				.sort((a, b) => Number(b) - Number(a));
+
+			const counts = await Promise.all(
+				years.map(async (y) => {
+					const r = await listObjects(`${y}/`);
+					return r.prefixes.length;
+				})
+			);
+
+			items = years.map((year, i) => ({ year, monthCount: counts[i] }));
+		} catch (e) {
+			error = String(e);
+		}
+	}
+
+	onMount(load);
+</script>
+
+<div class="list">
+	{#if items === null && !error}
+		{#each [1,2,3] as _}
+			<div class="skeleton"></div>
+		{/each}
+	{:else if error}
+		<div class="error">
+			<p>Erreur de chargement</p>
+			<button onclick={load}>Réessayer</button>
+		</div>
+	{:else if items && items.length === 0}
+		<div class="empty">Aucune photo pour l'instant 🌸</div>
+	{:else}
+		{#each items ?? [] as item}
+			<button class="card" onclick={() => onSelect(item.year)}>
+				<span class="year">{item.year}</span>
+				<span class="count">{item.monthCount} mois · {item.monthCount} ខែ</span>
+				<span class="arrow">›</span>
+			</button>
+		{/each}
+	{/if}
+</div>
+
+<style>
+	.list {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 16px;
+	}
+
+	.card {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		padding: 16px;
+		text-align: left;
+		transition: border-color 0.15s;
+		width: 100%;
+	}
+
+	.card:hover {
+		border-color: var(--accent);
+	}
+
+	.year {
+		font-size: 18px;
+		font-weight: 700;
+		color: var(--accent);
+		flex: 1;
+	}
+
+	.count {
+		font-size: 12px;
+		color: var(--muted);
+	}
+
+	.arrow {
+		font-size: 18px;
+		color: var(--muted);
+	}
+
+	.skeleton {
+		height: 60px;
+		background: var(--card);
+		border-radius: 12px;
+		animation: pulse 1.5s ease-in-out infinite;
+	}
+
+	@keyframes pulse {
+		0%, 100% { opacity: 0.5; }
+		50% { opacity: 1; }
+	}
+
+	.error {
+		text-align: center;
+		padding: 32px;
+		color: var(--muted);
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		align-items: center;
+	}
+
+	.error button {
+		padding: 8px 16px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		color: var(--accent);
+	}
+
+	.empty {
+		text-align: center;
+		padding: 48px;
+		color: var(--muted);
+	}
+</style>
