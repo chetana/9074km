@@ -118,17 +118,14 @@
 	}
 
 	onMount(() => {
-		loadAll();
 		loadDays();
 	});
 
 	// Reload when day changes + save/restore scroll
 	$effect(() => {
 		const _day = day;
-		// Save scroll before switching
 		if (gridEl) scrollMemory.set(_day, 0); // reset on new day
 		loadAll().then(() => {
-			// Restore scroll for this day
 			const saved = scrollMemory.get(_day) ?? 0;
 			if (gridEl) gridEl.scrollTop = saved;
 		});
