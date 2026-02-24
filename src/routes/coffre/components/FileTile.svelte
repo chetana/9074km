@@ -125,7 +125,8 @@
 <style>
 	.tile {
 		position: relative;
-		aspect-ratio: 1;
+		width: 100%;
+		height: 100%;
 		background: var(--card);
 		border-radius: var(--radius-sm);
 		overflow: hidden;

@@ -523,6 +523,7 @@
 		padding: var(--space-1);
 		display: grid;
 		grid-template-columns: repeat(var(--cols), 1fr);
+		grid-auto-rows: calc((100vw - var(--space-1) * (var(--cols) + 1)) / var(--cols));
 		gap: var(--space-1);
 		-webkit-overflow-scrolling: touch;
 		padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + var(--nav-height));
