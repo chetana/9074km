@@ -35,9 +35,11 @@ export async function listObjects(prefix: string): Promise<ListResult> {
 }
 
 export async function signUpload(path: string, contentType: string): Promise<string> {
-	const res = await apiFetch(
-		`/api/coffre/sign-upload?path=${encodeURIComponent(path)}&contentType=${encodeURIComponent(contentType)}`
-	);
+	const res = await apiFetch('/api/coffre/sign-upload', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ path, contentType })
+	});
 	const data = await res.json();
 	return data.url as string;
 }
