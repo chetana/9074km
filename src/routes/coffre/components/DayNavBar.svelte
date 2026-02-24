@@ -1,42 +1,29 @@
 <script lang="ts">
-	import { DAYS_FR, DAYS_KH, MONTHS_FR } from '$lib/i18n';
-
-	interface Props {
-		year: string;
-		month: string;
-		day: string;
+interface Props {
+		label: string;
+		hasPrev: boolean;
+		hasNext: boolean;
 		columns: number;
 		onPrev: () => void;
 		onNext: () => void;
-		onColumnsChange: (cols: number) => void;
+		onCycleColumns: () => void;
 	}
 
-	let { year, month, day, columns, onPrev, onNext, onColumnsChange }: Props = $props();
-
-	const dayLabel = $derived.by(() => {
-		const d = new Date(`${year}-${month}-${day}T12:00:00`);
-		const dow = (d.getDay() + 6) % 7;
-		const monthShort = MONTHS_FR[parseInt(month, 10) - 1].slice(0, 3);
-		return `${DAYS_FR[dow]} · ${DAYS_KH[dow]} ${monthShort} ${day}`;
-	});
+	let { label, hasPrev, hasNext, columns, onPrev, onNext, onCycleColumns }: Props = $props();
 
 	const gridIcon = $derived(
 		columns === 2 ? '⊞' : columns === 3 ? '⊟' : '▦'
 	);
-
-	function cycleColumns() {
-		onColumnsChange(columns === 4 ? 2 : columns + 1);
-	}
 </script>
 
 <div class="navbar">
-	<button class="nav-btn" onclick={onPrev} aria-label="Jour précédent">‹</button>
+	<button class="nav-btn" onclick={onPrev} disabled={!hasPrev} aria-label="Jour précédent">‹</button>
 
-	<span class="day-label">{dayLabel}</span>
+	<span class="day-label">{label}</span>
 
-	<button class="nav-btn" onclick={onNext} aria-label="Jour suivant">›</button>
+	<button class="nav-btn" onclick={onNext} disabled={!hasNext} aria-label="Jour suivant">›</button>
 
-	<button class="grid-btn" onclick={cycleColumns} title="Changer le zoom">
+	<button class="grid-btn" onclick={onCycleColumns} title="Changer le zoom">
 		{gridIcon}
 	</button>
 </div>
