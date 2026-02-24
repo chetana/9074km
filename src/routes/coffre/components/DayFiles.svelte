@@ -277,15 +277,7 @@
 	}
 
 	// Day label for DayNavBar
-	const currentDayLabel = $derived(dayLabel(`${year}-${month}-${day}`));
-	const prevDayLabel = $derived(
-		days.indexOf(day) > 0 ? dayLabel(`${year}-${month}-${days[days.indexOf(day) - 1]}`) : null
-	);
-	const nextDayLabel = $derived(
-		days.indexOf(day) < days.length - 1
-			? dayLabel(`${year}-${month}-${days[days.indexOf(day) + 1]}`)
-			: null
-	);
+	const currentDayLabel = $derived((() => { const l = dayLabel(`${year}-${month}-${day}`); return `${parseInt(day, 10)} ${l.fr} · ${l.kh}`; })());
 </script>
 
 <div class="day-files">
