@@ -59,11 +59,17 @@
 	<div class="sheet-backdrop" onclick={handleCancel}></div>
 	<div class="sheet">
 		<p class="sheet-title">Choisir une date · ជ្រើសរើសថ្ងៃ</p>
-		<input
-			class="date-input"
-			type="date"
-			bind:value={pickedDate}
-		/>
+		<div class="date-row">
+			<input
+				class="date-input"
+				type="date"
+				bind:value={pickedDate}
+			/>
+			<button class="btn-today" onclick={() => pickedDate = new Date().toLocaleDateString('sv')}>
+				<span>Aujourd'hui</span>
+				<span class="kh-today">ថ្ងៃនេះ</span>
+			</button>
+		</div>
 		<button class="btn-confirm" onclick={handleConfirm}>
 			<span class="btn-emoji">🖼️ 📸</span>
 			<span>Choisir des photos</span>
@@ -161,8 +167,14 @@
 		text-align: center;
 	}
 
+	.date-row {
+		display: flex;
+		gap: var(--space-2);
+		align-items: stretch;
+	}
+
 	.date-input {
-		width: 100%;
+		flex: 1;
 		padding: var(--space-4);
 		border-radius: var(--radius-md);
 		border: 1px solid var(--border);
@@ -170,6 +182,33 @@
 		color: var(--text);
 		font-size: var(--fs-xl);
 		text-align: center;
+	}
+
+	.btn-today {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-1);
+		padding: var(--space-2) var(--space-3);
+		border-radius: var(--radius-md);
+		border: 1px solid var(--border);
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		color: var(--accent);
+		font-size: var(--fs-sm);
+		font-weight: 600;
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+
+	.btn-today:active {
+		background: color-mix(in srgb, var(--accent) 24%, transparent);
+	}
+
+	.kh-today {
+		font-size: var(--fs-xs);
+		opacity: 0.75;
+		font-weight: 400;
 	}
 
 	.btn-confirm {
