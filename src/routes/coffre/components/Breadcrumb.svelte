@@ -49,23 +49,24 @@
 	}
 
 	button {
-		font-size: var(--fs-base);
+		font-size: var(--fs-sm);
+		font-weight: 500;
 		color: var(--accent);
 		white-space: nowrap;
 		padding: var(--space-1) var(--space-2);
 		border-radius: var(--radius-md);
-		background: transparent;
-		transition: background 0.15s, opacity 0.15s;
-		opacity: 0.85;
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+		transition: background 0.15s, border-color 0.15s;
 	}
 
 	button:hover {
-		background: color-mix(in srgb, var(--accent) 12%, transparent);
-		opacity: 1;
+		background: color-mix(in srgb, var(--accent) 22%, transparent);
+		border-color: color-mix(in srgb, var(--accent) 50%, transparent);
 	}
 
 	button:active {
-		background: color-mix(in srgb, var(--accent) 22%, transparent);
+		background: color-mix(in srgb, var(--accent) 32%, transparent);
 	}
 
 	.sep {
