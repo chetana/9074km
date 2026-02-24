@@ -1,11 +1,11 @@
 :root {
 	/* ── Couleurs ── */
-	--bg: #0F0F1A;
-	--card: #1E1E30;
-	--accent: #E8A4B8;
-	--text: #E8E8F0;
-	--muted: #9090A0;
-	--border: rgba(232, 164, 184, 0.3);
+	--bg: #1A1728;
+	--card: #231F35;
+	--accent: #C4A8F0;
+	--text: #EDE8F8;
+	--muted: #9088B8;
+	--border: rgba(196, 168, 240, 0.25);
 
 	/* ── Espacements ── */
 	--space-1: 0.25rem;   /* 4px  */
