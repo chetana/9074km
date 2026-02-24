@@ -41,7 +41,7 @@
 		}
 	}
 
-	const today = new Date().toISOString().slice(0, 10);
+
 </script>
 
 <input
@@ -62,7 +62,6 @@
 		<input
 			class="date-input"
 			type="date"
-			max={today}
 			bind:value={pickedDate}
 		/>
 		<button class="btn-confirm" onclick={handleConfirm}>
