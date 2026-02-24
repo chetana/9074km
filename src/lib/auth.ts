@@ -40,7 +40,12 @@ export const tokenStore = writable<string | null>(null);
 
 function parseJwt(token: string): Record<string, unknown> {
 	try {
-		return JSON.parse(atob(token.split('.')[1]));
+		// Base64url → Base64, puis décodage UTF-8 propre (atob seul casse les accents)
+		const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+		const json = decodeURIComponent(
+			atob(base64).split('').map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
+		);
+		return JSON.parse(json);
 	} catch {
 		return {};
 	}

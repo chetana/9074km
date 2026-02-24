@@ -249,7 +249,7 @@
 		uploadTotal = fileArray.length;
 		uploadCurrent = 0;
 
-		const firstName = auth.getFirstName() ?? 'Chet';
+		const firstName = auth.getFirstName() || 'Chet';
 		const metaUpdates: Record<string, string> = {};
 
 		// Compress phase
