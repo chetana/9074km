@@ -14,11 +14,13 @@
 	let month = $state<string | null>(null);
 	let day = $state<string | null>(null);
 	let initialFile = $state<string | null>(null); // consommé une seule fois au deep link
+	let deepLinkApplied = false; // empêche de réappliquer le deep link si on revient à year=null
 	let skipPush = false; // éviter de pousser quand on revient via popstate
 
-	// Handle deep link on first load
+	// Handle deep link on first load — une seule fois
 	$effect(() => {
-		if (data.y && data.m && data.d && year === null) {
+		if (!deepLinkApplied && data.y && data.m && data.d) {
+			deepLinkApplied = true;
 			year = data.y;
 			month = data.m;
 			day = data.d;
