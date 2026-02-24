@@ -9,11 +9,12 @@
 		reactions: string[];
 		selected: boolean;
 		selectionMode: boolean;
+		thumbWidth: number;
 		onTap: () => void;
 		onLongPress: () => void;
 	}
 
-	let { name, signedUrl, uploader, reactions, selected, selectionMode, onTap, onLongPress }: Props =
+	let { name, signedUrl, uploader, reactions, selected, selectionMode, thumbWidth, onTap, onLongPress }: Props =
 		$props();
 
 	const isVideo = $derived(
@@ -71,7 +72,7 @@
 	}
 
 	// Image src: use og-image proxy for images, videoThumb for videos
-	const imgSrc = $derived(isVideo ? videoThumb : ogImageUrl(name, 300));
+	const imgSrc = $derived(isVideo ? videoThumb : ogImageUrl(name, thumbWidth));
 
 	// Show up to 3 reaction emojis
 	const reactionDisplay = $derived(reactions.slice(0, 3));

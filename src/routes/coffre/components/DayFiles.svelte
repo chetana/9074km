@@ -276,6 +276,9 @@
 		}));
 	}
 
+	// Thumb width adapté au nombre de colonnes (largeur écran ~390px mobile)
+	const thumbWidth = $derived(columns === 2 ? 600 : columns === 3 ? 300 : 200);
+
 	// Day label for DayNavBar
 	const currentDayLabel = $derived((() => { const l = dayLabel(`${year}-${month}-${day}`); return `${parseInt(day, 10)} ${l.fr} · ${l.kh}`; })());
 </script>
@@ -334,6 +337,7 @@
 					reactions={reactions[item.name] ?? []}
 					selected={selected.has(item.name)}
 					{selectionMode}
+					{thumbWidth}
 					onTap={() => (viewerIndex = i)}
 					onLongPress={() => toggleSelection(item.name)}
 				/>
