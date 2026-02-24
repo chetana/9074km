@@ -49,9 +49,9 @@ export async function compressImage(file: File): Promise<CompressResult> {
 
 		const originalBytes = file.size;
 
-		// Try WebP first
+		// Try WebP first (Safari ignore image/webp et retourne un PNG à la place)
 		const webpBlob = await canvasToBlob(canvas, 'image/webp', QUALITY);
-		if (webpBlob && webpBlob.size < originalBytes) {
+		if (webpBlob && webpBlob.type === 'image/webp' && webpBlob.size < originalBytes) {
 			const filename = replaceExt(file.name, '.webp');
 			return { blob: webpBlob, contentType: 'image/webp', filename };
 		}
