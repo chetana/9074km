@@ -48,11 +48,11 @@
 			bind:this={chipRefs[d]}
 			onclick={() => onSelect(d)}
 		>
+			{#if count > 0}
+				<span class="badge">{count}</span>
+			{/if}
 			<span class="day-num">{d}</span>
 			{#if isToday}<span class="today-dot">●</span>{/if}
-			{#if count > 0}
-				<span class="count">({count})</span>
-			{/if}
 		</button>
 	{/each}
 </div>
@@ -84,6 +84,7 @@
 		flex-shrink: 0;
 		transition: border-color 0.15s, color 0.15s;
 		min-width: var(--btn-tap);
+		position: relative;
 	}
 
 	.chip.active {
@@ -109,14 +110,26 @@
 		font-weight: 600;
 	}
 
-	.count {
-		font-size: var(--fs-xs);
-		color: var(--muted);
+	.badge {
+		position: absolute;
+		top: -5px;
+		right: -5px;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 3px;
+		border-radius: 99px;
+		background: var(--accent);
+		color: var(--on-accent);
+		font-size: 9px;
+		font-weight: 700;
+		line-height: 16px;
+		text-align: center;
+		pointer-events: none;
 	}
 
-	.chip.active .count {
-		color: var(--accent);
-		opacity: 0.8;
+	.chip:not(.active) .badge {
+		background: var(--muted);
+		opacity: 0.6;
 	}
 
 	.chip.today {
