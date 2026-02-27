@@ -8,7 +8,7 @@
 
 	let { onSelect }: Props = $props();
 
-	interface YearEntry { year: string; monthCount: number }
+	interface YearEntry { year: string; monthCount: number | null }
 
 	let items = $state<YearEntry[] | null>(null);
 	let error = $state<string | null>(null);
@@ -23,14 +23,18 @@
 				.filter((p) => /^\d{4}$/.test(p))
 				.sort((a, b) => Number(b) - Number(a));
 
-			const counts = await Promise.all(
-				years.map(async (y) => {
-					const r = await listObjects(`${y}/`);
-					return r.prefixes.length;
-				})
-			);
+			// Afficher immédiatement les lignes sans les counts
+			items = years.map((year) => ({ year, monthCount: null }));
 
-			items = years.map((year, i) => ({ year, monthCount: counts[i] }));
+			// Charger les counts en lazy
+			years.forEach(async (y, i) => {
+				try {
+					const r = await listObjects(`${y}/`);
+					items = items!.map((item, j) =>
+						j === i ? { ...item, monthCount: r.prefixes.length } : item
+					);
+				} catch { /* count reste null */ }
+			});
 		} catch (e) {
 			error = String(e);
 		}
@@ -55,7 +59,13 @@
 		{#each items ?? [] as item}
 			<button class="card" onclick={() => onSelect(item.year)}>
 				<span class="year">{item.year}</span>
-				<span class="count">{item.monthCount} mois · {item.monthCount} ខែ</span>
+				<span class="count">
+					{#if item.monthCount === null}
+						<span class="loading">…</span>
+					{:else}
+						{item.monthCount} mois · {item.monthCount} ខែ
+					{/if}
+				</span>
 				<span class="arrow">›</span>
 			</button>
 		{/each}
@@ -97,6 +107,10 @@
 	.count {
 		font-size: var(--fs-sm);
 		color: var(--muted);
+	}
+
+	.loading {
+		opacity: 0.4;
 	}
 
 	.arrow {

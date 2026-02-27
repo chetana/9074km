@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { listObjects, isMediaFile } from '$lib/api';
+	import { listObjects } from '$lib/api';
 	import { MONTHS_FR, MONTHS_KH } from '$lib/i18n';
 
 	interface Props {
@@ -10,7 +10,7 @@
 
 	let { year, onSelect }: Props = $props();
 
-	interface MonthEntry { mm: string; label: string; dayCount: number }
+	interface MonthEntry { mm: string; label: string; dayCount: number | null }
 
 	let items = $state<MonthEntry[] | null>(null);
 	let error = $state<string | null>(null);
@@ -30,18 +30,18 @@
 				.filter((p) => /^\d{2}$/.test(p))
 				.sort((a, b) => Number(b) - Number(a));
 
-			const counts = await Promise.all(
-				months.map(async (mm) => {
-					const r = await listObjects(`${year}/${mm}/`);
-					return r.prefixes.length;
-				})
-			);
+			// Afficher immédiatement les lignes sans les counts
+			items = months.map((mm) => ({ mm, label: monthLabel(mm), dayCount: null }));
 
-			items = months.map((mm, i) => ({
-				mm,
-				label: monthLabel(mm),
-				dayCount: counts[i]
-			}));
+			// Charger les counts en lazy
+			months.forEach(async (mm, i) => {
+				try {
+					const r = await listObjects(`${year}/${mm}/`);
+					items = items!.map((item, j) =>
+						j === i ? { ...item, dayCount: r.prefixes.length } : item
+					);
+				} catch { /* count reste null */ }
+			});
 		} catch (e) {
 			error = String(e);
 		}
@@ -66,7 +66,13 @@
 		{#each items ?? [] as item}
 			<button class="card" onclick={() => onSelect(item.mm)}>
 				<span class="label">{item.label}</span>
-				<span class="count">{item.dayCount} jours · {item.dayCount} ថ្ងៃ</span>
+				<span class="count">
+					{#if item.dayCount === null}
+						<span class="loading">…</span>
+					{:else}
+						{item.dayCount} jours · {item.dayCount} ថ្ងៃ
+					{/if}
+				</span>
 				<span class="arrow">›</span>
 			</button>
 		{/each}
@@ -107,6 +113,10 @@
 		font-size: var(--fs-sm);
 		color: var(--muted);
 		white-space: nowrap;
+	}
+
+	.loading {
+		opacity: 0.4;
 	}
 
 	.arrow {

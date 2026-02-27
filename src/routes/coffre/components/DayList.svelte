@@ -11,7 +11,7 @@
 
 	let { year, month, onSelect }: Props = $props();
 
-	interface DayEntry { dd: string; label: string; fileCount: number }
+	interface DayEntry { dd: string; label: string; fileCount: number | null }
 
 	let items = $state<DayEntry[] | null>(null);
 	let error = $state<string | null>(null);
@@ -33,18 +33,19 @@
 				.filter((p) => /^\d{2}$/.test(p))
 				.sort((a, b) => Number(b) - Number(a));
 
-			const counts = await Promise.all(
-				days.map(async (dd) => {
-					const r = await listObjects(`${year}/${month}/${dd}/`);
-					return r.items.filter((item) => isMediaFile(item.name)).length;
-				})
-			);
+			// Afficher immédiatement les lignes sans les counts
+			items = days.map((dd) => ({ dd, label: dayLabel(dd), fileCount: null }));
 
-			items = days.map((dd, i) => ({
-				dd,
-				label: dayLabel(dd),
-				fileCount: counts[i]
-			}));
+			// Charger les counts en lazy
+			days.forEach(async (dd, i) => {
+				try {
+					const r = await listObjects(`${year}/${month}/${dd}/`);
+					const count = r.items.filter((item) => isMediaFile(item.name)).length;
+					items = items!.map((item, j) =>
+						j === i ? { ...item, fileCount: count } : item
+					);
+				} catch { /* count reste null */ }
+			});
 		} catch (e) {
 			error = String(e);
 		}
@@ -70,7 +71,13 @@
 			<button class="card" onclick={() => onSelect(item.dd)}>
 				<div class="info">
 					<span class="label">{item.label}</span>
-					<span class="count">{item.fileCount} fichiers · {item.fileCount} ឯកសារ</span>
+					<span class="count">
+						{#if item.fileCount === null}
+							<span class="loading">…</span>
+						{:else}
+							{item.fileCount} fichiers · {item.fileCount} ឯកសារ
+						{/if}
+					</span>
 				</div>
 				<span class="arrow">›</span>
 			</button>
@@ -117,6 +124,10 @@
 	.count {
 		font-size: var(--fs-xs);
 		color: var(--muted);
+	}
+
+	.loading {
+		opacity: 0.4;
 	}
 
 	.arrow {
