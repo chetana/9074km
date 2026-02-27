@@ -44,6 +44,28 @@
 	<!-- Carte Paris -->
 	<div class="clock-card">
 		<div class="card-glow glow-paris"></div>
+		<!-- Tour Eiffel -->
+		<svg class="landmark" viewBox="0 0 100 160" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+			<!-- Base legs -->
+			<line x1="18" y1="155" x2="42" y2="80" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+			<line x1="82" y1="155" x2="58" y2="80" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+			<!-- Lower arch -->
+			<path d="M18 155 Q50 110 82 155" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+			<!-- Mid section -->
+			<line x1="42" y1="80" x2="32" y2="52" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+			<line x1="58" y1="80" x2="68" y2="52" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+			<!-- Mid platform -->
+			<line x1="28" y1="80" x2="72" y2="80" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+			<line x1="30" y1="52" x2="70" y2="52" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+			<!-- Upper section -->
+			<line x1="32" y1="52" x2="44" y2="28" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+			<line x1="68" y1="52" x2="56" y2="28" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+			<!-- Top platform -->
+			<line x1="42" y1="28" x2="58" y2="28" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+			<!-- Spire -->
+			<line x1="50" y1="28" x2="50" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+			<line x1="47" y1="12" x2="53" y2="12" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+		</svg>
 		<div class="card-header">
 			<div class="flag-box fr">FR</div>
 			<div class="person-name">Chet</div>
@@ -73,6 +95,32 @@
 	<!-- Carte Phnom Penh -->
 	<div class="clock-card">
 		<div class="card-glow glow-pp"></div>
+		<!-- Temple Angkor Wat -->
+		<svg class="landmark" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+			<!-- Base platform -->
+			<rect x="5" y="98" width="110" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
+			<rect x="15" y="90" width="90" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
+			<!-- Left small tower -->
+			<rect x="18" y="72" width="14" height="18" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
+			<path d="M18 72 Q25 62 32 72" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+			<line x1="25" y1="62" x2="25" y2="56" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+			<!-- Right small tower -->
+			<rect x="88" y="72" width="14" height="18" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
+			<path d="M88 72 Q95 62 102 72" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+			<line x1="95" y1="62" x2="95" y2="56" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+			<!-- Central tower body -->
+			<rect x="40" y="60" width="40" height="30" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
+			<!-- Central tower mid -->
+			<rect x="46" y="46" width="28" height="14" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
+			<!-- Central spire (prasat) -->
+			<path d="M46 46 Q60 28 74 46" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+			<line x1="60" y1="28" x2="60" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+			<!-- Spire rings -->
+			<line x1="56" y1="22" x2="64" y2="22" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+			<line x1="57" y1="16" x2="63" y2="16" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+			<!-- Door details -->
+			<rect x="55" y="72" width="10" height="18" rx="1" stroke="currentColor" stroke-width="1" fill="none"/>
+		</svg>
 		<div class="card-header">
 			<div class="flag-box kh">KH</div>
 			<div class="person-name">Lys</div>
@@ -128,6 +176,17 @@
 		gap: var(--space-2);
 		overflow: hidden;
 		flex: 1;
+	}
+
+	.landmark {
+		position: absolute;
+		bottom: var(--space-3);
+		right: var(--space-4);
+		width: 5rem;
+		height: auto;
+		color: var(--accent);
+		opacity: 0.12;
+		pointer-events: none;
 	}
 
 	.card-glow {
