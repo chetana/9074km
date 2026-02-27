@@ -29,9 +29,23 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
 	return res;
 }
 
+const listCache = new Map<string, ListResult>();
+
 export async function listObjects(prefix: string): Promise<ListResult> {
+	if (listCache.has(prefix)) return listCache.get(prefix)!;
 	const res = await apiFetch(`/api/coffre/list?prefix=${encodeURIComponent(prefix)}`);
-	return res.json();
+	const data: ListResult = await res.json();
+	listCache.set(prefix, data);
+	return data;
+}
+
+/** Invalide toutes les entrées du cache dont le préfixe commence par `prefix` */
+export function invalidateListCache(prefix: string): void {
+	for (const key of listCache.keys()) {
+		if (key.startsWith(prefix) || prefix.startsWith(key)) {
+			listCache.delete(key);
+		}
+	}
 }
 
 export async function signUpload(path: string, contentType: string): Promise<string> {

@@ -13,6 +13,7 @@
 		fetchReactions,
 		saveReactions as apiSaveReactions,
 		isMediaFile,
+		invalidateListCache,
 		previewUrl as buildShareUrl,
 		type CoffreItem
 	} from '$lib/api';
@@ -299,6 +300,9 @@
 
 		uploadPhase = 'idle';
 
+		// Invalider le cache pour la date uploadée (et ses parents)
+		invalidateListCache(`${upY}/${upM}/${upD}/`);
+
 		// Naviguer vers la date d'upload si différente
 		if (upY !== year || upM !== month || upD !== day) {
 			onDateChange(upY, upM, upD);
@@ -317,6 +321,7 @@
 		if (!confirmed) return;
 
 		await Promise.all(names.map((name) => deleteObject(name)));
+		invalidateListCache(`${year}/${month}/${day}/`);
 		clearSelection();
 		loadAll();
 	}
