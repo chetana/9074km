@@ -44,24 +44,33 @@
 	<!-- Carte Paris -->
 	<div class="clock-card">
 		<div class="card-glow glow-paris"></div>
-		<!-- Tour Eiffel — silhouette filled, proportions réelles -->
+		<!-- Tour Eiffel — couleurs drapeau français -->
 		<svg class="landmark" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-			<!-- Jambes : s'évasent fortement en bas, rejoignent le 1er plancher à y=165 -->
-			<path fill="currentColor" d="M 9,200 C 20,178 34,168 36,165 L 64,165 C 66,168 80,178 91,200 Z"/>
-			<!-- Arche centrale (découpe) -->
-			<path fill="var(--card)" d="M 28,200 Q 50,148 72,200 Z"/>
-			<!-- Plateforme 1 -->
-			<rect fill="currentColor" x="33" y="162" width="34" height="5"/>
-			<!-- Corps 1er→2e plancher : se resserre -->
-			<path fill="currentColor" d="M 36,162 L 42,130 L 58,130 L 64,162 Z"/>
-			<!-- Plateforme 2 -->
-			<rect fill="currentColor" x="40" y="127" width="20" height="5"/>
-			<!-- Corps 2e plancher→3e : se resserre encore -->
-			<path fill="currentColor" d="M 42,127 L 47,34 L 53,34 L 58,127 Z"/>
-			<!-- Plateforme 3 -->
-			<rect fill="currentColor" x="45" y="30" width="10" height="6"/>
-			<!-- Antenne -->
-			<rect fill="currentColor" x="49" y="2" width="2" height="28"/>
+			<defs>
+				<!-- Dégradé tricolore vertical : bleu | blanc | rouge -->
+				<linearGradient id="fr-flag" x1="0" y1="0" x2="1" y2="0">
+					<stop offset="0%"    stop-color="#002395"/>
+					<stop offset="33.3%" stop-color="#002395"/>
+					<stop offset="33.3%" stop-color="#EDEDED"/>
+					<stop offset="66.6%" stop-color="#EDEDED"/>
+					<stop offset="66.6%" stop-color="#ED2939"/>
+					<stop offset="100%"  stop-color="#ED2939"/>
+				</linearGradient>
+				<!-- Clippath de la silhouette entière -->
+				<clipPath id="eiffel-clip">
+					<path d="M 9,200 C 20,178 34,168 36,165 L 64,165 C 66,168 80,178 91,200 Z"/>
+					<rect x="33" y="162" width="34" height="5"/>
+					<path d="M 36,162 L 42,130 L 58,130 L 64,162 Z"/>
+					<rect x="40" y="127" width="20" height="5"/>
+					<path d="M 42,127 L 47,34 L 53,34 L 58,127 Z"/>
+					<rect x="45" y="30" width="10" height="6"/>
+					<rect x="49" y="2" width="2" height="28"/>
+				</clipPath>
+			</defs>
+			<!-- Rectangle plein aux couleurs du drapeau, clippé sur la silhouette -->
+			<rect x="0" y="0" width="100" height="200" fill="url(#fr-flag)" clip-path="url(#eiffel-clip)"/>
+			<!-- Arche centrale découpée -->
+			<path fill="var(--card)" d="M 28,200 Q 50,148 72,200 Z" opacity="0.85"/>
 		</svg>
 		<div class="card-header">
 			<div class="flag-box fr">FR</div>
@@ -92,45 +101,48 @@
 	<!-- Carte Phnom Penh -->
 	<div class="clock-card">
 		<div class="card-glow glow-pp"></div>
-		<!-- Angkor Wat — silhouette filled, 5 tours lotus, terrasses étagées -->
+		<!-- Angkor Wat — couleurs drapeau khmer -->
 		<svg class="landmark" viewBox="0 0 300 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-			<!-- Terrasses étagées (temple-montagne) -->
-			<rect fill="currentColor" x="0"  y="108" width="300" height="22"/>
-			<rect fill="currentColor" x="8"  y="96"  width="284" height="14"/>
-			<rect fill="currentColor" x="22" y="84"  width="256" height="14"/>
-			<rect fill="currentColor" x="40" y="72"  width="220" height="14"/>
-			<rect fill="currentColor" x="58" y="62"  width="184" height="12"/>
-
-			<!-- Tour coin gauche — corps + bulbe lotus -->
-			<rect fill="currentColor" x="18" y="80" width="20" height="14"/>
-			<rect fill="currentColor" x="20" y="70" width="16" height="12"/>
-			<rect fill="currentColor" x="22" y="61" width="12" height="11"/>
-			<path fill="currentColor" d="M 22,61 Q 28,44 34,38 Q 40,44 46,61 Z"/>
-
-			<!-- Tour coin droite -->
-			<rect fill="currentColor" x="262" y="80" width="20" height="14"/>
-			<rect fill="currentColor" x="264" y="70" width="16" height="12"/>
-			<rect fill="currentColor" x="266" y="61" width="12" height="11"/>
-			<path fill="currentColor" d="M 254,61 Q 260,44 266,38 Q 272,44 278,61 Z"/>
-
-			<!-- Tour intermédiaire gauche -->
-			<rect fill="currentColor" x="80" y="70" width="22" height="16"/>
-			<rect fill="currentColor" x="82" y="59" width="18" height="13"/>
-			<rect fill="currentColor" x="85" y="49" width="12" height="12"/>
-			<path fill="currentColor" d="M 84,49 Q 91,29 98,22 Q 105,29 112,49 Z"/>
-
-			<!-- Tour intermédiaire droite -->
-			<rect fill="currentColor" x="198" y="70" width="22" height="16"/>
-			<rect fill="currentColor" x="200" y="59" width="18" height="13"/>
-			<rect fill="currentColor" x="203" y="49" width="12" height="12"/>
-			<path fill="currentColor" d="M 188,49 Q 195,29 202,22 Q 209,29 216,49 Z"/>
-
-			<!-- Tour centrale (prasat principal, nettement plus haute) -->
-			<rect fill="currentColor" x="128" y="62" width="44" height="22"/>
-			<rect fill="currentColor" x="133" y="50" width="34" height="14"/>
-			<rect fill="currentColor" x="138" y="38" width="24" height="14"/>
-			<rect fill="currentColor" x="143" y="26" width="14" height="14"/>
-			<path fill="currentColor" d="M 141,26 Q 150,8 159,0 Q 168,8 177,26 Z"/>
+			<defs>
+				<!-- Drapeau khmer : bleu | rouge (large) | bleu, bandes horizontales -->
+				<linearGradient id="kh-flag" x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%"    stop-color="#032EA1"/>
+					<stop offset="20%"   stop-color="#032EA1"/>
+					<stop offset="20%"   stop-color="#E00025"/>
+					<stop offset="80%"   stop-color="#E00025"/>
+					<stop offset="80%"   stop-color="#032EA1"/>
+					<stop offset="100%"  stop-color="#032EA1"/>
+				</linearGradient>
+				<clipPath id="angkor-clip">
+					<rect x="0"   y="108" width="300" height="22"/>
+					<rect x="8"   y="96"  width="284" height="14"/>
+					<rect x="22"  y="84"  width="256" height="14"/>
+					<rect x="40"  y="72"  width="220" height="14"/>
+					<rect x="58"  y="62"  width="184" height="12"/>
+					<rect x="18"  y="80"  width="20"  height="14"/>
+					<rect x="20"  y="70"  width="16"  height="12"/>
+					<rect x="22"  y="61"  width="12"  height="11"/>
+					<path d="M 22,61 Q 28,44 34,38 Q 40,44 46,61 Z"/>
+					<rect x="262" y="80"  width="20"  height="14"/>
+					<rect x="264" y="70"  width="16"  height="12"/>
+					<rect x="266" y="61"  width="12"  height="11"/>
+					<path d="M 254,61 Q 260,44 266,38 Q 272,44 278,61 Z"/>
+					<rect x="80"  y="70"  width="22"  height="16"/>
+					<rect x="82"  y="59"  width="18"  height="13"/>
+					<rect x="85"  y="49"  width="12"  height="12"/>
+					<path d="M 84,49 Q 91,29 98,22 Q 105,29 112,49 Z"/>
+					<rect x="198" y="70"  width="22"  height="16"/>
+					<rect x="200" y="59"  width="18"  height="13"/>
+					<rect x="203" y="49"  width="12"  height="12"/>
+					<path d="M 188,49 Q 195,29 202,22 Q 209,29 216,49 Z"/>
+					<rect x="128" y="62"  width="44"  height="22"/>
+					<rect x="133" y="50"  width="34"  height="14"/>
+					<rect x="138" y="38"  width="24"  height="14"/>
+					<rect x="143" y="26"  width="14"  height="14"/>
+					<path d="M 141,26 Q 150,8 159,0 Q 168,8 177,26 Z"/>
+				</clipPath>
+			</defs>
+			<rect x="0" y="0" width="300" height="130" fill="url(#kh-flag)" clip-path="url(#angkor-clip)"/>
 		</svg>
 		<div class="card-header">
 			<div class="flag-box kh">KH</div>
@@ -195,8 +207,7 @@
 		right: var(--space-3);
 		height: 5rem;
 		width: auto;
-		color: var(--accent);
-		opacity: 0.15;
+		opacity: 0.5;
 		pointer-events: none;
 	}
 
