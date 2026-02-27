@@ -112,8 +112,8 @@
 		padding: var(--space-4) var(--space-4) var(--space-6);
 		gap: 0;
 		background:
-			radial-gradient(ellipse 80% 30% at 50% 20%, rgba(232, 164, 184, 0.08) 0%, transparent 70%),
-			radial-gradient(ellipse 80% 30% at 50% 80%, rgba(164, 184, 232, 0.06) 0%, transparent 70%);
+			radial-gradient(ellipse 80% 30% at 50% 20%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 70%),
+			radial-gradient(ellipse 80% 30% at 50% 80%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 70%);
 	}
 
 	/* ── Cartes ── */
@@ -141,11 +141,11 @@
 	}
 
 	.glow-paris {
-		background: radial-gradient(circle, rgba(66, 99, 196, 0.2) 0%, transparent 70%);
+		background: radial-gradient(circle, color-mix(in srgb, var(--accent) 20%, transparent) 0%, transparent 70%);
 	}
 
 	.glow-pp {
-		background: radial-gradient(circle, rgba(232, 100, 100, 0.15) 0%, transparent 70%);
+		background: radial-gradient(circle, color-mix(in srgb, var(--accent) 15%, transparent) 0%, transparent 70%);
 		top: auto;
 		bottom: -2.5rem;
 		right: -1.25rem;
@@ -280,7 +280,7 @@
 		font-size: var(--fs-sm);
 		font-weight: 700;
 		color: var(--accent);
-		background: rgba(232, 164, 184, 0.12);
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
 		padding: var(--space-1) var(--space-2);
@@ -300,7 +300,7 @@
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: linear-gradient(135deg, rgba(232, 164, 184, 0.07) 0%, transparent 60%);
+		background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent) 0%, transparent 60%);
 		pointer-events: none;
 	}
 
