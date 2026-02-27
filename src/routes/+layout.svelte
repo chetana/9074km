@@ -41,8 +41,8 @@
 		{#key currentPath}
 			<div
 				class="page-wrapper"
-				in:fade={{ duration: 180, delay: 80 }}
-				out:fade={{ duration: 80 }}
+				in:fade={{ duration: 150 }}
+				out:fade={{ duration: 150 }}
 			>
 				{@render children()}
 			</div>
@@ -86,6 +86,7 @@
 		inset: 0;
 		display: flex;
 		flex-direction: column;
+		background: var(--bg);
 	}
 
 	.bottom-nav {
