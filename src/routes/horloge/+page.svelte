@@ -53,9 +53,15 @@
 			<circle class="pin pin-pp" cx="680" cy="160" r="6"/>
 			<text class="pin-label" x="680" y="145" text-anchor="middle">Phnom Penh</text>
 
-			<!-- ── Cœurs animés ── -->
-			<text class="heart heart-1">♡</text>
-			<text class="heart heart-2">♡</text>
+			<!-- ── 8 cœurs animés (4 Paris→PP, 4 PP→Paris) ── -->
+			<text class="heart fwd" style="animation-delay: 0s">♡</text>
+			<text class="heart fwd" style="animation-delay: 1.5s">♡</text>
+			<text class="heart fwd" style="animation-delay: 3s">♡</text>
+			<text class="heart fwd" style="animation-delay: 4.5s">♡</text>
+			<text class="heart bwd" style="animation-delay: 0s">♡</text>
+			<text class="heart bwd" style="animation-delay: 1.5s">♡</text>
+			<text class="heart bwd" style="animation-delay: 3s">♡</text>
+			<text class="heart bwd" style="animation-delay: 4.5s">♡</text>
 		</svg>
 		<div class="map-footer">
 			<span class="map-together">💍 Jour {daysTogether}</span>
@@ -272,34 +278,26 @@
 	}
 
 	.heart {
-		font-size: 20px;
+		font-size: 16px;
 		fill: var(--accent);
 		offset-path: path("M 120,160 C 280,20 520,20 680,160");
 		offset-rotate: 0deg;
 	}
 
-	/* Cœur 1 : Paris → Phnom Penh */
-	.heart-1 {
-		animation: fly-forward 6s ease-in-out infinite;
-	}
-
-	/* Cœur 2 : Phnom Penh → Paris (décalé de 3s) */
-	.heart-2 {
-		animation: fly-backward 6s ease-in-out infinite;
-		animation-delay: 3s;
-	}
+	.fwd { animation: fly-forward 6s ease-in-out infinite; }
+	.bwd { animation: fly-backward 6s ease-in-out infinite; }
 
 	@keyframes fly-forward {
 		0%   { offset-distance: 0%;   opacity: 0; }
-		5%   { opacity: 1; }
-		95%  { opacity: 1; }
+		8%   { opacity: 1; }
+		92%  { opacity: 1; }
 		100% { offset-distance: 100%; opacity: 0; }
 	}
 
 	@keyframes fly-backward {
 		0%   { offset-distance: 100%; opacity: 0; }
-		5%   { opacity: 1; }
-		95%  { opacity: 1; }
+		8%   { opacity: 1; }
+		92%  { opacity: 1; }
 		100% { offset-distance: 0%;   opacity: 0; }
 	}
 
