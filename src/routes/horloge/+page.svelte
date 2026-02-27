@@ -44,59 +44,24 @@
 	<!-- Carte Paris -->
 	<div class="clock-card">
 		<div class="card-glow glow-paris"></div>
-		<!-- Tour Eiffel -->
-		<svg class="landmark" viewBox="0 0 100 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-			<!-- Jambes base gauche -->
-			<path d="M14 195 L34 112" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-			<!-- Jambes base droite -->
-			<path d="M86 195 L66 112" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-			<!-- Grande arche -->
-			<path d="M14 195 Q30 148 50 138 Q70 148 86 195" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-			<!-- Entretoises base gauche -->
-			<line x1="20" y1="172" x2="40" y2="166" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<line x1="17" y1="182" x2="37" y2="175" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<!-- Entretoises base droite -->
-			<line x1="80" y1="172" x2="60" y2="166" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<line x1="83" y1="182" x2="63" y2="175" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<!-- Première plateforme -->
-			<rect x="26" y="108" width="48" height="5" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<!-- Section montante vers 2e étage gauche -->
-			<line x1="30" y1="108" x2="37" y2="72" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-			<!-- Section montante vers 2e étage droite -->
-			<line x1="70" y1="108" x2="63" y2="72" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-			<!-- Entretoises milieu gauche -->
-			<line x1="30" y1="98" x2="37" y2="95" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<line x1="30" y1="88" x2="37" y2="86" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<line x1="31" y1="78" x2="37" y2="77" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<!-- Entretoises milieu droite -->
-			<line x1="70" y1="98" x2="63" y2="95" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<line x1="70" y1="88" x2="63" y2="86" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<line x1="69" y1="78" x2="63" y2="77" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<!-- Deuxième plateforme -->
-			<rect x="33" y="68" width="34" height="5" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<!-- Section vers sommet gauche -->
-			<line x1="37" y1="68" x2="43" y2="40" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-			<!-- Section vers sommet droite -->
-			<line x1="63" y1="68" x2="57" y2="40" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-			<!-- Entretoises haut gauche -->
-			<line x1="37" y1="62" x2="42" y2="60" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<line x1="38" y1="54" x2="43" y2="52" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<line x1="39" y1="46" x2="43" y2="45" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<!-- Entretoises haut droite -->
-			<line x1="63" y1="62" x2="58" y2="60" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<line x1="62" y1="54" x2="57" y2="52" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<line x1="61" y1="46" x2="57" y2="45" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<!-- Troisième plateforme -->
-			<rect x="41" y="36" width="18" height="5" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<!-- Petite plateforme antenne -->
-			<rect x="46" y="22" width="8" height="3" rx="0.5" stroke="currentColor" stroke-width="1" fill="none"/>
-			<!-- Antenne / flèche -->
-			<line x1="50" y1="36" x2="50" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-			<!-- Bagues antenne -->
-			<line x1="47" y1="28" x2="53" y2="28" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<line x1="48" y1="18" x2="52" y2="18" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<line x1="48.5" y1="12" x2="51.5" y2="12" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<line x1="49" y1="8" x2="51" y2="8" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
+		<!-- Tour Eiffel — silhouette filled, proportions réelles -->
+		<svg class="landmark" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+			<!-- Jambes : s'évasent fortement en bas, rejoignent le 1er plancher à y=165 -->
+			<path fill="currentColor" d="M 9,200 C 20,178 34,168 36,165 L 64,165 C 66,168 80,178 91,200 Z"/>
+			<!-- Arche centrale (découpe) -->
+			<path fill="var(--card)" d="M 28,200 Q 50,148 72,200 Z"/>
+			<!-- Plateforme 1 -->
+			<rect fill="currentColor" x="33" y="162" width="34" height="5"/>
+			<!-- Corps 1er→2e plancher : se resserre -->
+			<path fill="currentColor" d="M 36,162 L 42,130 L 58,130 L 64,162 Z"/>
+			<!-- Plateforme 2 -->
+			<rect fill="currentColor" x="40" y="127" width="20" height="5"/>
+			<!-- Corps 2e plancher→3e : se resserre encore -->
+			<path fill="currentColor" d="M 42,127 L 47,34 L 53,34 L 58,127 Z"/>
+			<!-- Plateforme 3 -->
+			<rect fill="currentColor" x="45" y="30" width="10" height="6"/>
+			<!-- Antenne -->
+			<rect fill="currentColor" x="49" y="2" width="2" height="28"/>
 		</svg>
 		<div class="card-header">
 			<div class="flag-box fr">FR</div>
@@ -127,67 +92,45 @@
 	<!-- Carte Phnom Penh -->
 	<div class="clock-card">
 		<div class="card-glow glow-pp"></div>
-		<!-- Temple Angkor Wat -->
-		<svg class="landmark" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-			<!-- Sol / reflet eau -->
-			<line x1="4" y1="152" x2="156" y2="152" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
-			<line x1="10" y1="156" x2="150" y2="156" stroke="currentColor" stroke-width="0.6" stroke-linecap="round" opacity="0.3"/>
-			<!-- Terrasse basse -->
-			<rect x="4" y="140" width="152" height="5" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<!-- Terrasse haute -->
-			<rect x="18" y="130" width="124" height="10" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<!-- Galerie extérieure gauche -->
-			<rect x="18" y="100" width="28" height="30" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<!-- Fenêtres galerie gauche -->
-			<line x1="24" y1="100" x2="24" y2="130" stroke="currentColor" stroke-width="0.8"/>
-			<line x1="30" y1="100" x2="30" y2="130" stroke="currentColor" stroke-width="0.8"/>
-			<line x1="36" y1="100" x2="36" y2="130" stroke="currentColor" stroke-width="0.8"/>
-			<line x1="40" y1="100" x2="40" y2="130" stroke="currentColor" stroke-width="0.8"/>
-			<!-- Galerie extérieure droite -->
-			<rect x="114" y="100" width="28" height="30" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<!-- Fenêtres galerie droite -->
-			<line x1="120" y1="100" x2="120" y2="130" stroke="currentColor" stroke-width="0.8"/>
-			<line x1="126" y1="100" x2="126" y2="130" stroke="currentColor" stroke-width="0.8"/>
-			<line x1="132" y1="100" x2="132" y2="130" stroke="currentColor" stroke-width="0.8"/>
-			<line x1="136" y1="100" x2="136" y2="130" stroke="currentColor" stroke-width="0.8"/>
-			<!-- Tour gauche extérieure (prasat) -->
-			<rect x="22" y="78" width="20" height="22" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<path d="M22 78 Q32 64 42 78" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-			<path d="M25 68 Q32 58 39 68" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round"/>
-			<line x1="32" y1="58" x2="32" y2="48" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-			<line x1="29" y1="54" x2="35" y2="54" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<line x1="30" y1="50" x2="34" y2="50" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<!-- Tour droite extérieure (prasat) -->
-			<rect x="118" y="78" width="20" height="22" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<path d="M118 78 Q128 64 138 78" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-			<path d="M121 68 Q128 58 135 68" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round"/>
-			<line x1="128" y1="58" x2="128" y2="48" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-			<line x1="125" y1="54" x2="131" y2="54" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<line x1="126" y1="50" x2="130" y2="50" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<!-- Corps central -->
-			<rect x="52" y="95" width="56" height="35" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<!-- Porte centrale -->
-			<path d="M72 130 L72 112 Q80 106 88 112 L88 130" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round"/>
-			<!-- Fenêtres flancs corps central -->
-			<rect x="55" y="105" width="8" height="12" rx="1" stroke="currentColor" stroke-width="0.8" fill="none"/>
-			<rect x="97" y="105" width="8" height="12" rx="1" stroke="currentColor" stroke-width="0.8" fill="none"/>
-			<!-- Étage central intermédiaire -->
-			<rect x="60" y="80" width="40" height="15" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<line x1="70" y1="80" x2="70" y2="95" stroke="currentColor" stroke-width="0.8"/>
-			<line x1="80" y1="80" x2="80" y2="95" stroke="currentColor" stroke-width="0.8"/>
-			<line x1="90" y1="80" x2="90" y2="95" stroke="currentColor" stroke-width="0.8"/>
-			<!-- Tour centrale (prasat principal) -->
-			<rect x="66" y="58" width="28" height="22" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-			<path d="M66 58 Q80 40 94 58" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-			<path d="M69 50 Q80 36 91 50" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/>
-			<path d="M72 42 Q80 30 88 42" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round"/>
-			<!-- Flèche centrale -->
-			<line x1="80" y1="30" x2="80" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-			<!-- Bagues flèche centrale -->
-			<line x1="76" y1="26" x2="84" y2="26" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-			<line x1="77" y1="20" x2="83" y2="20" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<line x1="78" y1="14" x2="82" y2="14" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/>
-			<line x1="79" y1="9" x2="81" y2="9" stroke="currentColor" stroke-width="0.7" stroke-linecap="round"/>
+		<!-- Angkor Wat — silhouette filled, 5 tours lotus, terrasses étagées -->
+		<svg class="landmark" viewBox="0 0 300 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+			<!-- Terrasses étagées (temple-montagne) -->
+			<rect fill="currentColor" x="0"  y="108" width="300" height="22"/>
+			<rect fill="currentColor" x="8"  y="96"  width="284" height="14"/>
+			<rect fill="currentColor" x="22" y="84"  width="256" height="14"/>
+			<rect fill="currentColor" x="40" y="72"  width="220" height="14"/>
+			<rect fill="currentColor" x="58" y="62"  width="184" height="12"/>
+
+			<!-- Tour coin gauche — corps + bulbe lotus -->
+			<rect fill="currentColor" x="18" y="80" width="20" height="14"/>
+			<rect fill="currentColor" x="20" y="70" width="16" height="12"/>
+			<rect fill="currentColor" x="22" y="61" width="12" height="11"/>
+			<path fill="currentColor" d="M 22,61 Q 28,44 34,38 Q 40,44 46,61 Z"/>
+
+			<!-- Tour coin droite -->
+			<rect fill="currentColor" x="262" y="80" width="20" height="14"/>
+			<rect fill="currentColor" x="264" y="70" width="16" height="12"/>
+			<rect fill="currentColor" x="266" y="61" width="12" height="11"/>
+			<path fill="currentColor" d="M 254,61 Q 260,44 266,38 Q 272,44 278,61 Z"/>
+
+			<!-- Tour intermédiaire gauche -->
+			<rect fill="currentColor" x="80" y="70" width="22" height="16"/>
+			<rect fill="currentColor" x="82" y="59" width="18" height="13"/>
+			<rect fill="currentColor" x="85" y="49" width="12" height="12"/>
+			<path fill="currentColor" d="M 84,49 Q 91,29 98,22 Q 105,29 112,49 Z"/>
+
+			<!-- Tour intermédiaire droite -->
+			<rect fill="currentColor" x="198" y="70" width="22" height="16"/>
+			<rect fill="currentColor" x="200" y="59" width="18" height="13"/>
+			<rect fill="currentColor" x="203" y="49" width="12" height="12"/>
+			<path fill="currentColor" d="M 188,49 Q 195,29 202,22 Q 209,29 216,49 Z"/>
+
+			<!-- Tour centrale (prasat principal, nettement plus haute) -->
+			<rect fill="currentColor" x="128" y="62" width="44" height="22"/>
+			<rect fill="currentColor" x="133" y="50" width="34" height="14"/>
+			<rect fill="currentColor" x="138" y="38" width="24" height="14"/>
+			<rect fill="currentColor" x="143" y="26" width="14" height="14"/>
+			<path fill="currentColor" d="M 141,26 Q 150,8 159,0 Q 168,8 177,26 Z"/>
 		</svg>
 		<div class="card-header">
 			<div class="flag-box kh">KH</div>
@@ -250,8 +193,8 @@
 		position: absolute;
 		bottom: var(--space-2);
 		right: var(--space-3);
-		width: 6rem;
-		height: auto;
+		height: 5rem;
+		width: auto;
 		color: var(--accent);
 		opacity: 0.15;
 		pointer-events: none;
