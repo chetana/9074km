@@ -58,9 +58,13 @@
 			<text class="heart heart-2">♡</text>
 		</svg>
 		<div class="map-footer">
+			<span class="map-together">💍 Jour {daysTogether}</span>
+			<span class="map-sep">·</span>
 			<span class="map-dist">{DISTANCE_KM.toLocaleString('fr-FR')} km</span>
 			<span class="map-sep">·</span>
-			<span class="map-together">💍 Jour {daysTogether} ensemble</span>
+			<span class="map-heart">♡</span>
+			<span class="map-sep">·</span>
+			<span class="map-offset">+6h</span>
 		</div>
 	</div>
 
@@ -108,17 +112,6 @@
 			<span class="status-icon">{parisStatus.icon}</span>
 			<span class="status-text">{parisStatus.fr} · {parisStatus.kh}</span>
 		</div>
-	</div>
-
-	<!-- Séparateur -->
-	<div class="separator">
-		<div class="sep-line"></div>
-		<div class="sep-content">
-			<span class="sep-dist">{DISTANCE_KM.toLocaleString('fr-FR')} km</span>
-			<span class="sep-heart">♡</span>
-			<span class="sep-offset">+6h</span>
-		</div>
-		<div class="sep-line"></div>
 	</div>
 
 	<!-- Carte Phnom Penh -->
@@ -334,6 +327,25 @@
 		color: var(--accent);
 	}
 
+	.map-heart {
+		color: var(--accent);
+		animation: heartbeat 2s ease-in-out infinite;
+	}
+
+	@keyframes heartbeat {
+		0%, 100% { transform: scale(1);   opacity: 0.6; }
+		50%       { transform: scale(1.4); opacity: 1;   }
+	}
+
+	.map-offset {
+		font-weight: 700;
+		color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		padding: 1px var(--space-2);
+	}
+
 	/* ── Cartes ── */
 	.clock-card {
 		position: relative;
@@ -473,54 +485,6 @@
 		color: var(--text);
 	}
 
-	/* ── Séparateur ── */
-	.separator {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding: var(--space-3) var(--space-1);
-	}
-
-	.sep-line {
-		flex: 1;
-		height: 1px;
-		background: var(--border);
-		opacity: 0.5;
-	}
-
-	.sep-content {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		flex-shrink: 0;
-	}
-
-	.sep-dist {
-		font-size: var(--fs-xs);
-		color: var(--muted);
-		letter-spacing: 0.5px;
-	}
-
-	.sep-heart {
-		font-size: var(--fs-lg);
-		color: var(--accent);
-		animation: heartbeat 2s ease-in-out infinite;
-	}
-
-	@keyframes heartbeat {
-		0%, 100% { transform: scale(1);   opacity: 0.6; }
-		50%       { transform: scale(1.4); opacity: 1;   }
-	}
-
-	.sep-offset {
-		font-size: var(--fs-sm);
-		font-weight: 700;
-		color: var(--accent);
-		background: color-mix(in srgb, var(--accent) 12%, transparent);
-		border: 1px solid var(--border);
-		border-radius: var(--radius-sm);
-		padding: var(--space-1) var(--space-2);
-	}
 
 
 </style>
