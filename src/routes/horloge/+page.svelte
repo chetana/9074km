@@ -41,23 +41,27 @@
 
 <div class="page">
 
-	<!-- Mini-carte — Paris ↔ Phnom Penh -->
+	<!-- Mini-carte + compteur fusionnés -->
 	<div class="map-card">
-		<svg class="world-map" viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+		<svg class="world-map" viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 			<!-- ── Ligne de vol pointillée ── -->
-			<path class="flight-line" d="M 120,220 C 280,40 520,40 680,220"/>
+			<path class="flight-line" d="M 120,160 C 280,20 520,20 680,160"/>
 
 			<!-- ── Épingles ── -->
-			<circle class="pin pin-paris" cx="120" cy="220" r="6"/>
-			<text class="pin-label" x="120" y="205" text-anchor="middle">Paris</text>
-			<circle class="pin pin-pp" cx="680" cy="220" r="6"/>
-			<text class="pin-label" x="680" y="205" text-anchor="middle">Phnom Penh</text>
+			<circle class="pin pin-paris" cx="120" cy="160" r="6"/>
+			<text class="pin-label" x="120" y="145" text-anchor="middle">Paris</text>
+			<circle class="pin pin-pp" cx="680" cy="160" r="6"/>
+			<text class="pin-label" x="680" y="145" text-anchor="middle">Phnom Penh</text>
 
 			<!-- ── Cœurs animés ── -->
 			<text class="heart heart-1">♡</text>
 			<text class="heart heart-2">♡</text>
 		</svg>
-		<div class="map-dist">{DISTANCE_KM.toLocaleString('fr-FR')} km</div>
+		<div class="map-footer">
+			<span class="map-dist">{DISTANCE_KM.toLocaleString('fr-FR')} km</span>
+			<span class="map-sep">·</span>
+			<span class="map-together">💍 Jour {daysTogether} ensemble</span>
+		</div>
 	</div>
 
 	<!-- Carte Paris -->
@@ -217,16 +221,6 @@
 		</div>
 	</div>
 
-	<!-- Compteur -->
-	<div class="together">
-		<div class="together-inner">
-			<span class="together-ring">💍</span>
-			<div class="together-body">
-				<span class="together-count">Jour {daysTogether}</span>
-				<span class="together-label">ensemble · ថ្ងៃទី {daysTogether}</span>
-			</div>
-		</div>
-	</div>
 
 </div>
 
@@ -287,7 +281,7 @@
 	.heart {
 		font-size: 20px;
 		fill: var(--accent);
-		offset-path: path("M 120,220 C 280,40 520,40 680,220");
+		offset-path: path("M 120,160 C 280,20 520,20 680,160");
 		offset-rotate: 0deg;
 	}
 
@@ -316,18 +310,28 @@
 		100% { offset-distance: 0%;   opacity: 0; }
 	}
 
-	.map-dist {
-		position: absolute;
-		bottom: var(--space-2);
-		left: 50%;
-		transform: translateX(-50%);
+	.map-footer {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-3) var(--space-3);
 		font-size: var(--fs-xs);
 		color: var(--muted);
+	}
+
+	.map-dist {
 		font-weight: 600;
 		letter-spacing: 0.5px;
-		background: color-mix(in srgb, var(--card) 80%, transparent);
-		padding: 2px var(--space-2);
-		border-radius: var(--radius-sm);
+	}
+
+	.map-sep {
+		opacity: 0.4;
+	}
+
+	.map-together {
+		font-weight: 600;
+		color: var(--accent);
 	}
 
 	/* ── Cartes ── */
@@ -518,52 +522,5 @@
 		padding: var(--space-1) var(--space-2);
 	}
 
-	/* ── Compteur ── */
-	.together {
-		margin-top: var(--space-4);
-		background: var(--card);
-		border: 1px solid var(--border);
-		border-radius: var(--radius-2xl);
-		overflow: hidden;
-		position: relative;
-	}
 
-	.together::before {
-		content: '';
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent) 0%, transparent 60%);
-		pointer-events: none;
-	}
-
-	.together-inner {
-		display: flex;
-		align-items: center;
-		gap: var(--space-4);
-		padding: var(--space-4) var(--space-6);
-	}
-
-	.together-ring {
-		font-size: var(--fs-3xl);
-		flex-shrink: 0;
-	}
-
-	.together-body {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-	}
-
-	.together-count {
-		font-size: 1.75rem;
-		font-weight: 800;
-		color: var(--accent);
-		line-height: 1;
-	}
-
-	.together-label {
-		font-size: var(--fs-sm);
-		color: var(--muted);
-		letter-spacing: 0.3px;
-	}
 </style>
