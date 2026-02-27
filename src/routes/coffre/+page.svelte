@@ -14,6 +14,7 @@
 	let month = $state<string | null>(null);
 	let day = $state<string | null>(null);
 	let initialFile = $state<string | null>(null); // consommé une seule fois au deep link
+	let dayFileCount = $state<number | null>(null);
 	let deepLinkApplied = false; // empêche de réappliquer le deep link si on revient à year=null
 	let skipPush = false; // éviter de pousser quand on revient via popstate
 
@@ -52,9 +53,9 @@
 	function selectMonth(m: string) { month = m; day = null; initialFile = null; pushState(); }
 	function selectDay(d: string) { day = d; initialFile = null; pushState(); }
 
-	function goToCoffre() { year = null; month = null; day = null; initialFile = null; pushState(); }
-	function goToYear() { month = null; day = null; initialFile = null; pushState(); }
-	function goToMonth() { day = null; initialFile = null; pushState(); }
+	function goToCoffre() { year = null; month = null; day = null; initialFile = null; dayFileCount = null; pushState(); }
+	function goToYear() { month = null; day = null; initialFile = null; dayFileCount = null; pushState(); }
+	function goToMonth() { day = null; initialFile = null; dayFileCount = null; pushState(); }
 
 	function goToday() {
 		const now = new Date();
@@ -138,6 +139,7 @@
 		<header class="header">
 			<Breadcrumb
 				{year} {month} {day}
+				fileCount={dayFileCount}
 				onCoffre={goToCoffre}
 				onYear={goToYear}
 				onMonth={goToMonth}
@@ -160,6 +162,7 @@
 					{initialFile}
 					onDayChange={selectDay}
 					onDateChange={(y, m, d) => { year = y; month = m; day = d; initialFile = null; pushState(); }}
+					onCountChange={(n) => { dayFileCount = n; }}
 				/>
 			{:else}
 				<div class="list-scroll">

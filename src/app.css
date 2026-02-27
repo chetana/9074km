@@ -78,6 +78,18 @@ textarea {
 	color: inherit;
 }
 
+/* ── Thème clair système ── */
+@media (prefers-color-scheme: light) {
+	:root {
+		--bg:     #F0EDF8;
+		--card:   #FFFFFF;
+		--accent: #7C5CBF;
+		--text:   #1E1830;
+		--muted:  #7068A0;
+		--border: rgba(124, 92, 191, 0.2);
+	}
+}
+
 /* ── Skeleton shimmer global ── */
 @keyframes shimmer {
 	0%   { background-position: -200% 0; }

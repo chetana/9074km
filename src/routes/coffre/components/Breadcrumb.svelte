@@ -3,12 +3,13 @@
 		year: string | null;
 		month: string | null;
 		day: string | null;
+		fileCount?: number | null;
 		onCoffre: () => void;
 		onYear: () => void;
 		onMonth: () => void;
 	}
 
-	let { year, month, day, onCoffre, onYear, onMonth }: Props = $props();
+	let { year, month, day, fileCount = null, onCoffre, onYear, onMonth }: Props = $props();
 </script>
 
 <nav class="breadcrumb">
@@ -34,7 +35,9 @@
 
 	{#if day}
 		<span class="sep">›</span>
-		<span class="current">{day}</span>
+		<span class="current">
+			{day}{#if fileCount !== null}&thinsp;<span class="count">({fileCount})</span>{/if}
+		</span>
 	{/if}
 </nav>
 
@@ -79,5 +82,11 @@
 		color: var(--text);
 		font-weight: 600;
 		white-space: nowrap;
+	}
+
+	.count {
+		font-size: var(--fs-xs);
+		color: var(--muted);
+		font-weight: 400;
 	}
 </style>

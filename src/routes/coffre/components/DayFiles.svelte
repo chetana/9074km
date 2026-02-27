@@ -36,9 +36,10 @@
 		initialFile: string | null;
 		onDayChange: (day: string) => void;
 		onDateChange: (year: string, month: string, day: string) => void;
+		onCountChange?: (count: number | null) => void;
 	}
 
-	let { year, month, day, initialFile, onDayChange, onDateChange }: Props = $props();
+	let { year, month, day, initialFile, onDayChange, onDateChange, onCountChange }: Props = $props();
 
 	// --- State ---
 	let items = $state<CoffreItem[] | null>(null);
@@ -77,6 +78,10 @@
 	// --- Derived ---
 	const mediaItems = $derived((items ?? []).filter((i) => isMediaFile(i.name)));
 	const prefix = $derived(`${year}/${month}/${day}/`);
+
+	$effect(() => {
+		onCountChange?.(items === null ? null : mediaItems.length);
+	});
 
 	// --- Load data ---
 	async function loadAll() {

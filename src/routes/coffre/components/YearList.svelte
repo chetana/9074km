@@ -35,6 +35,16 @@
 					);
 				} catch { /* count reste null */ }
 			});
+
+			// Précharger les mois + jours de l'année la plus récente en arrière-plan
+			if (years[0]) {
+				listObjects(`${years[0]}/`).then((r) => {
+					r.prefixes.forEach((p) => {
+						const mm = p.replace(`${years[0]}/`, '').replace('/', '');
+						listObjects(`${years[0]}/${mm}/`).catch(() => {});
+					});
+				}).catch(() => {});
+			}
 		} catch (e) {
 			error = String(e);
 		}
