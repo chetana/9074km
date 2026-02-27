@@ -453,8 +453,8 @@
 		bottom: calc(6.25rem + env(safe-area-inset-bottom, 0px));
 		left: 50%;
 		transform: translateX(-50%);
-		background: rgba(232, 164, 184, 0.9);
-		color: #0f0f1a;
+		background: color-mix(in srgb, var(--accent) 90%, transparent);
+		color: var(--on-accent);
 		padding: var(--space-2) var(--space-4);
 		border-radius: var(--radius-2xl);
 		font-size: var(--fs-base);

@@ -3,6 +3,7 @@
 	--bg: #2D2840;
 	--card: #38324E;
 	--accent: #C4A8F0;
+	--on-accent: #0f0f1a;  /* texte sur fond accent (clair en dark mode) */
 	--text: #EDE8F8;
 	--muted: #9088B8;
 	--border: rgba(196, 168, 240, 0.25);
@@ -81,12 +82,13 @@ textarea {
 /* ── Thème clair système ── */
 @media (prefers-color-scheme: light) {
 	:root {
-		--bg:     #F0EDF8;
-		--card:   #FFFFFF;
-		--accent: #7C5CBF;
-		--text:   #1E1830;
-		--muted:  #7068A0;
-		--border: rgba(124, 92, 191, 0.2);
+		--bg:       #F0EDF8;
+		--card:     #FFFFFF;
+		--accent:   #7C5CBF;
+		--on-accent: #FFFFFF;  /* texte sur fond accent (blanc en light mode) */
+		--text:     #1E1830;
+		--muted:    #7068A0;
+		--border:   rgba(124, 92, 191, 0.2);
 	}
 }
 

@@ -99,8 +99,8 @@
 		height: var(--btn-fab);
 		border-radius: var(--radius-full);
 		background: var(--accent);
-		color: #0f0f1a;
-		box-shadow: 0 4px 16px rgba(232, 164, 184, 0.4);
+		color: var(--on-accent);
+		box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 40%, transparent);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -216,7 +216,7 @@
 		padding: var(--space-4);
 		border-radius: var(--radius-md);
 		background: var(--accent);
-		color: #0f0f1a;
+		color: var(--on-accent);
 		font-size: var(--fs-lg);
 		font-weight: 600;
 		display: flex;
