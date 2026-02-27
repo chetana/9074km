@@ -137,29 +137,47 @@
 		if (gridEl) scrollMemory.set(day, gridEl.scrollTop);
 	}
 
-	// Pull-to-refresh handlers
+	// Pull-to-refresh + swipe horizontal handlers
+	let swipeStartX = 0;
+	let swipeStartY = 0;
+	const SWIPE_THRESHOLD = 60;
+
 	function onGridTouchStart(e: TouchEvent) {
+		swipeStartX = e.touches[0].clientX;
+		swipeStartY = e.touches[0].clientY;
 		if (gridEl && gridEl.scrollTop === 0) {
-			pullStartY = e.touches[0].clientY;
+			pullStartY = swipeStartY;
 		}
 	}
 
 	function onGridTouchMove(e: TouchEvent) {
-		if (pullStartY === 0 || !gridEl || gridEl.scrollTop > 0) return;
-		const dy = e.touches[0].clientY - pullStartY;
-		if (dy > 0) {
+		if (e.touches.length !== 1) return;
+		const dx = e.touches[0].clientX - swipeStartX;
+		const dy = e.touches[0].clientY - swipeStartY;
+		// Pull-to-refresh : mouvement vers le bas quand en haut du scroll
+		if (pullStartY !== 0 && !gridEl?.scrollTop && dy > 0 && Math.abs(dy) > Math.abs(dx)) {
 			pullDist = Math.min(dy, PULL_THRESHOLD * 1.5);
 			isPulling = true;
 		}
 	}
 
-	function onGridTouchEnd() {
+	function onGridTouchEnd(e: TouchEvent) {
 		if (isPulling && pullDist >= PULL_THRESHOLD) {
 			loadAll();
 		}
 		isPulling = false;
 		pullDist = 0;
 		pullStartY = 0;
+
+		// Swipe horizontal → changer de jour (seulement si pas de scroll vertical significatif)
+		const dx = (e.changedTouches[0]?.clientX ?? 0) - swipeStartX;
+		const dy = (e.changedTouches[0]?.clientY ?? 0) - swipeStartY;
+		if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.5) {
+			if (dx < 0) goToNextDay(); // swipe gauche → jour suivant
+			else goToPrevDay();        // swipe droite → jour précédent
+		}
+		swipeStartX = 0;
+		swipeStartY = 0;
 	}
 
 	// Pinch-to-zoom handlers
@@ -257,38 +275,37 @@
 		const firstName = auth.getFirstName() || 'Chet';
 		const metaUpdates: Record<string, string> = {};
 
-		// Compress phase
+		// Compress phase — en parallèle
 		uploadPhase = 'compressing';
-		const compressed: Array<{ blob: Blob; contentType: string; filename: string; original: File }> =
-			[];
-		for (let i = 0; i < fileArray.length; i++) {
-			uploadCurrent = i + 1;
-			const file = fileArray[i];
-			const isVid = /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
-			if (isVid) {
-				compressed.push({ blob: file, contentType: file.type, filename: file.name, original: file });
-			} else {
-				const result = await compressImage(file);
-				compressed.push({ ...result, original: file });
-			}
-		}
+		const compressed = await Promise.all(
+			fileArray.map(async (file) => {
+				const isVid = /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+				const result = isVid
+					? { blob: file as Blob, contentType: file.type, filename: file.name }
+					: await compressImage(file);
+				uploadCurrent += 1;
+				return result;
+			})
+		);
 
-		// Upload phase
+		// Upload phase — en parallèle
 		uploadPhase = 'uploading';
 		uploadCurrent = 0;
-		for (let i = 0; i < compressed.length; i++) {
-			uploadCurrent = i + 1;
-			const { blob, contentType, filename } = compressed[i];
-			const path = `${upY}/${upM}/${upD}/${filename}`;
-			try {
-				const signedUrl = await signUpload(path, contentType);
-				const bytes = new Uint8Array(await blob.arrayBuffer());
-				await uploadFile(signedUrl, bytes, contentType);
-				metaUpdates[filename] = firstName;
-			} catch (e) {
-				console.error('Upload failed for', filename, e);
-			}
-		}
+		await Promise.all(
+			compressed.map(async ({ blob, contentType, filename }) => {
+				const path = `${upY}/${upM}/${upD}/${filename}`;
+				try {
+					const signedUrl = await signUpload(path, contentType);
+					const bytes = new Uint8Array(await blob.arrayBuffer());
+					await uploadFile(signedUrl, bytes, contentType);
+					metaUpdates[filename] = firstName;
+				} catch (e) {
+					console.error('Upload failed for', filename, e);
+				} finally {
+					uploadCurrent += 1;
+				}
+			})
+		);
 
 		// Save meta sur la date d'upload
 		if (Object.keys(metaUpdates).length > 0) {

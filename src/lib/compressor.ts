@@ -1,5 +1,6 @@
 const MAX_DIM = 2048;
 const QUALITY = 0.85;
+const SKIP_COMPRESS_BYTES = 500_000; // < 500 Ko → pas la peine de compresser
 
 export interface CompressResult {
 	blob: Blob;
@@ -10,6 +11,11 @@ export interface CompressResult {
 export async function compressImage(file: File): Promise<CompressResult> {
 	// Only compress images, not videos
 	if (!file.type.startsWith('image/')) {
+		return { blob: file, contentType: file.type, filename: file.name };
+	}
+
+	// Skip compression for small files
+	if (file.size < SKIP_COMPRESS_BYTES) {
 		return { blob: file, contentType: file.type, filename: file.name };
 	}
 

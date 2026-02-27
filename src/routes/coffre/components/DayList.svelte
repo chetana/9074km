@@ -137,14 +137,7 @@
 
 	.skeleton {
 		height: 4.25rem;
-		background: var(--card);
 		border-radius: var(--radius-md);
-		animation: pulse 1.5s ease-in-out infinite;
-	}
-
-	@keyframes pulse {
-		0%, 100% { opacity: 0.5; }
-		50% { opacity: 1; }
 	}
 
 	.error {

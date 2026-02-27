@@ -77,3 +77,20 @@ textarea {
 	font: inherit;
 	color: inherit;
 }
+
+/* ── Skeleton shimmer global ── */
+@keyframes shimmer {
+	0%   { background-position: -200% 0; }
+	100% { background-position:  200% 0; }
+}
+
+.skeleton {
+	background: linear-gradient(
+		90deg,
+		var(--card) 25%,
+		color-mix(in srgb, var(--accent) 10%, var(--card)) 50%,
+		var(--card) 75%
+	);
+	background-size: 200% 100%;
+	animation: shimmer 1.6s ease-in-out infinite;
+}

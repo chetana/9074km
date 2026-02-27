@@ -17,6 +17,15 @@
 	let deepLinkApplied = false; // empêche de réappliquer le deep link si on revient à year=null
 	let skipPush = false; // éviter de pousser quand on revient via popstate
 
+	// Niveau de navigation pour les transitions (0=années, 1=mois, 2=jours)
+	const navLevel = $derived(day !== null ? 2 : month !== null ? 1 : year !== null ? 1 : 0);
+	let prevNavLevel = 0;
+	let slideDir = $state<'left' | 'right'>('left');
+	$effect(() => {
+		slideDir = navLevel >= prevNavLevel ? 'left' : 'right';
+		prevNavLevel = navLevel;
+	});
+
 	// Handle deep link on first load — une seule fois
 	$effect(() => {
 		if (!deepLinkApplied && data.y && data.m && data.d) {
@@ -154,13 +163,17 @@
 				/>
 			{:else}
 				<div class="list-scroll">
-					{#if year === null}
-						<YearList onSelect={selectYear} />
-					{:else if month === null}
-						<MonthList {year} onSelect={selectMonth} />
-					{:else}
-						<DayList {year} {month} onSelect={selectDay} />
-					{/if}
+					{#key `${year}-${month}`}
+						<div class="slide-in slide-{slideDir}">
+							{#if year === null}
+								<YearList onSelect={selectYear} />
+							{:else if month === null}
+								<MonthList {year} onSelect={selectMonth} />
+							{:else}
+								<DayList {year} {month} onSelect={selectDay} />
+							{/if}
+						</div>
+					{/key}
 				</div>
 			{/if}
 		</div>
@@ -312,6 +325,20 @@
 	.list-scroll {
 		flex: 1;
 		overflow-y: auto;
+		overflow-x: hidden;
 		-webkit-overflow-scrolling: touch;
 	}
+
+	@keyframes slide-from-left {
+		from { transform: translateX(-18px); opacity: 0; }
+		to   { transform: translateX(0);     opacity: 1; }
+	}
+
+	@keyframes slide-from-right {
+		from { transform: translateX(18px); opacity: 0; }
+		to   { transform: translateX(0);    opacity: 1; }
+	}
+
+	.slide-in.slide-left  { animation: slide-from-right 0.22s ease-out; }
+	.slide-in.slide-right { animation: slide-from-left  0.22s ease-out; }
 </style>
