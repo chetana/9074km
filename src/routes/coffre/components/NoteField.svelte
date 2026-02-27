@@ -49,7 +49,7 @@
 
 <!-- Full-screen note editor dialog -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<dialog bind:this={dialogEl} class="note-dialog" onclose={close}>
+<dialog bind:this={dialogEl} class="note-dialog" onclose={close} onclick={(e) => { if (e.target === dialogEl) close(); }}>
 	<div class="note-editor">
 		<div class="note-toolbar">
 			<span class="note-title">📝 Note · ចំណាំ</span>
