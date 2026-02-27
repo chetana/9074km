@@ -101,10 +101,10 @@
 	<!-- Carte Phnom Penh -->
 	<div class="clock-card">
 		<div class="card-glow glow-pp"></div>
-		<!-- Angkor Wat — silhouette drapeau cambodgien, tours en bulbe lotus étagé -->
-		<svg class="landmark landmark-angkor" viewBox="0 0 300 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+		<!-- Angkor Wat — silhouette drapeau cambodgien, tours prasat en bulbe lotus étagé -->
+		<svg class="landmark landmark-angkor" viewBox="0 0 300 140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 			<defs>
-				<linearGradient id="kh-flag" x1="0" y1="0" x2="0" y2="130" gradientUnits="userSpaceOnUse">
+				<linearGradient id="kh-flag" x1="0" y1="0" x2="0" y2="140" gradientUnits="userSpaceOnUse">
 					<stop offset="0%"   stop-color="#032EA1"/>
 					<stop offset="20%"  stop-color="#032EA1"/>
 					<stop offset="20%"  stop-color="#E00025"/>
@@ -113,47 +113,75 @@
 					<stop offset="100%" stop-color="#032EA1"/>
 				</linearGradient>
 			</defs>
-			<!-- ── Terrasses étagées ── -->
-			<rect fill="url(#kh-flag)" x="0"   y="109" width="300" height="21"/>
-			<rect fill="url(#kh-flag)" x="10"  y="97"  width="280" height="13"/>
-			<rect fill="url(#kh-flag)" x="24"  y="85"  width="252" height="13"/>
-			<rect fill="url(#kh-flag)" x="42"  y="73"  width="216" height="13"/>
-			<rect fill="url(#kh-flag)" x="60"  y="63"  width="180" height="11"/>
 
-			<!-- ── Tour coin gauche (prasat, bulbe étagé) ── -->
-			<rect fill="url(#kh-flag)" x="17"  y="63"  width="24" height="23"/>
-			<rect fill="url(#kh-flag)" x="19"  y="53"  width="20" height="11"/>
-			<rect fill="url(#kh-flag)" x="21"  y="45"  width="16" height="9"/>
-			<rect fill="url(#kh-flag)" x="23"  y="38"  width="12" height="8"/>
-			<polygon fill="url(#kh-flag)" points="26,38 29,28 32,38"/>
+			<!-- ── Terrasses étagées ── -->
+			<rect fill="url(#kh-flag)" x="0"   y="118" width="300" height="22"/>
+			<rect fill="url(#kh-flag)" x="8"   y="107" width="284" height="12"/>
+			<rect fill="url(#kh-flag)" x="20"  y="96"  width="260" height="12"/>
+			<rect fill="url(#kh-flag)" x="36"  y="85"  width="228" height="12"/>
+			<rect fill="url(#kh-flag)" x="56"  y="75"  width="188" height="11"/>
+
+			<!-- ── Tour coin gauche — 8 anneaux étagés + pointe ── -->
+			<!-- base -->
+			<rect fill="url(#kh-flag)" x="12"  y="75"  width="30" height="11"/>
+			<!-- corps -->
+			<rect fill="url(#kh-flag)" x="14"  y="66"  width="26" height="10"/>
+			<rect fill="url(#kh-flag)" x="16"  y="58"  width="22" height="9"/>
+			<rect fill="url(#kh-flag)" x="18"  y="51"  width="18" height="8"/>
+			<rect fill="url(#kh-flag)" x="20"  y="45"  width="14" height="7"/>
+			<rect fill="url(#kh-flag)" x="21"  y="40"  width="12" height="6"/>
+			<rect fill="url(#kh-flag)" x="22"  y="35"  width="10" height="6"/>
+			<rect fill="url(#kh-flag)" x="23"  y="31"  width="8"  height="5"/>
+			<!-- pointe -->
+			<polygon fill="url(#kh-flag)" points="24,31 27,23 30,31"/>
 
 			<!-- ── Tour coin droite ── -->
-			<rect fill="url(#kh-flag)" x="259" y="63"  width="24" height="23"/>
-			<rect fill="url(#kh-flag)" x="261" y="53"  width="20" height="11"/>
-			<rect fill="url(#kh-flag)" x="263" y="45"  width="16" height="9"/>
-			<rect fill="url(#kh-flag)" x="265" y="38"  width="12" height="8"/>
-			<polygon fill="url(#kh-flag)" points="268,38 271,28 274,38"/>
+			<rect fill="url(#kh-flag)" x="258" y="75"  width="30" height="11"/>
+			<rect fill="url(#kh-flag)" x="260" y="66"  width="26" height="10"/>
+			<rect fill="url(#kh-flag)" x="262" y="58"  width="22" height="9"/>
+			<rect fill="url(#kh-flag)" x="264" y="51"  width="18" height="8"/>
+			<rect fill="url(#kh-flag)" x="266" y="45"  width="14" height="7"/>
+			<rect fill="url(#kh-flag)" x="267" y="40"  width="12" height="6"/>
+			<rect fill="url(#kh-flag)" x="268" y="35"  width="10" height="6"/>
+			<rect fill="url(#kh-flag)" x="269" y="31"  width="8"  height="5"/>
+			<polygon fill="url(#kh-flag)" points="270,31 273,23 276,31"/>
 
-			<!-- ── Tour intermédiaire gauche ── -->
-			<rect fill="url(#kh-flag)" x="79"  y="50"  width="28" height="24"/>
-			<rect fill="url(#kh-flag)" x="82"  y="39"  width="22" height="12"/>
-			<rect fill="url(#kh-flag)" x="85"  y="30"  width="16" height="10"/>
-			<rect fill="url(#kh-flag)" x="88"  y="22"  width="10" height="9"/>
-			<polygon fill="url(#kh-flag)" points="90,22 93,12 96,22"/>
+			<!-- ── Tour intermédiaire gauche — 9 anneaux ── -->
+			<rect fill="url(#kh-flag)" x="75"  y="63"  width="34" height="12"/>
+			<rect fill="url(#kh-flag)" x="77"  y="54"  width="30" height="10"/>
+			<rect fill="url(#kh-flag)" x="79"  y="46"  width="26" height="9"/>
+			<rect fill="url(#kh-flag)" x="82"  y="39"  width="20" height="8"/>
+			<rect fill="url(#kh-flag)" x="84"  y="33"  width="16" height="7"/>
+			<rect fill="url(#kh-flag)" x="86"  y="28"  width="12" height="6"/>
+			<rect fill="url(#kh-flag)" x="87"  y="23"  width="10" height="6"/>
+			<rect fill="url(#kh-flag)" x="88"  y="19"  width="8"  height="5"/>
+			<rect fill="url(#kh-flag)" x="89"  y="15"  width="6"  height="5"/>
+			<polygon fill="url(#kh-flag)" points="90,15 92,8 94,15"/>
 
 			<!-- ── Tour intermédiaire droite ── -->
-			<rect fill="url(#kh-flag)" x="193" y="50"  width="28" height="24"/>
-			<rect fill="url(#kh-flag)" x="196" y="39"  width="22" height="12"/>
-			<rect fill="url(#kh-flag)" x="199" y="30"  width="16" height="10"/>
-			<rect fill="url(#kh-flag)" x="202" y="22"  width="10" height="9"/>
-			<polygon fill="url(#kh-flag)" points="205,22 208,12 211,22"/>
+			<rect fill="url(#kh-flag)" x="191" y="63"  width="34" height="12"/>
+			<rect fill="url(#kh-flag)" x="193" y="54"  width="30" height="10"/>
+			<rect fill="url(#kh-flag)" x="195" y="46"  width="26" height="9"/>
+			<rect fill="url(#kh-flag)" x="198" y="39"  width="20" height="8"/>
+			<rect fill="url(#kh-flag)" x="200" y="33"  width="16" height="7"/>
+			<rect fill="url(#kh-flag)" x="202" y="28"  width="12" height="6"/>
+			<rect fill="url(#kh-flag)" x="203" y="23"  width="10" height="6"/>
+			<rect fill="url(#kh-flag)" x="204" y="19"  width="8"  height="5"/>
+			<rect fill="url(#kh-flag)" x="205" y="15"  width="6"  height="5"/>
+			<polygon fill="url(#kh-flag)" points="206,15 208,8 210,15"/>
 
-			<!-- ── Tour centrale (nettement plus haute) ── -->
-			<rect fill="url(#kh-flag)" x="126" y="26"  width="48" height="47"/>
-			<rect fill="url(#kh-flag)" x="131" y="17"  width="38" height="10"/>
-			<rect fill="url(#kh-flag)" x="136" y="10"  width="28" height="8"/>
-			<rect fill="url(#kh-flag)" x="141" y="4"   width="18" height="7"/>
-			<polygon fill="url(#kh-flag)" points="147,4 150,0 153,4"/>
+			<!-- ── Tour centrale — 11 anneaux, la plus haute ── -->
+			<rect fill="url(#kh-flag)" x="120" y="52"  width="60" height="23"/>
+			<rect fill="url(#kh-flag)" x="123" y="44"  width="54" height="9"/>
+			<rect fill="url(#kh-flag)" x="127" y="37"  width="46" height="8"/>
+			<rect fill="url(#kh-flag)" x="131" y="31"  width="38" height="7"/>
+			<rect fill="url(#kh-flag)" x="134" y="25"  width="32" height="7"/>
+			<rect fill="url(#kh-flag)" x="137" y="20"  width="26" height="6"/>
+			<rect fill="url(#kh-flag)" x="140" y="15"  width="20" height="6"/>
+			<rect fill="url(#kh-flag)" x="143" y="11"  width="14" height="5"/>
+			<rect fill="url(#kh-flag)" x="145" y="7"   width="10" height="5"/>
+			<rect fill="url(#kh-flag)" x="147" y="4"   width="6"  height="4"/>
+			<polygon fill="url(#kh-flag)" points="148,4 150,0 152,4"/>
 		</svg>
 		<div class="card-header">
 			<div class="flag-box kh">KH</div>
