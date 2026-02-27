@@ -52,7 +52,7 @@
 	}
 
 	button {
-		font-size: var(--fs-sm);
+		font-size: var(--fs-base);
 		font-weight: 500;
 		color: var(--accent);
 		white-space: nowrap;
@@ -74,18 +74,18 @@
 
 	.sep {
 		color: var(--muted);
-		font-size: var(--fs-sm);
+		font-size: var(--fs-md);
 	}
 
 	.current {
-		font-size: var(--fs-base);
+		font-size: var(--fs-md);
 		color: var(--text);
 		font-weight: 600;
 		white-space: nowrap;
 	}
 
 	.count {
-		font-size: var(--fs-xs);
+		font-size: var(--fs-sm);
 		color: var(--muted);
 		font-weight: 400;
 	}
