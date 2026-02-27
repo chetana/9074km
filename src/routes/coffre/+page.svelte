@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { userStore, auth } from '$lib/auth';
-	import { ogImageUrl } from '$lib/api';
+	import { ogImageUrl, signUpload, uploadFile, saveMeta, invalidateListCache } from '$lib/api';
+	import { compressImage } from '$lib/compressor';
 	import YearList from './components/YearList.svelte';
 	import MonthList from './components/MonthList.svelte';
 	import DayList from './components/DayList.svelte';
 	import DayFiles from './components/DayFiles.svelte';
 	import Breadcrumb from './components/Breadcrumb.svelte';
+	import FabUpload from './components/FabUpload.svelte';
 
 	let { data } = $props();
 
@@ -75,6 +77,65 @@
 		} else {
 			year = null; month = null; day = null;
 		}
+	}
+
+	// --- FAB Upload (vues liste : year/month/day) ---
+	let fabPhase = $state<'idle' | 'compressing' | 'uploading'>('idle');
+	let fabCurrent = $state(0);
+	let fabTotal = $state(0);
+
+	async function handleListUpload(files: FileList, uploadDate: string) {
+		const [upY, upM, upD] = uploadDate.split('-');
+		const fileArray = Array.from(files);
+		fabTotal = fileArray.length;
+		fabCurrent = 0;
+
+		const firstName = auth.getFirstName() || 'Chet';
+		const metaUpdates: Record<string, string> = {};
+
+		fabPhase = 'compressing';
+		const compressed = await Promise.all(
+			fileArray.map(async (file) => {
+				const isVid = /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+				const result = isVid
+					? { blob: file as Blob, contentType: file.type, filename: file.name }
+					: await compressImage(file);
+				fabCurrent += 1;
+				return result;
+			})
+		);
+
+		fabPhase = 'uploading';
+		fabCurrent = 0;
+		await Promise.all(
+			compressed.map(async ({ blob, contentType, filename }) => {
+				const path = `${upY}/${upM}/${upD}/${filename}`;
+				try {
+					const signedUrl = await signUpload(path, contentType);
+					const bytes = new Uint8Array(await blob.arrayBuffer());
+					await uploadFile(signedUrl, bytes, contentType);
+					metaUpdates[filename] = firstName;
+				} catch (e) {
+					console.error('Upload failed for', filename, e);
+				} finally {
+					fabCurrent += 1;
+				}
+			})
+		);
+
+		if (Object.keys(metaUpdates).length > 0) {
+			await saveMeta(upY, upM, upD, { ...metaUpdates });
+		}
+
+		fabPhase = 'idle';
+		invalidateListCache(`${upY}/${upM}/${upD}/`);
+
+		// Naviguer vers la date uploadée
+		year = upY;
+		month = upM;
+		day = upD;
+		initialFile = null;
+		pushState();
 	}
 
 	onMount(() => {
@@ -178,6 +239,15 @@
 						</div>
 					{/key}
 				</div>
+
+				<!-- FAB visible sur toutes les vues liste -->
+				<FabUpload
+					phase={fabPhase}
+					current={fabCurrent}
+					total={fabTotal}
+					currentDate={new Date().toLocaleDateString('sv')}
+					onFiles={handleListUpload}
+				/>
 			{/if}
 		</div>
 	{/if}
