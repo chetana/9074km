@@ -41,6 +41,109 @@
 
 <div class="page">
 
+	<!-- Mini-carte du monde — Paris ↔ Phnom Penh -->
+	<!-- viewBox 0 0 800 400 — lon -15→115, lat 70→5 -->
+	<!-- Paris : lon 2.35 lat 48.85 → x≈107 y≈131 -->
+	<!-- Phnom Penh : lon 104.9 lat 11.57 → x≈736 y≈360 -->
+	<div class="map-card">
+		<svg class="world-map" viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+			<defs>
+				<!-- Chemin invisible pour l'animation du cœur (aller-retour Paris→PP) -->
+				<!-- La courbe monte (arc grand cercle simulé) -->
+				<path id="flight-path" d="M 107,131 C 250,20 580,20 736,360" fill="none"/>
+			</defs>
+
+			<!-- ── Continents simplifiés ── -->
+			<!-- Europe -->
+			<polygon class="land" points="
+				85,60  100,55  115,50  130,48  145,52  158,48  168,44  180,42
+				195,45  205,40  218,38  228,42  235,38  245,40  252,36  260,40
+				268,35  275,40  280,38  285,44  278,50  282,56  275,60  270,65
+				260,62  255,68  248,72  240,70  232,75  225,72  218,78  210,75
+				200,80  192,75  185,80  178,76  172,82  165,78  158,84  150,80
+				142,85  135,82  128,88  120,84  112,90  105,86  98,92  90,88
+				82,94  75,90  68,96  62,90  58,95  52,88  55,80  60,75
+				65,70  70,65  78,62  82,58
+			"/>
+			<!-- Scandinavie -->
+			<polygon class="land" points="
+				148,20  155,15  162,10  170,8  178,12  185,18  190,25  195,32
+				188,38  180,42  170,38  162,35  155,30  148,25
+			"/>
+			<!-- Îles britanniques -->
+			<polygon class="land" points="
+				68,58  72,52  78,48  84,50  88,56  85,62  78,65  72,63
+			"/>
+			<!-- Afrique du Nord -->
+			<polygon class="land" points="
+				62,90  75,90  90,88  105,86  120,84  135,82  150,80  165,78
+				178,76  192,75  200,80  210,85  218,90  225,95  230,102
+				225,110  215,115  200,118  185,120  170,118  155,115  140,118
+				125,115  110,112  95,108  80,105  65,102  58,95
+			"/>
+			<!-- Asie de l'Ouest / Moyen-Orient -->
+			<polygon class="land" points="
+				228,42  240,40  252,38  265,40  278,42  290,45  305,48  315,52
+				320,58  315,65  305,70  295,75  285,80  275,85  265,88  255,85
+				248,80  240,78  232,75  225,72  230,65  228,58  225,52
+			"/>
+			<!-- Asie centrale / Russie du Sud -->
+			<polygon class="land" points="
+				228,42  240,40  252,36  268,35  285,32  305,28  325,25  345,22
+				365,20  385,18  405,16  425,18  445,20  462,22  478,25  492,28
+				505,32  515,38  510,45  500,50  488,55  472,58  458,62  442,65
+				425,68  408,72  390,75  372,78  355,80  338,78  322,75  308,72
+				295,75  285,80  275,85  265,88  252,88  240,85  230,82  225,78
+				232,72  238,65  235,58  230,52
+			"/>
+			<!-- Russie / Sibérie -->
+			<polygon class="land" points="
+				228,15  250,10  275,8   300,6   325,5   350,4   375,5   400,6
+				425,8   450,10  475,12  500,15  520,18  535,22  545,28  540,35
+				530,40  515,38  500,32  480,28  460,22  440,18  420,15  400,12
+				378,10  355,8   330,8   305,10  280,12  255,14  235,18  228,15
+			"/>
+			<!-- Asie du Sud / Inde -->
+			<polygon class="land" points="
+				355,80  372,78  390,75  408,72  422,75  432,80  438,88  435,98
+				428,108 418,118 405,125 392,128 378,125 365,118 355,108 348,98
+				348,88  350,82
+			"/>
+			<!-- Asie du Sud-Est / Indochine -->
+			<polygon class="land" points="
+				480,110 495,105 510,108 522,115 528,125 525,135 515,142
+				505,148 492,150 480,148 470,142 462,135 458,125 462,115
+			"/>
+			<!-- Chine / Asie de l'Est -->
+			<polygon class="land" points="
+				458,62  475,58  492,55  508,52  522,55  535,60  545,68  548,78
+				542,88  532,95  520,100 505,105 490,108 478,110 465,112
+				450,108 438,102 432,95  435,85  440,78  448,72  455,68
+			"/>
+			<!-- Péninsule arabique -->
+			<polygon class="land" points="
+				290,95  305,90  320,88  335,90  348,95  352,105 348,115
+				338,122 325,128 310,125 298,118 288,110 285,100
+			"/>
+
+			<!-- ── Ligne de vol pointillée Paris→PP ── -->
+			<path class="flight-line" d="M 107,131 C 250,20 580,20 736,360"/>
+
+			<!-- ── Épingles ── -->
+			<!-- Paris -->
+			<circle class="pin pin-paris" cx="107" cy="131" r="5"/>
+			<text class="pin-label" x="107" y="120" text-anchor="middle">Paris</text>
+			<!-- Phnom Penh -->
+			<circle class="pin pin-pp" cx="736" cy="360" r="5"/>
+			<text class="pin-label" x="736" y="349" text-anchor="middle">Phnom Penh</text>
+
+			<!-- ── Cœur animé ── -->
+			<text class="heart heart-1">♡</text>
+			<text class="heart heart-2">♡</text>
+		</svg>
+		<div class="map-dist">{DISTANCE_KM.toLocaleString('fr-FR')} km</div>
+	</div>
+
 	<!-- Carte Paris -->
 	<div class="clock-card">
 		<div class="card-glow glow-paris"></div>
@@ -224,6 +327,98 @@
 		background:
 			radial-gradient(ellipse 80% 30% at 50% 20%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 70%),
 			radial-gradient(ellipse 80% 30% at 50% 80%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 70%);
+	}
+
+	/* ── Mini-carte ── */
+	.map-card {
+		position: relative;
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-2xl);
+		overflow: hidden;
+		flex-shrink: 0;
+	}
+
+	.world-map {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	.land {
+		fill: color-mix(in srgb, var(--accent) 18%, var(--card));
+		stroke: color-mix(in srgb, var(--accent) 35%, transparent);
+		stroke-width: 1;
+		stroke-linejoin: round;
+	}
+
+	.flight-line {
+		fill: none;
+		stroke: var(--accent);
+		stroke-width: 1.5;
+		stroke-dasharray: 6 4;
+		opacity: 0.5;
+	}
+
+	.pin {
+		stroke: var(--on-accent);
+		stroke-width: 1.5;
+	}
+
+	.pin-paris { fill: #ED2939; }
+	.pin-pp    { fill: #E00025; }
+
+	.pin-label {
+		font-size: 18px;
+		font-weight: 600;
+		fill: var(--text);
+		font-family: inherit;
+	}
+
+	.heart {
+		font-size: 20px;
+		fill: var(--accent);
+		offset-path: path("M 107,131 C 250,20 580,20 736,360");
+		offset-rotate: 0deg;
+	}
+
+	/* Cœur 1 : Paris → Phnom Penh */
+	.heart-1 {
+		animation: fly-forward 6s ease-in-out infinite;
+	}
+
+	/* Cœur 2 : Phnom Penh → Paris (décalé de 3s) */
+	.heart-2 {
+		animation: fly-backward 6s ease-in-out infinite;
+		animation-delay: 3s;
+	}
+
+	@keyframes fly-forward {
+		0%   { offset-distance: 0%;   opacity: 0; }
+		5%   { opacity: 1; }
+		95%  { opacity: 1; }
+		100% { offset-distance: 100%; opacity: 0; }
+	}
+
+	@keyframes fly-backward {
+		0%   { offset-distance: 100%; opacity: 0; }
+		5%   { opacity: 1; }
+		95%  { opacity: 1; }
+		100% { offset-distance: 0%;   opacity: 0; }
+	}
+
+	.map-dist {
+		position: absolute;
+		bottom: var(--space-2);
+		left: 50%;
+		transform: translateX(-50%);
+		font-size: var(--fs-xs);
+		color: var(--muted);
+		font-weight: 600;
+		letter-spacing: 0.5px;
+		background: color-mix(in srgb, var(--card) 80%, transparent);
+		padding: 2px var(--space-2);
+		border-radius: var(--radius-sm);
 	}
 
 	/* ── Cartes ── */
