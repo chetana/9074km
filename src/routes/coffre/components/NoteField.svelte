@@ -96,15 +96,17 @@
 	}
 
 	.note-dialog {
-		width: 100%;
-		height: 100%;
-		max-width: 100%;
-		max-height: 100%;
-		margin: 0;
+		width: calc(100% - var(--space-8));
+		max-width: 480px;
+		max-height: 70vh;
+		margin: auto;
 		padding: 0;
 		border: none;
-		background: var(--bg);
+		border-radius: var(--radius-2xl);
+		background: var(--card);
 		color: var(--text);
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+		overflow: hidden;
 	}
 
 	.note-dialog::backdrop {
@@ -114,14 +116,14 @@
 	.note-editor {
 		display: flex;
 		flex-direction: column;
-		height: 100%;
+		max-height: 70vh;
 	}
 
 	.note-toolbar {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--space-3) var(--space-4);
+		padding: var(--space-4) var(--space-6);
 		border-bottom: 1px solid var(--border);
 		flex-shrink: 0;
 	}
@@ -140,12 +142,13 @@
 
 	.note-textarea {
 		flex: 1;
-		padding: var(--space-4);
+		padding: var(--space-4) var(--space-6);
 		background: transparent;
 		border: none;
 		outline: none;
-		font-size: var(--fs-lg);
+		font-size: var(--fs-md);
 		line-height: 1.6;
 		resize: none;
+		min-height: 160px;
 	}
 </style>
