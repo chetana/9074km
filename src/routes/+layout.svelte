@@ -3,7 +3,9 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { auth } from '$lib/auth';
+
 
 	onMount(() => {
 		auth.init();
@@ -29,12 +31,22 @@
 		{ path: '/coffre',  icon: '🗃',         label: 'Coffre',  kh: 'ប្រអប់' }
 	]);
 
+	const currentPath = $derived($page.url.pathname);
+
 	let { children } = $props();
 </script>
 
 <div class="app">
 	<main>
-		{@render children()}
+		{#key currentPath}
+			<div
+				class="page-wrapper"
+				in:fade={{ duration: 180, delay: 80 }}
+				out:fade={{ duration: 80 }}
+			>
+				{@render children()}
+			</div>
+		{/key}
 	</main>
 
 	<nav class="bottom-nav">
@@ -64,6 +76,14 @@
 		flex: 1;
 		overflow: hidden;
 		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		position: relative;
+	}
+
+	.page-wrapper {
+		position: absolute;
+		inset: 0;
 		display: flex;
 		flex-direction: column;
 	}
