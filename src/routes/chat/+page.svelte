@@ -87,11 +87,22 @@
 
 	let pollInterval: ReturnType<typeof setInterval>;
 
-	onMount(async () => {
+	// Déclenche le premier chargement dès que l'auth est prête (évite la race condition
+	// entre auth.init() dans le layout et loadDate() qui appelle auth.getToken())
+	let chatInitialized = false;
+	$effect(() => {
+		if ($user && !chatInitialized) {
+			chatInitialized = true;
+			void loadDate();
+		} else if (!$user) {
+			chatInitialized = false; // reset si déconnexion
+		}
+	});
+
+	onMount(() => {
 		isOnline = navigator.onLine;
 		window.addEventListener('online', () => { isOnline = true; });
 		window.addEventListener('offline', () => { isOnline = false; });
-		await loadDate();
 		pollInterval = setInterval(() => { if (isToday) void loadMessages(); }, 8000);
 	});
 	onDestroy(() => { clearInterval(pollInterval); stopRecording(); });
