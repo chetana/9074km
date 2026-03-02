@@ -445,7 +445,8 @@
 						<span class="author-label">{msg.author}</span>
 					{/if}
 					<div class="bubble" class:mine={isMine}>
-						<p class="bubble-text">{msg.text}{#if msg.source === 'audio'}<span class="source-audio"> 🎤</span>{/if}</p>
+						{#if msg.source === 'audio'}<span class="source-badge">🎤</span>{/if}
+					<p class="bubble-text">{msg.text}</p>
 						{#if msg.image}
 							{#if imageUrls[msg.image]}
 								<img class="bubble-img" src={imageUrls[msg.image]} alt="" loading="lazy" />
@@ -712,6 +713,23 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
+		position: relative;
+	}
+
+	.source-badge {
+		position: absolute;
+		top: -0.45rem;
+		right: -0.45rem;
+		font-size: 0.7rem;
+		line-height: 1;
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-full);
+		width: 1.25rem;
+		height: 1.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.bubble.mine {
@@ -1027,11 +1045,6 @@
 	@keyframes pulse-speak {
 		0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, #2e7d32 50%, transparent); }
 		50% { box-shadow: 0 0 0 8px color-mix(in srgb, #2e7d32 0%, transparent); }
-	}
-
-	.source-audio {
-		opacity: 0.5;
-		font-size: 0.75em;
 	}
 
 	.bubble-img {
