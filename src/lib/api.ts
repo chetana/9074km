@@ -182,6 +182,7 @@ export interface GeminiSuggestion {
 	en: string;
 	kh: string;
 	question: string;
+	lesson?: string;  // explication courte en khmer (pour Lys uniquement)
 }
 
 export async function fetchMessages(y: string, m: string, d: string): Promise<ChatMessage[]> {

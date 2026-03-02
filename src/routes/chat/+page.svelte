@@ -201,8 +201,8 @@
 			messages = [...messages, msg];
 			await tick();
 			scrollToBottom();
-		} catch (e) {
-			console.error('Image upload failed:', e);
+		} catch {
+			showError(userLang === 'kh' ? '❌ បរាជ័យក្នុងការផ្ញើរូប' : '❌ Échec de l\'envoi de l\'image');
 		} finally {
 			sending = false;
 		}
@@ -225,6 +225,14 @@
 	}
 
 	let copyToast = $state(false);
+	let errorToast = $state<string | null>(null);
+	let errorToastTimer: ReturnType<typeof setTimeout>;
+
+	function showError(msg: string) {
+		clearTimeout(errorToastTimer);
+		errorToast = msg;
+		errorToastTimer = setTimeout(() => { errorToast = null; }, 3000);
+	}
 
 	async function copySelected() {
 		const msg = messages.find(m => m.id === selectedMsg);
@@ -282,8 +290,8 @@
 			messages = [...messages, msg];
 			await tick();
 			scrollToBottom();
-		} catch (e) {
-			console.error('Transcription failed:', e);
+		} catch {
+			showError(userLang === 'kh' ? '❌ ការចំលងសម្លេងបានបរាជ័យ' : '❌ Échec de la transcription');
 		} finally {
 			transcribing = false;
 		}
@@ -353,6 +361,7 @@
 			scrollToBottom();
 		} catch {
 			inputText = text; // restaure si erreur
+			showError(userLang === 'kh' ? '❌ បរាជ័យក្នុងការផ្ញើសារ' : '❌ Échec de l\'envoi');
 		} finally {
 			sending = false;
 		}
@@ -494,6 +503,11 @@
 			<div class="copy-toast">{userLang === 'kh' ? '✓ បានចម្លង' : '✓ Copié !'}</div>
 		{/if}
 
+		<!-- ── Toast erreur ── -->
+		{#if errorToast}
+			<div class="error-toast">{errorToast}</div>
+		{/if}
+
 		<!-- ── Suggestion Gemini ── -->
 		{#if suggestionLoading}
 			<div class="suggestion suggestion-loading">
@@ -506,6 +520,9 @@
 				{#if suggestion.fr}<p class="suggestion-translation"><span class="transl-flag">🇫🇷</span>{suggestion.fr}</p>{/if}
 				{#if suggestion.en}<p class="suggestion-translation"><span class="transl-flag">🇬🇧</span>{suggestion.en}</p>{/if}
 				{#if suggestion.kh}<p class="suggestion-translation"><span class="transl-flag">🇰🇭</span>{suggestion.kh}</p>{/if}
+				{#if suggestion.lesson}
+					<p class="suggestion-lesson">📖 {suggestion.lesson}</p>
+				{/if}
 				<div class="suggestion-actions">
 					<button class="suggestion-btn accept" onclick={acceptSuggestion}>{ui.yes}</button>
 					<button class="suggestion-btn dismiss" onclick={dismissSuggestion}>{ui.no}</button>
@@ -837,6 +854,17 @@
 		color: var(--muted);
 	}
 
+	.suggestion-lesson {
+		font-size: var(--fs-sm);
+		color: var(--muted);
+		background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+		border-left: 2px solid var(--accent);
+		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+		padding: var(--space-1) var(--space-3);
+		margin-top: var(--space-1);
+		line-height: 1.5;
+	}
+
 	/* ── Input ── */
 	.input-bar {
 		display: flex;
@@ -966,6 +994,23 @@
 		15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
 		75%  { opacity: 1; }
 		100% { opacity: 0; }
+	}
+
+	/* ── Toast erreur ── */
+	.error-toast {
+		position: fixed;
+		bottom: 6rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: color-mix(in srgb, #e53935 90%, transparent);
+		color: #fff;
+		font-size: var(--fs-sm);
+		font-weight: 600;
+		padding: var(--space-2) var(--space-5);
+		border-radius: var(--radius-full);
+		pointer-events: none;
+		animation: fade-toast 3s ease forwards;
+		white-space: nowrap;
 	}
 
 	/* ── Image ── */
