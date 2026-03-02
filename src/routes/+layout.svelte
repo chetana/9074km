@@ -28,7 +28,8 @@
 
 	const tabs = $derived([
 		{ path: '/horloge', icon: clockIcon(), label: 'Horloge', kh: 'នាឡិកា' },
-		{ path: '/coffre',  icon: '🗃',         label: 'Coffre',  kh: 'ប្រអប់' }
+		{ path: '/coffre',  icon: '🗃',         label: 'Coffre',  kh: 'ប្រអប់'  },
+		{ path: '/chat',    icon: '💬',         label: 'Chat',    kh: 'ជជែក'   }
 	]);
 
 	const currentPath = $derived($page.url.pathname);

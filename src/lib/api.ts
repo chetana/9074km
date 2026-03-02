@@ -162,6 +162,52 @@ export function shareUrl(y: string, m: string, d: string, f: string): string {
 // Filter out metadata files from item lists
 export const META_FILES = ['note.txt', 'meta.json', 'reactions.json'];
 
+// ── Chat ──────────────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+	id: string;
+	author: string;
+	text: string;
+	translation: string;
+	ts: string;
+}
+
+export interface GeminiSuggestion {
+	corrected: string;
+	translation: string;
+	question: string;
+}
+
+export async function fetchMessages(y: string, m: string, d: string): Promise<ChatMessage[]> {
+	try {
+		const res = await apiFetch(`/api/chat/messages?y=${y}&m=${m}&d=${d}`);
+		return res.json();
+	} catch {
+		return [];
+	}
+}
+
+export async function sendMessage(
+	y: string, m: string, d: string,
+	author: string, text: string, translation: string
+): Promise<ChatMessage> {
+	const res = await apiFetch(`/api/chat/messages?y=${y}&m=${m}&d=${d}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ author, text, translation })
+	});
+	return res.json();
+}
+
+export async function suggestMessage(text: string, lang: 'fr' | 'kh'): Promise<GeminiSuggestion> {
+	const res = await apiFetch('/api/chat/suggest', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ text, lang })
+	});
+	return res.json();
+}
+
 export function isMediaFile(name: string): boolean {
 	const filename = name.split('/').pop() ?? '';
 	return !META_FILES.includes(filename);

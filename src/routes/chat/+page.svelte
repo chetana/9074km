@@ -1,0 +1,441 @@
+<script lang="ts">
+	import { onMount, onDestroy, tick } from 'svelte';
+	import { auth, userStore } from '$lib/auth';
+	import {
+		fetchMessages, sendMessage, suggestMessage,
+		type ChatMessage, type GeminiSuggestion
+	} from '$lib/api';
+
+	// ── Date du jour (pour GCS) ───────────────────────────────────────────
+	const now = new Date();
+	const Y = String(now.getFullYear());
+	const M = String(now.getMonth() + 1).padStart(2, '0');
+	const D = String(now.getDate()).padStart(2, '0');
+
+	// ── État ─────────────────────────────────────────────────────────────
+	let messages = $state<ChatMessage[]>([]);
+	let inputText = $state('');
+	let sending = $state(false);
+	let suggestion = $state<GeminiSuggestion | null>(null);
+	let suggestionLoading = $state(false);
+	let lastSuggestedText = '';
+	let listEl = $state<HTMLElement | null>(null);
+
+	const user = userStore;
+	const firstName = $derived(auth.getFirstName());
+	// Détermine la langue de l'utilisateur connecté : Lys → kh, Chet → fr
+	const userLang = $derived<'fr' | 'kh'>(
+		firstName.toLowerCase() === 'lys' ? 'kh' : 'fr'
+	);
+
+	// ── Chargement & polling ──────────────────────────────────────────────
+	async function loadMessages() {
+		const fresh = await fetchMessages(Y, M, D);
+		// N'update que si de nouveaux messages sont arrivés
+		if (fresh.length !== messages.length) {
+			messages = fresh;
+			await tick();
+			scrollToBottom();
+		}
+	}
+
+	function scrollToBottom() {
+		if (listEl) listEl.scrollTop = listEl.scrollHeight;
+	}
+
+	let pollInterval: ReturnType<typeof setInterval>;
+
+	onMount(async () => {
+		await loadMessages();
+		pollInterval = setInterval(loadMessages, 8000);
+	});
+	onDestroy(() => clearInterval(pollInterval));
+
+	// ── Suggestion Gemini (debounce 1s) ───────────────────────────────────
+	let debounceTimer: ReturnType<typeof setTimeout>;
+
+	function onInput() {
+		suggestion = null;
+		clearTimeout(debounceTimer);
+		const text = inputText.trim();
+		if (text.length < 3 || text === lastSuggestedText) return;
+		debounceTimer = setTimeout(async () => {
+			suggestionLoading = true;
+			try {
+				suggestion = await suggestMessage(text, userLang);
+				lastSuggestedText = text;
+			} catch {
+				suggestion = null;
+			} finally {
+				suggestionLoading = false;
+			}
+		}, 1000);
+	}
+
+	function acceptSuggestion() {
+		if (!suggestion) return;
+		inputText = suggestion.corrected;
+		suggestion = null;
+	}
+
+	function dismissSuggestion() {
+		suggestion = null;
+	}
+
+	// ── Envoi ─────────────────────────────────────────────────────────────
+	async function send() {
+		const text = inputText.trim();
+		if (!text || sending || !firstName) return;
+
+		const translation = suggestion?.translation ?? '';
+		sending = true;
+		suggestion = null;
+		inputText = '';
+		lastSuggestedText = '';
+		clearTimeout(debounceTimer);
+
+		try {
+			const msg = await sendMessage(Y, M, D, firstName, text, translation);
+			messages = [...messages, msg];
+			await tick();
+			scrollToBottom();
+		} catch {
+			inputText = text; // restaure si erreur
+		} finally {
+			sending = false;
+		}
+	}
+
+	function onKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			send();
+		}
+	}
+
+	// ── Formatage heure ───────────────────────────────────────────────────
+	function fmtTime(ts: string) {
+		return new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+	}
+</script>
+
+<svelte:head>
+	<title>Chet & Lys · Chat</title>
+</svelte:head>
+
+<div class="page">
+
+	{#if !$user}
+		<!-- Auth gate identique au coffre -->
+		<div class="auth-gate">
+			<p class="auth-msg">Connecte-toi pour accéder au chat 💬</p>
+			<button class="sign-in-btn" onclick={() => auth.signIn()}>
+				Se connecter avec Google
+			</button>
+		</div>
+	{:else}
+		<!-- ── Liste des messages ── -->
+		<div class="message-list" bind:this={listEl}>
+			{#if messages.length === 0}
+				<div class="empty">
+					<span class="empty-icon">💬</span>
+					<p>Pas encore de messages aujourd'hui</p>
+					<p class="empty-sub">Commence la conversation ♡</p>
+				</div>
+			{/if}
+
+			{#each messages as msg (msg.id)}
+				{@const isMine = msg.author === firstName}
+				<div class="bubble-row" class:mine={isMine}>
+					{#if !isMine}
+						<span class="author-label">{msg.author}</span>
+					{/if}
+					<div class="bubble" class:mine={isMine}>
+						<p class="bubble-text">{msg.text}</p>
+						{#if msg.translation}
+							<p class="bubble-translation">{msg.translation}</p>
+						{/if}
+						<span class="bubble-time">{fmtTime(msg.ts)}</span>
+					</div>
+				</div>
+			{/each}
+		</div>
+
+		<!-- ── Suggestion Gemini ── -->
+		{#if suggestionLoading}
+			<div class="suggestion suggestion-loading">
+				<span class="suggestion-dots">✨ Gemini réfléchit…</span>
+			</div>
+		{:else if suggestion}
+			<div class="suggestion">
+				<p class="suggestion-question">{suggestion.question}</p>
+				<p class="suggestion-corrected">"{suggestion.corrected}"</p>
+				<p class="suggestion-translation">→ {suggestion.translation}</p>
+				<div class="suggestion-actions">
+					<button class="suggestion-btn accept" onclick={acceptSuggestion}>✓ Oui</button>
+					<button class="suggestion-btn dismiss" onclick={dismissSuggestion}>✗ Non</button>
+				</div>
+			</div>
+		{/if}
+
+		<!-- ── Zone de saisie ── -->
+		<div class="input-bar">
+			<textarea
+				class="input"
+				bind:value={inputText}
+				oninput={onInput}
+				onkeydown={onKeydown}
+				placeholder="Écris un message…"
+				rows="1"
+				disabled={sending}
+			></textarea>
+			<button
+				class="send-btn"
+				onclick={send}
+				disabled={!inputText.trim() || sending}
+				aria-label="Envoyer"
+			>
+				{sending ? '…' : '➤'}
+			</button>
+		</div>
+	{/if}
+
+</div>
+
+<style>
+	.page {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
+		background:
+			radial-gradient(ellipse 80% 30% at 50% 0%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 70%);
+	}
+
+	/* ── Auth gate ── */
+	.auth-gate {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-4);
+		padding: var(--space-6);
+	}
+
+	.auth-msg {
+		font-size: var(--fs-lg);
+		color: var(--muted);
+		text-align: center;
+	}
+
+	.sign-in-btn {
+		background: var(--accent);
+		color: var(--on-accent);
+		border-radius: var(--radius-xl);
+		padding: var(--space-3) var(--space-6);
+		font-size: var(--fs-base);
+		font-weight: 600;
+	}
+
+	/* ── Messages ── */
+	.message-list {
+		flex: 1;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+		padding: var(--space-4) var(--space-4) var(--space-2);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+
+	.empty {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		color: var(--muted);
+		padding-top: 20vh;
+	}
+
+	.empty-icon { font-size: 3rem; }
+
+	.empty-sub {
+		font-size: var(--fs-sm);
+		opacity: 0.6;
+	}
+
+	.bubble-row {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 2px;
+		max-width: 80%;
+	}
+
+	.bubble-row.mine {
+		align-self: flex-end;
+		align-items: flex-end;
+	}
+
+	.author-label {
+		font-size: var(--fs-xs);
+		color: var(--muted);
+		padding-left: var(--space-2);
+	}
+
+	.bubble {
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-2xl);
+		border-bottom-left-radius: var(--radius-sm);
+		padding: var(--space-3) var(--space-4);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+
+	.bubble.mine {
+		background: color-mix(in srgb, var(--accent) 15%, var(--card));
+		border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+		border-bottom-left-radius: var(--radius-2xl);
+		border-bottom-right-radius: var(--radius-sm);
+	}
+
+	.bubble-text {
+		font-size: var(--fs-base);
+		color: var(--text);
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	.bubble-translation {
+		font-size: var(--fs-sm);
+		color: var(--muted);
+		font-style: italic;
+		border-top: 1px solid var(--border);
+		padding-top: var(--space-1);
+	}
+
+	.bubble-time {
+		font-size: var(--fs-xs);
+		color: var(--muted);
+		opacity: 0.6;
+		align-self: flex-end;
+	}
+
+	/* ── Suggestion Gemini ── */
+	.suggestion {
+		margin: 0 var(--space-4) var(--space-2);
+		background: color-mix(in srgb, var(--accent) 8%, var(--card));
+		border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+		border-radius: var(--radius-xl);
+		padding: var(--space-3) var(--space-4);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+
+	.suggestion-loading {
+		color: var(--muted);
+		font-size: var(--fs-sm);
+	}
+
+	.suggestion-dots {
+		font-size: var(--fs-sm);
+		color: var(--muted);
+	}
+
+	.suggestion-question {
+		font-size: var(--fs-sm);
+		font-weight: 600;
+		color: var(--accent);
+	}
+
+	.suggestion-corrected {
+		font-size: var(--fs-base);
+		color: var(--text);
+	}
+
+	.suggestion-translation {
+		font-size: var(--fs-sm);
+		color: var(--muted);
+		font-style: italic;
+	}
+
+	.suggestion-actions {
+		display: flex;
+		gap: var(--space-2);
+		margin-top: var(--space-1);
+	}
+
+	.suggestion-btn {
+		font-size: var(--fs-sm);
+		font-weight: 700;
+		border-radius: var(--radius-lg);
+		padding: var(--space-1) var(--space-3);
+	}
+
+	.suggestion-btn.accept {
+		background: var(--accent);
+		color: var(--on-accent);
+	}
+
+	.suggestion-btn.dismiss {
+		background: color-mix(in srgb, var(--muted) 15%, transparent);
+		color: var(--muted);
+	}
+
+	/* ── Input ── */
+	.input-bar {
+		display: flex;
+		align-items: flex-end;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+		background: var(--card);
+		border-top: 1px solid var(--border);
+		flex-shrink: 0;
+	}
+
+	.input {
+		flex: 1;
+		background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+		border: 1px solid var(--border);
+		border-radius: var(--radius-xl);
+		padding: var(--space-3) var(--space-4);
+		font-size: var(--fs-base);
+		color: var(--text);
+		font-family: inherit;
+		resize: none;
+		max-height: 8rem;
+		overflow-y: auto;
+		line-height: 1.4;
+	}
+
+	.input::placeholder { color: var(--muted); opacity: 0.6; }
+
+	.input:focus {
+		outline: none;
+		border-color: var(--accent);
+	}
+
+	.send-btn {
+		width: 2.75rem;
+		height: 2.75rem;
+		border-radius: var(--radius-full);
+		background: var(--accent);
+		color: var(--on-accent);
+		font-size: var(--fs-lg);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		transition: opacity 0.15s;
+	}
+
+	.send-btn:disabled {
+		opacity: 0.35;
+	}
+</style>
