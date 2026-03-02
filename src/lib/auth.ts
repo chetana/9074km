@@ -17,6 +17,7 @@ export interface GoogleAccounts {
 			client_id: string;
 			callback: (response: GoogleCredentialResponse) => void;
 			auto_select?: boolean;
+			use_fedcm_for_prompt?: boolean;
 		}) => void;
 		prompt: (notification?: (n: { isNotDisplayed: () => boolean; isSkippedMoment: () => boolean }) => void) => void;
 		disableAutoSelect: () => void;
@@ -67,7 +68,8 @@ function initGsi(callback: (response: GoogleCredentialResponse) => void): void {
 	window.google!.accounts.id.initialize({
 		client_id: CLIENT_ID,
 		callback,
-		auto_select: true
+		auto_select: true,
+		use_fedcm_for_prompt: true,
 	});
 }
 
