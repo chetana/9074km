@@ -960,6 +960,12 @@
 		gap: var(--space-2);
 	}
 
+	.action-row + .action-row {
+		margin-top: var(--space-2);
+		padding-top: var(--space-2);
+		border-top: 1px solid var(--border);
+	}
+
 	@keyframes slide-up {
 		from { opacity: 0; transform: translateY(6px); }
 		to   { opacity: 1; transform: translateY(0); }
