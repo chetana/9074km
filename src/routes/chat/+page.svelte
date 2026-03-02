@@ -25,8 +25,7 @@
 	let imageInput: HTMLInputElement | undefined;
 	let recording = $state(false);
 	let transcribing = $state(false);
-	let mediaRecorder: MediaRecorder | null = null;
-	let audioChunks: Blob[] = [];
+	let vad: { start(): void; destroy(): void } | null = null;
 	let selectedMsg = $state<string | null>(null);
 
 	const user = userStore;
@@ -58,7 +57,7 @@
 		await loadMessages();
 		pollInterval = setInterval(loadMessages, 8000);
 	});
-	onDestroy(() => clearInterval(pollInterval));
+	onDestroy(() => { clearInterval(pollInterval); stopRecording(); });
 
 	// ── Suggestion Gemini (debounce 1s) ───────────────────────────────────
 	let debounceTimer: ReturnType<typeof setTimeout>;
@@ -177,15 +176,24 @@
 		}
 	}
 
-	// ── Audio ───────────────────────────────────────────────────────────────
-	function getAudioMimeType(): string {
-		const types = [
-			'audio/webm;codecs=opus',
-			'audio/webm',
-			'audio/mp4',       // iOS Safari
-			'audio/ogg;codecs=opus',
-		];
-		return types.find(t => MediaRecorder.isTypeSupported(t)) ?? '';
+	// ── Audio (VAD — Silero + noiseSuppression) ────────────────────────────
+	// Float32 PCM 16kHz → WAV (format accepté par Gemini)
+	function float32ToWav(samples: Float32Array, sampleRate = 16000): Blob {
+		const len = samples.length;
+		const buf = new ArrayBuffer(44 + len * 2);
+		const view = new DataView(buf);
+		const w = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+		w(0, 'RIFF'); view.setUint32(4, 36 + len * 2, true);
+		w(8, 'WAVE'); w(12, 'fmt ');
+		view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+		view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+		view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+		w(36, 'data'); view.setUint32(40, len * 2, true);
+		for (let i = 0; i < len; i++) {
+			const s = Math.max(-1, Math.min(1, samples[i]));
+			view.setInt16(44 + i * 2, s < 0 ? s * 32768 : s * 32767, true);
+		}
+		return new Blob([buf], { type: 'audio/wav' });
 	}
 
 	function arrayBufferToBase64(buf: ArrayBuffer): string {
@@ -195,35 +203,14 @@
 		return btoa(binary);
 	}
 
-	async function startRecording() {
-		const mimeType = getAudioMimeType();
-		if (!mimeType) { console.error('MediaRecorder not supported'); return; }
-		const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-		audioChunks = [];
-		mediaRecorder = new MediaRecorder(stream, { mimeType });
-		mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-		mediaRecorder.onstop = async () => {
-			stream.getTracks().forEach(t => t.stop());
-			await processAudio(mimeType);
-		};
-		mediaRecorder.start(250); // collect chunks every 250ms
-		recording = true;
-		// Auto-stop après 60 secondes
-		setTimeout(() => { if (recording) stopRecording(); }, 60000);
-	}
-
-	function stopRecording() {
-		if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
-		recording = false;
-	}
-
-	async function processAudio(mimeType: string) {
-		if (!audioChunks.length || !firstName) return;
+	async function processAudio(samples: Float32Array) {
+		if (!firstName) return;
 		transcribing = true;
 		try {
-			const blob = new Blob(audioChunks, { type: mimeType });
-			const base64 = arrayBufferToBase64(await blob.arrayBuffer());
-			const result = await transcribeAudio(base64, mimeType);
+			const wav = float32ToWav(samples);
+			const base64 = arrayBufferToBase64(await wav.arrayBuffer());
+			const result = await transcribeAudio(base64, 'audio/wav');
+			if (!result.text.trim()) return;
 			const msg = await sendMessage(Y, M, D, firstName, result.text, { fr: result.fr, en: result.en, kh: result.kh }, undefined, 'audio');
 			messages = [...messages, msg];
 			await tick();
@@ -235,9 +222,35 @@
 		}
 	}
 
+	async function startRecording() {
+		if (vad) return;
+		recording = true;
+		try {
+			// Import dynamique (SSR-safe) — charge le modèle Silero + ONNX
+			const { MicVAD } = await import('@ricky0123/vad-web');
+			const micVad = await MicVAD.new({
+				additionalAudioConstraints: { noiseSuppression: true, echoCancellation: true, autoGainControl: true },
+				onSpeechEnd: (audio: Float32Array) => {
+					if (!transcribing) void processAudio(audio);
+				},
+			});
+			vad = micVad;
+			vad.start();
+		} catch (e) {
+			console.error('VAD init failed:', e);
+			recording = false;
+		}
+	}
+
+	function stopRecording() {
+		vad?.destroy();
+		vad = null;
+		recording = false;
+	}
+
 	async function toggleRecording() {
-		if (recording) { stopRecording(); }
-		else { await startRecording(); }
+		if (recording) stopRecording();
+		else await startRecording();
 	}
 
 	// ── Envoi ─────────────────────────────────────────────────────────────
