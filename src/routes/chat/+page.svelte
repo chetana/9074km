@@ -172,6 +172,7 @@
 
 			{#each messages as msg (msg.id)}
 				{@const isMine = msg.author === firstName}
+				{@const legacy = (msg as unknown as { translation?: string }).translation}
 				<div class="bubble-row" class:mine={isMine}>
 					{#if !isMine}
 						<span class="author-label">{msg.author}</span>
@@ -183,6 +184,10 @@
 								{#if msg.fr}<p class="bubble-translation"><span class="transl-flag">🇫🇷</span>{msg.fr}</p>{/if}
 								{#if msg.en}<p class="bubble-translation"><span class="transl-flag">🇬🇧</span>{msg.en}</p>{/if}
 								{#if msg.kh}<p class="bubble-translation"><span class="transl-flag">🇰🇭</span>{msg.kh}</p>{/if}
+							</div>
+						{:else if legacy}
+							<div class="bubble-translations">
+								<p class="bubble-translation">{legacy}</p>
 							</div>
 						{/if}
 						<span class="bubble-time">{fmtTime(msg.ts)}</span>
