@@ -3,7 +3,7 @@
 	import { auth, userStore } from '$lib/auth';
 	import {
 		fetchMessages, sendMessage, suggestMessage,
-		signUpload, uploadFile, signDownload,
+		signUpload, uploadFile, signDownload, invalidateListCache,
 		type ChatMessage, type GeminiSuggestion
 	} from '$lib/api';
 
@@ -141,9 +141,10 @@
 		try {
 			const { bytes, contentType, ext } = await compressImage(file);
 			const filename = Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.' + ext;
-			const path = 'chat/' + Y + '/' + M + '/' + D + '/' + filename;
+			const path = Y + '/' + M + '/' + D + '/' + filename;
 			const signedUrl = await signUpload(path, contentType);
 			await uploadFile(signedUrl, bytes, contentType);
+			invalidateListCache(Y + '/' + M + '/' + D + '/');
 			const msg = await sendMessage(Y, M, D, firstName, '', { fr: '', en: '', kh: '' }, path);
 			messages = [...messages, msg];
 			await tick();
