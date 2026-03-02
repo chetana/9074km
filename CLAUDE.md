@@ -22,12 +22,13 @@ src/
     semaphore.ts   — Queue async (max 3 signed URL fetches)
     i18n.ts        — Labels FR + Khmer, COUPLE_START, STATUS, REACTIONS
   routes/
-    +layout.svelte        — Bottom nav (Horloge / Coffre)
+    +layout.svelte        — Bottom nav (Horloge / Coffre / Chat)
     horloge/+page.svelte  — Double horloge Paris / Phnom Penh
     coffre/+page.svelte   — Auth gate + navigation hiérarchique
     coffre/components/    — Breadcrumb, YearList, MonthList, DayList,
                             DayNavBar, DaysChipBar, NoteField, FileTile,
                             FabUpload, FileViewer, DayFiles
+    chat/+page.svelte     — Chat temps réel : texte 📝, image 📷, vocal 🎤
 ```
 
 ## Conventions
@@ -38,6 +39,77 @@ src/
 - **Fichiers méta** : `note.txt`, `meta.json`, `reactions.json` — filtrés de la grille
 - **Thème** : dark uniquement, accent rose `#E8A4B8`
 - **Bilinguisme** : FR + Khmer partout dans l'UI
+
+## Pièges Svelte 5 (CRITIQUE)
+
+### Réactivité stores legacy dans `$derived`
+```typescript
+// ❌ FAUX — get(store) dans $derived n'est PAS réactif
+const firstName = $derived(auth.getFirstName())
+
+// ✅ CORRECT — syntaxe $store est réactive dans $derived
+const firstName = $derived($user?.name.split(' ')[0] ?? '')
+```
+`userStore` et `tokenStore` sont des Svelte writable stores. Toujours utiliser `$user`, `$token` (syntaxe store auto-subscription) dans `$derived`, jamais `get(store)`.
+
+### CRLF dans +page.svelte
+`src/routes/chat/+page.svelte` utilise des fins de ligne **Windows CRLF**.
+Les éditions ciblées (Edit tool) fonctionnent bien. Pour les très gros patches, utiliser des scripts Node `.cjs` avec `\r\n` explicites si l'Edit échoue.
+
+## Chat (`/chat`)
+
+- **Messages** stockés dans GCS : `chat/YYYY/MM/DD.json`
+- **Images** stockées dans GCS : `YYYY/MM/DD/filename` (même format coffre → sync automatique)
+- **Traductions** : chaque message a `fr`, `en`, `kh` générés par Gemini
+- **Audio** : VAD détecte la voix → base64 → POST `/api/chat/transcribe` → texte + traductions → `source: 'audio'`
+- **Suppression** : auteur uniquement (vérifié côté backend)
+- **Navigation historique** : `viewOffset` ($state) — 0=aujourd'hui, -1=hier, etc. — boutons ← →
+- **Polling** : toutes les 8s (messages du jour uniquement, `if (isToday)`)
+
+### États audio (VAD)
+
+```typescript
+let vadLoading = $state(false)  // ⏳ init ONNX en cours
+let recording = $state(false)   // ⏹ écoute active (rouge pulsant)
+let speaking = $state(false)    // 🔊 voix détectée (vert pulsant)
+```
+
+Filtre durée min : segments < 0.8s ignorés (évite les bruits courts).
+
+### Auth-aware loading (éviter race condition)
+
+`auth.init()` dans le layout n'est **pas awaité**. Ne jamais appeler `loadDate()` directement dans `onMount`.
+
+```typescript
+let chatInitialized = false;
+$effect(() => {
+  if ($user && !chatInitialized) {
+    chatInitialized = true;
+    void loadDate();
+  } else if (!$user) {
+    chatInitialized = false;
+  }
+});
+```
+
+### VAD configuration production (`vite.config.ts`)
+
+```typescript
+optimizeDeps: { exclude: ['@ricky0123/vad-web', 'onnxruntime-web'] },
+// viteStaticCopy targets :
+{ src: 'node_modules/@ricky0123/vad-web/dist/vad.worklet.bundle.min.js', dest: './' },
+{ src: 'node_modules/@ricky0123/vad-web/dist/silero_vad_v5.onnx', dest: './' },
+{ src: 'node_modules/@ricky0123/vad-web/dist/silero_vad_legacy.onnx', dest: './' },
+{ src: 'node_modules/onnxruntime-web/dist/*.wasm', dest: './' },
+{ src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs', dest: './' }, // CRUCIAL
+```
+
+Dans `MicVAD.new()` :
+```typescript
+workletURL: '/vad.worklet.bundle.min.js',
+modelURL: '/silero_vad_v5.onnx',
+ortConfig: (ort: any) => { ort.env.wasm.wasmPaths = '/'; }, // sinon cherche dans /_app/immutable/chunks/
+```
 
 ## Workflow dev
 
@@ -55,10 +127,12 @@ Push sur `main` → Vercel déploie automatiquement → `chetlys.vercel.app`
 
 - **Auth** : `userStore` (null = non connecté), `auth.init()` dans +layout.svelte
 - **Signed URLs** : cache 1h dans `Map<string, string>`, semaphore max 3 concurrent
-- **Upload** : FilePicker → compress → signUpload → PUT GCS → saveMeta
+- **Upload coffre** : FilePicker → compress → signUpload → PUT GCS → saveMeta
+- **Upload chat image** : compress → signUpload (path `YYYY/MM/DD/`) → invalidateListCache → sendMessage
 - **Deep link** : `/coffre?y=2026&m=02&d=22&f=photo.jpg`
 - **Couple ensemble depuis** : 2026-01-13
 - **Distance** : 9 074 km, fuseau +6h (Paris → Phnom Penh)
+- **FedCM** : `use_fedcm_for_prompt: true` dans `auth.ts` (évite UNSUPPORTED_OS)
 
 ## Archive Flutter
 

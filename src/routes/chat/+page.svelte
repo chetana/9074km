@@ -349,7 +349,11 @@
 
 	// ── Formatage heure ───────────────────────────────────────────────────
 	function fmtTime(ts: string) {
-		return new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+		return new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+	}
+
+	function fmtTimeKH(ts: string) {
+		return new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Phnom_Penh' });
 	}
 
 	// ── UI bilingue selon l'utilisateur ──────────────────────────────────
@@ -442,7 +446,7 @@
 								<p class="bubble-translation">{legacy}</p>
 							</div>
 						{/if}
-						<span class="bubble-time">{fmtTime(msg.ts)}</span>
+						<span class="bubble-time">🇫🇷 {fmtTime(msg.ts)} · 🇰🇭 {fmtTimeKH(msg.ts)}</span>
 					</div>
 				</div>
 			{/each}
