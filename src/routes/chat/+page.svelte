@@ -22,7 +22,8 @@
 	let listEl = $state<HTMLElement | null>(null);
 
 	const user = userStore;
-	const firstName = $derived(auth.getFirstName());
+	// $user est réactif (store Svelte 4), contrairement à auth.getFirstName() qui utilise get()
+	const firstName = $derived($user?.name.split(' ')[0] ?? '');
 	// Détermine la langue de l'utilisateur connecté : Lys → kh, Chet → fr
 	const userLang = $derived<'fr' | 'kh'>(
 		firstName.toLowerCase() === 'lys' ? 'kh' : 'fr'
