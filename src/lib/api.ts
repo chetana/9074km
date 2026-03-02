@@ -206,6 +206,10 @@ export async function sendMessage(
 	return res.json();
 }
 
+export async function deleteMessage(y: string, m: string, d: string, id: string): Promise<void> {
+	await apiFetch(`/api/chat/messages?y=${y}&m=${m}&d=${d}&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export async function suggestMessage(text: string, lang: 'fr' | 'kh'): Promise<GeminiSuggestion> {
 	const res = await apiFetch('/api/chat/suggest', {
 		method: 'POST',

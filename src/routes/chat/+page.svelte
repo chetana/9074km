@@ -2,7 +2,7 @@
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { auth, userStore } from '$lib/auth';
 	import {
-		fetchMessages, sendMessage, suggestMessage,
+		fetchMessages, sendMessage, suggestMessage, deleteMessage,
 		signUpload, uploadFile, signDownload, invalidateListCache,
 		type ChatMessage, type GeminiSuggestion
 	} from '$lib/api';
@@ -23,6 +23,7 @@
 	let listEl = $state<HTMLElement | null>(null);
 	let imageUrls = $state<Record<string, string>>({});
 	let imageInput: HTMLInputElement | undefined;
+	let selectedMsg = $state<string | null>(null);
 
 	const user = userStore;
 	// $user est réactif (store Svelte 4), contrairement à auth.getFirstName() qui utilise get()
@@ -156,6 +157,22 @@
 		}
 	}
 
+	function selectMsg(id: string) {
+		selectedMsg = selectedMsg === id ? null : id;
+	}
+
+	async function deleteSelected() {
+		if (!selectedMsg) return;
+		const id = selectedMsg;
+		selectedMsg = null;
+		try {
+			await deleteMessage(Y, M, D, id);
+			messages = messages.filter(m => m.id !== id);
+		} catch {
+			selectedMsg = id; // restaure si erreur
+		}
+	}
+
 	// ── Envoi ─────────────────────────────────────────────────────────────
 	async function send() {
 		const text = inputText.trim();
@@ -247,7 +264,7 @@
 			{#each messages as msg (msg.id)}
 				{@const isMine = msg.author === firstName}
 				{@const legacy = (msg as unknown as { translation?: string }).translation}
-				<div class="bubble-row" class:mine={isMine}>
+				<div class="bubble-row" class:mine={isMine} class:selected={selectedMsg === msg.id} onclick={() => selectMsg(msg.id)} role="button" tabindex="0">
 					{#if !isMine}
 						<span class="author-label">{msg.author}</span>
 					{/if}
@@ -276,6 +293,23 @@
 				</div>
 			{/each}
 		</div>
+
+		<!-- ── Popup suppression ── -->
+		{#if selectedMsg}
+			{@const selMsg = messages.find(m => m.id === selectedMsg)}
+			{#if selMsg?.author === firstName}
+				<div class="delete-bar">
+					<span class="delete-bar-text">{userLang === 'kh' ? 'លុបសារនេះ ?' : 'Supprimer ce message ?'}</span>
+					<button class="delete-btn" onclick={deleteSelected}>{userLang === 'kh' ? '🗑 លុប' : '🗑 Supprimer'}</button>
+					<button class="delete-cancel" onclick={() => selectedMsg = null}>{ui.no}</button>
+				</div>
+			{:else}
+				<div class="delete-bar">
+					<span class="delete-bar-text">{userLang === 'kh' ? 'មិនអាចលុបសាររបស់អ្នកដទៃ' : 'Impossible de supprimer le message d\'un autre'}</span>
+					<button class="delete-cancel" onclick={() => selectedMsg = null}>{ui.no}</button>
+				</div>
+			{/if}
+		{/if}
 
 		<!-- ── Suggestion Gemini ── -->
 		{#if suggestionLoading}
@@ -580,6 +614,57 @@
 
 	.send-btn:disabled {
 		opacity: 0.35;
+	}
+
+	/* ── Suppression ── */
+	.bubble-row {
+		cursor: pointer;
+	}
+
+	.bubble-row.selected > .bubble {
+		outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+		outline-offset: 2px;
+	}
+
+	.delete-bar {
+		margin: 0 var(--space-4) var(--space-2);
+		background: color-mix(in srgb, #e53935 8%, var(--card));
+		border: 1px solid color-mix(in srgb, #e53935 30%, transparent);
+		border-radius: var(--radius-xl);
+		padding: var(--space-2) var(--space-4);
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		animation: slide-up 0.15s ease;
+	}
+
+	@keyframes slide-up {
+		from { opacity: 0; transform: translateY(6px); }
+		to   { opacity: 1; transform: translateY(0); }
+	}
+
+	.delete-bar-text {
+		flex: 1;
+		font-size: var(--fs-sm);
+		color: var(--muted);
+	}
+
+	.delete-btn {
+		font-size: var(--fs-sm);
+		font-weight: 700;
+		border-radius: var(--radius-lg);
+		padding: var(--space-1) var(--space-3);
+		background: #e53935;
+		color: #fff;
+	}
+
+	.delete-cancel {
+		font-size: var(--fs-sm);
+		font-weight: 700;
+		border-radius: var(--radius-lg);
+		padding: var(--space-1) var(--space-3);
+		background: color-mix(in srgb, var(--muted) 15%, transparent);
+		color: var(--muted);
 	}
 
 	/* ── Image ── */
