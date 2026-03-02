@@ -7,11 +7,11 @@
 		type ChatMessage, type GeminiSuggestion
 	} from '$lib/api';
 
-	// ── Date du jour (pour GCS) ───────────────────────────────────────────
-	const now = new Date();
-	const Y = String(now.getFullYear());
-	const M = String(now.getMonth() + 1).padStart(2, '0');
-	const D = String(now.getDate()).padStart(2, '0');
+	// ── Date du jour (pour GCS — envoi toujours vers aujourd'hui) ────────
+	const today = new Date();
+	const Y = String(today.getFullYear());
+	const M = String(today.getMonth() + 1).padStart(2, '0');
+	const D = String(today.getDate()).padStart(2, '0');
 
 	// ── État ─────────────────────────────────────────────────────────────
 	let messages = $state<ChatMessage[]>([]);
@@ -29,6 +29,8 @@
 	let transcribing = $state(false);
 	let vad: { start(): void; destroy(): void } | null = null;
 	let selectedMsg = $state<string | null>(null);
+	let viewOffset = $state(0);       // 0 = aujourd'hui, -1 = hier, etc.
+	let isOnline = $state(true);
 
 	const user = userStore;
 	// $user est réactif (store Svelte 4), contrairement à auth.getFirstName() qui utilise get()
@@ -38,16 +40,40 @@
 		firstName.toLowerCase() === 'lys' ? 'kh' : 'fr'
 	);
 
+	// ── Date de navigation ────────────────────────────────────────────────
+	const viewDate = $derived(new Date(today.getFullYear(), today.getMonth(), today.getDate() + viewOffset));
+	const vY = $derived(String(viewDate.getFullYear()));
+	const vM = $derived(String(viewDate.getMonth() + 1).padStart(2, '0'));
+	const vD = $derived(String(viewDate.getDate()).padStart(2, '0'));
+	const isToday = $derived(viewOffset === 0);
+	const dayLabelStr = $derived(
+		viewOffset === 0 ? (userLang === 'kh' ? 'ថ្ងៃនេះ' : 'Aujourd\'hui') :
+		viewOffset === -1 ? (userLang === 'kh' ? 'ម្សិលមិញ' : 'Hier') :
+		viewDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+	);
+
 	// ── Chargement & polling ──────────────────────────────────────────────
 	async function loadMessages() {
-		const fresh = await fetchMessages(Y, M, D);
-		// N'update que si de nouveaux messages sont arrivés
+		// Polling léger : ne remplace que si nouveaux messages (aujourd'hui uniquement)
+		const fresh = await fetchMessages(vY, vM, vD);
 		if (fresh.length !== messages.length) {
 			messages = fresh;
 			await tick();
 			scrollToBottom();
 		}
 	}
+
+	async function loadDate() {
+		// Chargement complet (navigation) : remplace toujours
+		messages = [];
+		const fresh = await fetchMessages(vY, vM, vD);
+		messages = fresh;
+		await tick();
+		scrollToBottom();
+	}
+
+	function prevDay() { viewOffset--; void loadDate(); }
+	function nextDay() { if (!isToday) { viewOffset++; void loadDate(); } }
 
 	function scrollToBottom() {
 		if (listEl) listEl.scrollTop = listEl.scrollHeight;
@@ -56,8 +82,11 @@
 	let pollInterval: ReturnType<typeof setInterval>;
 
 	onMount(async () => {
-		await loadMessages();
-		pollInterval = setInterval(loadMessages, 8000);
+		isOnline = navigator.onLine;
+		window.addEventListener('online', () => { isOnline = true; });
+		window.addEventListener('offline', () => { isOnline = false; });
+		await loadDate();
+		pollInterval = setInterval(() => { if (isToday) void loadMessages(); }, 8000);
 	});
 	onDestroy(() => { clearInterval(pollInterval); stopRecording(); });
 
@@ -207,6 +236,7 @@
 
 	async function processAudio(samples: Float32Array) {
 		if (!firstName) return;
+		if (samples.length < 16000 * 0.8) return; // < 0.8s → bruit court, ignorer
 		transcribing = true;
 		try {
 			const wav = float32ToWav(samples);
@@ -307,20 +337,20 @@
 
 	// ── UI bilingue selon l'utilisateur ──────────────────────────────────
 	const ui = $derived(userLang === 'kh' ? {
-		thinking:    '✨ កំពុងគិត…',
+		thinking:    'ការស្នើ …',
 		placeholder: 'សរសេរសារ…',
 		yes:         '✓ បាទ/ចាស',
 		no:          '✗ ទេ',
-		empty:       'មិនទាន់មានសាររបស់ថ្ងៃនេះទេ',
+		empty:       'មិនទាន់មានសារនៅថ្ងៃនោះទេ',
 		emptySub:    'ចាប់ផ្តើមមុននៅថ្ងៃនេះ ♡',
 		authMsg:     'ចូលគណនីដើម្បីប្រើ Chat 💬',
 		authBtn:     'ចូលជាមួយ Google',
 	} : {
-		thinking:    '✨ Gemini réfléchit…',
+		thinking:    'proposition en cours…',
 		placeholder: 'Écris un message…',
 		yes:         '✓ Oui',
 		no:          '✗ Non',
-		empty:       'Pas encore de messages aujourd\'hui',
+		empty:       'Pas encore de messages ce jour-là',
 		emptySub:    'Commence la conversation ♡',
 		authMsg:     'Connecte-toi pour accéder au chat 💬',
 		authBtn:     'Se connecter avec Google',
@@ -342,6 +372,18 @@
 			</button>
 		</div>
 	{:else}
+		<!-- ── Bannière offline ── -->
+		{#if !isOnline}
+			<div class="offline-banner">📡 {userLang === 'kh' ? 'គ្មានការតភ្ជាប់' : 'Hors ligne'}</div>
+		{/if}
+
+		<!-- ── Navigation date ── -->
+		<div class="date-nav">
+			<button class="date-btn" onclick={prevDay} aria-label="Jour précédent">‹</button>
+			<span class="date-label">{dayLabelStr}</span>
+			<button class="date-btn" onclick={nextDay} disabled={isToday} aria-label="Jour suivant">›</button>
+		</div>
+
 		<!-- ── Liste des messages ── -->
 		<div class="message-list" bind:this={listEl}>
 			{#if messages.length === 0}
@@ -411,7 +453,8 @@
 			<div class="suggestion">
 				<p class="suggestion-question">{suggestion.question}</p>
 				<p class="suggestion-corrected">"{suggestion.corrected}"</p>
-				<p class="suggestion-translation">→ {suggestion.translation}</p>
+				{#if suggestion.fr}<p class="suggestion-translation"><span class="transl-flag">🇫🇷</span>{suggestion.fr}</p>{/if}
+				{#if suggestion.en}<p class="suggestion-translation"><span class="transl-flag">🇬🇧</span>{suggestion.en}</p>{/if}
 				<div class="suggestion-actions">
 					<button class="suggestion-btn accept" onclick={acceptSuggestion}>{ui.yes}</button>
 					<button class="suggestion-btn dismiss" onclick={dismissSuggestion}>{ui.no}</button>
@@ -474,6 +517,56 @@
 		overflow: hidden;
 		background:
 			radial-gradient(ellipse 80% 30% at 50% 0%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 70%);
+	}
+
+	/* ── Offline banner ── */
+	.offline-banner {
+		background: color-mix(in srgb, #e65100 15%, var(--card));
+		border-bottom: 1px solid color-mix(in srgb, #e65100 40%, transparent);
+		color: #e65100;
+		font-size: var(--fs-sm);
+		font-weight: 600;
+		text-align: center;
+		padding: var(--space-1) var(--space-4);
+		flex-shrink: 0;
+	}
+
+	/* ── Date nav ── */
+	.date-nav {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-4);
+		flex-shrink: 0;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.date-label {
+		font-size: var(--fs-sm);
+		color: var(--muted);
+		font-weight: 500;
+		min-width: 8rem;
+		text-align: center;
+		text-transform: capitalize;
+	}
+
+	.date-btn {
+		width: 2rem;
+		height: 2rem;
+		border-radius: var(--radius-full);
+		background: color-mix(in srgb, var(--accent) 10%, var(--card));
+		border: 1px solid var(--border);
+		font-size: 1.1rem;
+		color: var(--text);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: opacity 0.15s;
+	}
+
+	.date-btn:disabled {
+		opacity: 0.25;
 	}
 
 	/* ── Auth gate ── */
