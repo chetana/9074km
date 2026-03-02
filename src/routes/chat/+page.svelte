@@ -234,6 +234,20 @@
 		errorToastTimer = setTimeout(() => { errorToast = null; }, 3000);
 	}
 
+	function speakSelected(lang: 'fr' | 'en' | 'kh') {
+		const msg = messages.find(m => m.id === selectedMsg);
+		if (!msg || !('speechSynthesis' in window)) return;
+		const textMap = { fr: msg.fr || msg.text, en: msg.en || msg.text, kh: msg.kh || msg.text };
+		const localeMap = { fr: 'fr-FR', en: 'en-US', kh: 'km-KH' };
+		const text = textMap[lang];
+		if (!text) return;
+		speechSynthesis.cancel();
+		const utt = new SpeechSynthesisUtterance(text);
+		utt.lang = localeMap[lang];
+		speechSynthesis.speak(utt);
+		selectedMsg = null;
+	}
+
 	async function copySelected() {
 		const msg = messages.find(m => m.id === selectedMsg);
 		if (!msg) return;
@@ -480,7 +494,7 @@
 			{/each}
 		</div>
 
-		<!-- ── Popup actions (copier / supprimer) ── -->
+		<!-- ── Popup actions (copier / supprimer / écouter) ── -->
 		{#if selectedMsg}
 			{@const selMsg = messages.find(m => m.id === selectedMsg)}
 			<div class="action-bar">
@@ -494,6 +508,11 @@
 						</button>
 					{/if}
 					<button class="action-btn cancel" onclick={() => selectedMsg = null}>{ui.no}</button>
+				</div>
+				<div class="action-row">
+					<button class="action-btn listen" onclick={() => speakSelected('fr')}>🔊🇫🇷</button>
+					<button class="action-btn listen" onclick={() => speakSelected('en')}>🔊🇬🇧</button>
+					<button class="action-btn listen" onclick={() => speakSelected('kh')}>🔊🇰🇭</button>
 				</div>
 			</div>
 		{/if}
@@ -971,6 +990,14 @@
 	.action-btn.cancel {
 		background: color-mix(in srgb, var(--muted) 12%, transparent);
 		color: var(--muted);
+	}
+
+	.action-btn.listen {
+		background: color-mix(in srgb, #42a5f5 12%, var(--card));
+		color: #42a5f5;
+		border: 1px solid color-mix(in srgb, #42a5f5 30%, transparent);
+		flex: 1;
+		font-size: 1rem;
 	}
 
 	/* ── Toast copie ── */
