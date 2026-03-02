@@ -224,6 +224,24 @@
 		}
 	}
 
+	let copyToast = $state(false);
+
+	async function copySelected() {
+		const msg = messages.find(m => m.id === selectedMsg);
+		if (!msg) return;
+		const parts: string[] = [];
+		if (msg.text) parts.push(msg.text);
+		if (msg.fr)   parts.push('🇫🇷 ' + msg.fr);
+		if (msg.en)   parts.push('🇬🇧 ' + msg.en);
+		if (msg.kh)   parts.push('🇰🇭 ' + msg.kh);
+		try {
+			await navigator.clipboard.writeText(parts.join('\n'));
+			selectedMsg = null;
+			copyToast = true;
+			setTimeout(() => { copyToast = false; }, 2000);
+		} catch { /* ignore */ }
+	}
+
 	// ── Audio (VAD — Silero + noiseSuppression) ────────────────────────────
 	// Float32 PCM 16kHz → WAV (format accepté par Gemini)
 	function float32ToWav(samples: Float32Array, sampleRate = 16000): Blob {
@@ -452,21 +470,27 @@
 			{/each}
 		</div>
 
-		<!-- ── Popup suppression ── -->
+		<!-- ── Popup actions (copier / supprimer) ── -->
 		{#if selectedMsg}
 			{@const selMsg = messages.find(m => m.id === selectedMsg)}
-			{#if selMsg?.author === firstName}
-				<div class="delete-bar">
-					<span class="delete-bar-text">{userLang === 'kh' ? 'លុបសារនេះ ?' : 'Supprimer ce message ?'}</span>
-					<button class="delete-btn" onclick={deleteSelected}>{userLang === 'kh' ? '🗑 លុប' : '🗑 Supprimer'}</button>
-					<button class="delete-cancel" onclick={() => selectedMsg = null}>{ui.no}</button>
+			<div class="action-bar">
+				<div class="action-row">
+					<button class="action-btn copy" onclick={copySelected}>
+						{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}
+					</button>
+					{#if selMsg?.author === firstName}
+						<button class="action-btn delete" onclick={deleteSelected}>
+							{userLang === 'kh' ? '🗑 លុប' : '🗑 Supprimer'}
+						</button>
+					{/if}
+					<button class="action-btn cancel" onclick={() => selectedMsg = null}>{ui.no}</button>
 				</div>
-			{:else}
-				<div class="delete-bar">
-					<span class="delete-bar-text">{userLang === 'kh' ? 'មិនអាចលុបសាររបស់អ្នកដទៃ' : 'Impossible de supprimer le message d\'un autre'}</span>
-					<button class="delete-cancel" onclick={() => selectedMsg = null}>{ui.no}</button>
-				</div>
-			{/if}
+			</div>
+		{/if}
+
+		<!-- ── Toast copie ── -->
+		{#if copyToast}
+			<div class="copy-toast">{userLang === 'kh' ? '✓ បានចម្លង' : '✓ Copié !'}</div>
 		{/if}
 
 		<!-- ── Suggestion Gemini ── -->
@@ -856,7 +880,7 @@
 		opacity: 0.35;
 	}
 
-	/* ── Suppression ── */
+	/* ── Actions (copier / supprimer) ── */
 	.bubble-row {
 		cursor: pointer;
 	}
@@ -866,16 +890,19 @@
 		outline-offset: 2px;
 	}
 
-	.delete-bar {
+	.action-bar {
 		margin: 0 var(--space-4) var(--space-2);
-		background: color-mix(in srgb, #e53935 8%, var(--card));
-		border: 1px solid color-mix(in srgb, #e53935 30%, transparent);
+		background: var(--card);
+		border: 1px solid var(--border);
 		border-radius: var(--radius-xl);
-		padding: var(--space-2) var(--space-4);
+		padding: var(--space-2) var(--space-3);
+		animation: slide-up 0.15s ease;
+	}
+
+	.action-row {
 		display: flex;
 		align-items: center;
-		gap: var(--space-3);
-		animation: slide-up 0.15s ease;
+		gap: var(--space-2);
 	}
 
 	@keyframes slide-up {
@@ -883,28 +910,54 @@
 		to   { opacity: 1; transform: translateY(0); }
 	}
 
-	.delete-bar-text {
+	.action-btn {
+		font-size: var(--fs-sm);
+		font-weight: 600;
+		border-radius: var(--radius-lg);
+		padding: var(--space-1) var(--space-3);
+		flex-shrink: 0;
+	}
+
+	.action-btn.copy {
+		background: color-mix(in srgb, var(--accent) 15%, var(--card));
+		color: var(--accent);
+		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 		flex: 1;
-		font-size: var(--fs-sm);
+	}
+
+	.action-btn.delete {
+		background: color-mix(in srgb, #e53935 12%, var(--card));
+		color: #e53935;
+		border: 1px solid color-mix(in srgb, #e53935 30%, transparent);
+		flex: 1;
+	}
+
+	.action-btn.cancel {
+		background: color-mix(in srgb, var(--muted) 12%, transparent);
 		color: var(--muted);
 	}
 
-	.delete-btn {
+	/* ── Toast copie ── */
+	.copy-toast {
+		position: fixed;
+		bottom: 6rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: color-mix(in srgb, var(--accent) 90%, transparent);
+		color: var(--on-accent);
 		font-size: var(--fs-sm);
-		font-weight: 700;
-		border-radius: var(--radius-lg);
-		padding: var(--space-1) var(--space-3);
-		background: #e53935;
-		color: #fff;
+		font-weight: 600;
+		padding: var(--space-2) var(--space-5);
+		border-radius: var(--radius-full);
+		pointer-events: none;
+		animation: fade-toast 2s ease forwards;
 	}
 
-	.delete-cancel {
-		font-size: var(--fs-sm);
-		font-weight: 700;
-		border-radius: var(--radius-lg);
-		padding: var(--space-1) var(--space-3);
-		background: color-mix(in srgb, var(--muted) 15%, transparent);
-		color: var(--muted);
+	@keyframes fade-toast {
+		0%   { opacity: 0; transform: translateX(-50%) translateY(4px); }
+		15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+		75%  { opacity: 1; }
+		100% { opacity: 0; }
 	}
 
 	/* ── Image ── */
