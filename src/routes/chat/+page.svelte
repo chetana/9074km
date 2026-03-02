@@ -87,7 +87,12 @@
 		const text = inputText.trim();
 		if (!text || sending || !firstName) return;
 
-		const translation = suggestion?.translation ?? '';
+		// Utilise les traductions de la suggestion si dispo, sinon le backend traduira
+		const translations = {
+			fr: suggestion?.fr ?? '',
+			en: suggestion?.en ?? '',
+			kh: suggestion?.kh ?? '',
+		};
 		sending = true;
 		suggestion = null;
 		inputText = '';
@@ -95,7 +100,7 @@
 		clearTimeout(debounceTimer);
 
 		try {
-			const msg = await sendMessage(Y, M, D, firstName, text, translation);
+			const msg = await sendMessage(Y, M, D, firstName, text, translations);
 			messages = [...messages, msg];
 			await tick();
 			scrollToBottom();
@@ -173,8 +178,12 @@
 					{/if}
 					<div class="bubble" class:mine={isMine}>
 						<p class="bubble-text">{msg.text}</p>
-						{#if msg.translation}
-							<p class="bubble-translation">{msg.translation}</p>
+						{#if msg.fr || msg.en || msg.kh}
+							<div class="bubble-translations">
+								{#if msg.fr}<p class="bubble-translation"><span class="transl-flag">🇫🇷</span>{msg.fr}</p>{/if}
+								{#if msg.en}<p class="bubble-translation"><span class="transl-flag">🇬🇧</span>{msg.en}</p>{/if}
+								{#if msg.kh}<p class="bubble-translation"><span class="transl-flag">🇰🇭</span>{msg.kh}</p>{/if}
+							</div>
 						{/if}
 						<span class="bubble-time">{fmtTime(msg.ts)}</span>
 					</div>
@@ -332,12 +341,26 @@
 		word-break: break-word;
 	}
 
+	.bubble-translations {
+		border-top: 1px solid var(--border);
+		padding-top: var(--space-1);
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
 	.bubble-translation {
 		font-size: var(--fs-sm);
 		color: var(--muted);
 		font-style: italic;
-		border-top: 1px solid var(--border);
-		padding-top: var(--space-1);
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-1);
+	}
+
+	.transl-flag {
+		font-style: normal;
+		flex-shrink: 0;
 	}
 
 	.bubble-time {
