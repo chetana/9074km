@@ -36,9 +36,9 @@
 	const user = userStore;
 	// $user est réactif (store Svelte 4), contrairement à auth.getFirstName() qui utilise get()
 	const firstName = $derived($user?.name.split(' ')[0] ?? '');
-	// Détermine la langue de l'utilisateur connecté : Lys → kh, Chet → fr
+	// Détermine la langue de l'utilisateur connecté : Chet → fr, tout autre → kh par défaut
 	const userLang = $derived<'fr' | 'kh'>(
-		firstName.toLowerCase() === 'lys' ? 'kh' : 'fr'
+		firstName.toLowerCase() === 'chet' ? 'fr' : 'kh'
 	);
 
 	// ── Date de navigation ────────────────────────────────────────────────
