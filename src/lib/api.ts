@@ -172,6 +172,7 @@ export interface ChatMessage {
 	en: string;
 	kh: string;
 	ts: string;
+	image?: string;
 }
 
 export interface GeminiSuggestion {
@@ -194,12 +195,13 @@ export async function fetchMessages(y: string, m: string, d: string): Promise<Ch
 export async function sendMessage(
 	y: string, m: string, d: string,
 	author: string, text: string,
-	translations: { fr: string; en: string; kh: string }
+	translations: { fr: string; en: string; kh: string },
+	image?: string
 ): Promise<ChatMessage> {
 	const res = await apiFetch(`/api/chat/messages?y=${y}&m=${m}&d=${d}`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ author, text, ...translations })
+		body: JSON.stringify({ author, text, ...translations, ...(image ? { image } : {}) })
 	});
 	return res.json();
 }

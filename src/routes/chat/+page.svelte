@@ -3,6 +3,7 @@
 	import { auth, userStore } from '$lib/auth';
 	import {
 		fetchMessages, sendMessage, suggestMessage,
+		signUpload, uploadFile, signDownload,
 		type ChatMessage, type GeminiSuggestion
 	} from '$lib/api';
 
@@ -20,6 +21,8 @@
 	let suggestionLoading = $state(false);
 	let lastSuggestedText = '';
 	let listEl = $state<HTMLElement | null>(null);
+	let imageUrls = $state<Record<string, string>>({});
+	let imageInput: HTMLInputElement | undefined;
 
 	const user = userStore;
 	// $user est réactif (store Svelte 4), contrairement à auth.getFirstName() qui utilise get()
@@ -81,6 +84,75 @@
 
 	function dismissSuggestion() {
 		suggestion = null;
+	}
+
+	// ── Images ──────────────────────────────────────────────────────────────
+	$effect(() => {
+		for (const msg of messages) {
+			if (msg.image && !imageUrls[msg.image]) loadImageUrl(msg.image);
+		}
+	});
+
+	async function loadImageUrl(path: string) {
+		try {
+			const url = await signDownload(path);
+			imageUrls = { ...imageUrls, [path]: url };
+		} catch { /* ignore */ }
+	}
+
+	async function compressImage(file: File): Promise<{ bytes: Uint8Array; contentType: string; ext: string }> {
+		const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+			(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+		const mimeType = isIOS ? 'image/jpeg' : 'image/webp';
+		const ext = isIOS ? 'jpg' : 'webp';
+
+		const img = new Image();
+		const objectUrl = URL.createObjectURL(file);
+		img.src = objectUrl;
+		await new Promise<void>(resolve => { img.onload = () => resolve(); });
+
+		const MAX = 1200;
+		let w = img.naturalWidth, h = img.naturalHeight;
+		if (w > MAX || h > MAX) {
+			if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+			else { w = Math.round(w * MAX / h); h = MAX; }
+		}
+		const canvas = document.createElement('canvas');
+		canvas.width = w; canvas.height = h;
+		canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+		URL.revokeObjectURL(objectUrl);
+
+		const blob = await new Promise<Blob>((resolve, reject) =>
+			canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), mimeType, 0.85)
+		);
+		return { bytes: new Uint8Array(await blob.arrayBuffer()), contentType: mimeType, ext };
+	}
+
+	async function pickAndSendImage() {
+		if (!imageInput || !firstName || sending) return;
+		imageInput.value = '';
+		imageInput.click();
+	}
+
+	async function onImageSelected() {
+		const file = imageInput?.files?.[0];
+		if (!file || !firstName) return;
+		sending = true;
+		try {
+			const { bytes, contentType, ext } = await compressImage(file);
+			const filename = Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.' + ext;
+			const path = 'chat/' + Y + '/' + M + '/' + D + '/' + filename;
+			const signedUrl = await signUpload(path, contentType);
+			await uploadFile(signedUrl, bytes, contentType);
+			const msg = await sendMessage(Y, M, D, firstName, '', { fr: '', en: '', kh: '' }, path);
+			messages = [...messages, msg];
+			await tick();
+			scrollToBottom();
+		} catch (e) {
+			console.error('Image upload failed:', e);
+		} finally {
+			sending = false;
+		}
 	}
 
 	// ── Envoi ─────────────────────────────────────────────────────────────
@@ -180,6 +252,13 @@
 					{/if}
 					<div class="bubble" class:mine={isMine}>
 						<p class="bubble-text">{msg.text}</p>
+						{#if msg.image}
+							{#if imageUrls[msg.image]}
+								<img class="bubble-img" src={imageUrls[msg.image]} alt="" loading="lazy" />
+							{:else}
+								<div class="bubble-img-loading">⏳</div>
+							{/if}
+						{/if}
 						{#if msg.fr || msg.en || msg.kh}
 							<div class="bubble-translations">
 								{#if msg.fr}<p class="bubble-translation"><span class="transl-flag">🇫🇷</span>{msg.fr}</p>{/if}
@@ -215,7 +294,20 @@
 		{/if}
 
 		<!-- ── Zone de saisie ── -->
+		<input
+			bind:this={imageInput}
+			type="file"
+			accept="image/*"
+			class="image-input-hidden"
+			onchange={onImageSelected}
+		/>
 		<div class="input-bar">
+			<button
+				class="img-btn"
+				onclick={pickAndSendImage}
+				disabled={sending}
+				aria-label="Envoyer une image"
+			>📷</button>
 			<textarea
 				class="input"
 				bind:value={inputText}
@@ -487,5 +579,48 @@
 
 	.send-btn:disabled {
 		opacity: 0.35;
+	}
+
+	/* ── Image ── */
+	.image-input-hidden {
+		display: none;
+	}
+
+	.img-btn {
+		width: 2.75rem;
+		height: 2.75rem;
+		border-radius: var(--radius-full);
+		background: color-mix(in srgb, var(--accent) 12%, var(--card));
+		border: 1px solid var(--border);
+		font-size: 1.2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		transition: opacity 0.15s;
+	}
+
+	.img-btn:disabled {
+		opacity: 0.35;
+	}
+
+	.bubble-img {
+		max-width: 100%;
+		max-height: 320px;
+		border-radius: var(--radius-xl);
+		object-fit: cover;
+		display: block;
+	}
+
+	.bubble-img-loading {
+		width: 200px;
+		height: 140px;
+		background: color-mix(in srgb, var(--muted) 10%, transparent);
+		border-radius: var(--radius-xl);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--muted);
+		font-size: var(--fs-sm);
 	}
 </style>
