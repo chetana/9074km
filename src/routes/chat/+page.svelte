@@ -23,7 +23,9 @@
 	let listEl = $state<HTMLElement | null>(null);
 	let imageUrls = $state<Record<string, string>>({});
 	let imageInput: HTMLInputElement | undefined;
-	let recording = $state(false);
+	let vadLoading = $state(false);   // init ONNX en cours
+	let recording = $state(false);    // VAD prêt, écoute active
+	let speaking = $state(false);     // voix détectée en cours
 	let transcribing = $state(false);
 	let vad: { start(): void; destroy(): void } | null = null;
 	let selectedMsg = $state<string | null>(null);
@@ -223,8 +225,8 @@
 	}
 
 	async function startRecording() {
-		if (vad) return;
-		recording = true;
+		if (vad || vadLoading) return;
+		vadLoading = true;
 		try {
 			// Import dynamique (SSR-safe) — charge le modèle Silero + ONNX
 			const { MicVAD } = await import('@ricky0123/vad-web');
@@ -233,26 +235,32 @@
 				modelURL: '/silero_vad_v5.onnx',
 				ortConfig: (ort: any) => { ort.env.wasm.wasmPaths = '/'; },
 				additionalAudioConstraints: { noiseSuppression: true, echoCancellation: true, autoGainControl: true },
+				onSpeechStart: () => { speaking = true; },
 				onSpeechEnd: (audio: Float32Array) => {
+					speaking = false;
 					if (!transcribing) void processAudio(audio);
 				},
 			});
 			vad = micVad;
 			vad.start();
+			vadLoading = false;
+			recording = true;
 		} catch (e) {
 			console.error('VAD init failed:', e);
-			recording = false;
+			vadLoading = false;
 		}
 	}
 
 	function stopRecording() {
 		vad?.destroy();
 		vad = null;
+		vadLoading = false;
 		recording = false;
+		speaking = false;
 	}
 
 	async function toggleRecording() {
-		if (recording) stopRecording();
+		if (vadLoading || recording) stopRecording();
 		else await startRecording();
 	}
 
@@ -428,12 +436,14 @@
 			>📷</button>
 			<button
 				class="mic-btn"
-				class:recording
+				class:loading={vadLoading}
+				class:recording={recording && !speaking}
+				class:speaking
 				class:transcribing
 				onclick={toggleRecording}
 				disabled={sending || transcribing}
-				aria-label={recording ? 'Arrêter' : 'Message vocal'}
-			>{transcribing ? '…' : recording ? '⏹' : '🎤'}</button>
+				aria-label={vadLoading ? 'Chargement…' : recording ? 'Arrêter' : 'Message vocal'}
+			>{transcribing ? '…' : speaking ? '🔊' : vadLoading ? '⏳' : recording ? '⏹' : '🎤'}</button>
 			<textarea
 				class="input"
 				bind:value={inputText}
@@ -795,11 +805,23 @@
 		transition: background 0.15s, opacity 0.15s;
 	}
 
+	.mic-btn.loading {
+		opacity: 0.6;
+		animation: spin-slow 1.5s linear infinite;
+	}
+
 	.mic-btn.recording {
 		background: #e53935;
 		color: #fff;
 		border-color: #e53935;
-		animation: pulse-rec 1s ease-in-out infinite;
+		animation: pulse-rec 1.2s ease-in-out infinite;
+	}
+
+	.mic-btn.speaking {
+		background: #2e7d32;
+		color: #fff;
+		border-color: #2e7d32;
+		animation: pulse-speak 0.6s ease-in-out infinite;
 	}
 
 	.mic-btn.transcribing {
@@ -810,9 +832,19 @@
 		opacity: 0.35;
 	}
 
+	@keyframes spin-slow {
+		from { transform: rotate(0deg); }
+		to   { transform: rotate(360deg); }
+	}
+
 	@keyframes pulse-rec {
 		0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, #e53935 40%, transparent); }
 		50% { box-shadow: 0 0 0 6px color-mix(in srgb, #e53935 0%, transparent); }
+	}
+
+	@keyframes pulse-speak {
+		0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, #2e7d32 50%, transparent); }
+		50% { box-shadow: 0 0 0 8px color-mix(in srgb, #2e7d32 0%, transparent); }
 	}
 
 	.source-audio {
