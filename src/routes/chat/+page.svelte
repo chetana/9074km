@@ -31,6 +31,7 @@
 	let selectedMsg = $state<string | null>(null);
 	let viewOffset = $state(0);       // 0 = aujourd'hui, -1 = hier, etc.
 	let isOnline = $state(true);
+	let loadingMessages = $state(false);
 
 	const user = userStore;
 	// $user est réactif (store Svelte 4), contrairement à auth.getFirstName() qui utilise get()
@@ -65,11 +66,16 @@
 
 	async function loadDate() {
 		// Chargement complet (navigation) : remplace toujours
+		loadingMessages = true;
 		messages = [];
-		const fresh = await fetchMessages(vY, vM, vD);
-		messages = fresh;
-		await tick();
-		scrollToBottom();
+		try {
+			const fresh = await fetchMessages(vY, vM, vD);
+			messages = fresh;
+			await tick();
+			scrollToBottom();
+		} finally {
+			loadingMessages = false;
+		}
 	}
 
 	function prevDay() { viewOffset--; void loadDate(); }
@@ -386,7 +392,11 @@
 
 		<!-- ── Liste des messages ── -->
 		<div class="message-list" bind:this={listEl}>
-			{#if messages.length === 0}
+			{#if loadingMessages}
+				<div class="empty">
+					<span class="loading-spinner"></span>
+				</div>
+			{:else if messages.length === 0}
 				<div class="empty">
 					<span class="empty-icon">💬</span>
 					<p>{ui.empty}</p>
@@ -618,6 +628,16 @@
 	}
 
 	.empty-icon { font-size: 3rem; }
+
+	.loading-spinner {
+		display: block;
+		width: 2rem;
+		height: 2rem;
+		border: 3px solid color-mix(in srgb, var(--accent) 20%, transparent);
+		border-top-color: var(--accent);
+		border-radius: var(--radius-full);
+		animation: spin-slow 0.8s linear infinite;
+	}
 
 	.empty-sub {
 		font-size: var(--fs-sm);
