@@ -18,7 +18,7 @@ src/
 ├── app.css                    # Variables CSS globales (thème sombre #0F0F1A)
 ├── app.html                   # Template HTML racine (PWA meta tags)
 ├── lib/
-│   ├── api.ts                 # Appels REST vers chetana.dev/api/coffre/*
+│   ├── api.ts                 # Appels REST vers chetana.dev (coffre + chat)
 │   ├── auth.ts                # Auth Google (GSI One Tap, sessionStorage)
 │   ├── compressor.ts          # Compression images canvas WebP/JPEG avant upload
 │   ├── i18n.ts                # Constantes bilingues FR+KH, statuts, dates
@@ -30,21 +30,23 @@ src/
     ├── +page.svelte           # Redirect / → /horloge
     ├── horloge/
     │   └── +page.svelte       # Double horloge Paris/Phnom Penh + compteur jours
-    └── coffre/
-        ├── +page.ts           # load() : lit les query params deep link (y, m, d, f)
-        ├── +page.svelte       # Auth gate + navigation state-based
-        └── components/
-            ├── Breadcrumb.svelte    # Coffre › 2026 › 02 › 22
-            ├── YearList.svelte      # Liste des années + compteur mois
-            ├── MonthList.svelte     # Liste des mois FR+KH + compteur jours
-            ├── DayList.svelte       # Liste des jours + compteur fichiers
-            ├── DayFiles.svelte      # Vue jour : grille + viewer + upload
-            ├── DayNavBar.svelte     # ‹ label › [zoom]
-            ├── DaysChipBar.svelte   # Chips jours avec compteur, auto-scroll
-            ├── NoteField.svelte     # Note pliable du jour, auto-save
-            ├── FileTile.svelte      # Tuile grille (image/vidéo + badges)
-            ├── FabUpload.svelte     # Bouton upload + progression 2 phases
-            └── FileViewer.svelte    # Viewer plein écran (swipe + réactions)
+    ├── coffre/
+    │   ├── +page.ts           # load() : lit les query params deep link (y, m, d, f)
+    │   ├── +page.svelte       # Auth gate + navigation state-based
+    │   └── components/
+    │       ├── Breadcrumb.svelte    # Coffre › 2026 › 02 › 22
+    │       ├── YearList.svelte      # Liste des années + compteur mois
+    │       ├── MonthList.svelte     # Liste des mois FR+KH + compteur jours
+    │       ├── DayList.svelte       # Liste des jours + compteur fichiers
+    │       ├── DayFiles.svelte      # Vue jour : grille + viewer + upload
+    │       ├── DayNavBar.svelte     # ‹ label › [zoom]
+    │       ├── DaysChipBar.svelte   # Chips jours avec compteur, auto-scroll
+    │       ├── NoteField.svelte     # Note pliable du jour, auto-save
+    │       ├── FileTile.svelte      # Tuile grille (image/vidéo + badges)
+    │       ├── FabUpload.svelte     # Bouton upload + progression 2 phases
+    │       └── FileViewer.svelte    # Viewer plein écran (swipe + réactions)
+    └── chat/
+        └── +page.svelte       # Chat complet : texte, image, vocal, TTS
 ```
 
 ---
@@ -315,6 +317,115 @@ La grille utilise CSS Grid avec `grid-auto-rows` calculé en JS car CSS ne peut 
 ```
 
 Les tuiles (`FileTile`) utilisent `width: 100%; height: 100%` pour remplir exactement leur cellule.
+
+---
+
+---
+
+## Chat (`/chat`)
+
+Chat temps réel entre Chet et Lys — texte, images, messages vocaux.
+
+### Stockage GCS
+
+```
+chat/YYYY/MM/DD.json     ← tableau de ChatMessage (messages du jour)
+YYYY/MM/DD/filename      ← images envoyées en chat (même format que le coffre)
+```
+
+### Interface ChatMessage
+
+```typescript
+interface ChatMessage {
+  id: string       // `${Date.now()}-${random}`
+  author: string   // prénom Google (firstName)
+  text: string
+  fr: string       // traduction française (Gemini)
+  en: string       // traduction anglaise (Gemini)
+  kh: string       // traduction khmère (Gemini)
+  ts: string       // ISO timestamp
+  image?: string   // chemin GCS optionnel
+  source?: 'audio' // message transcrit depuis un vocal
+}
+```
+
+### Flux données — envoi message texte
+
+```
+Utilisateur tape → debounce 1s → POST /api/chat/suggest
+    → GeminiSuggestion { corrected, fr, en, kh, question, lesson? }
+    → popup confirmation avec mini leçon 📖
+
+Utilisateur valide → POST /api/chat/messages
+    → message sauvegardé GCS + broadcast prochain poll
+```
+
+### Flux données — message vocal (VAD)
+
+```
+MicVAD (Silero v5 + ONNX Runtime Web)
+    → onSpeechStart : speaking = true
+    → onSpeechEnd(Float32Array samples)
+        → filtre < 0.8s (bruit court)
+        → float32ToWav(samples, 16000) → Blob WAV
+        → arrayBufferToBase64 → POST /api/chat/transcribe
+        → { text, fr, en, kh } → POST /api/chat/messages (source: 'audio')
+```
+
+### Action bar (long-press message)
+
+```
+Ligne 1 : [📋 Copier]   [🗑 Supprimer*]   [✗ Fermer]
+          (* auteur uniquement)
+─────────── border-top ───────────────────────────────
+Ligne 2 : [🔊🇫🇷]        [🔊🇬🇧]           [🔊🇰🇭]
+```
+
+**TTS** : `SpeechSynthesisUtterance` avec `lang` `fr-FR` / `en-US` / `km-KH` — Web Speech API native, zéro appel réseau.
+
+### Suggestion Gemini
+
+```typescript
+interface GeminiSuggestion {
+  corrected: string  // texte corrigé dans la langue détectée
+  fr: string
+  en: string
+  kh: string
+  question: string   // "Tu voulais dire..." (FR) ou "តើអ្នកចង់និយាយថា..." (KH)
+  lesson?: string    // explication grammaticale — absent si aucune faute
+                     // en FR pour Chet, en KH pour Lys
+}
+```
+
+### Détection langue UI
+
+```typescript
+// Chet → fr, tout autre → kh (robuste si prénom Google varie)
+const userLang = firstName.toLowerCase() === 'chet' ? 'fr' : 'kh'
+```
+
+### États
+
+| Variable | Type | Rôle |
+|----------|------|------|
+| `messages` | `ChatMessage[]` | Messages du jour affiché |
+| `viewOffset` | `number` | 0 = aujourd'hui, -1 = hier… |
+| `vadLoading` | `boolean` | Init ONNX en cours |
+| `recording` | `boolean` | Écoute active |
+| `speaking` | `boolean` | Voix détectée |
+| `transcribing` | `boolean` | Transcription Gemini en cours |
+| `suggestion` | `GeminiSuggestion\|null` | Suggestion en attente |
+| `selectedMsg` | `string\|null` | ID message sélectionné (action bar) |
+
+### Endpoints backend
+
+| Endpoint | Auth | Description |
+|----------|------|-------------|
+| `GET /api/chat/messages?y=&m=&d=` | ✅ Bearer | Liste les messages du jour |
+| `POST /api/chat/messages?y=&m=&d=` | ✅ Bearer | Envoie un message (traduit par Gemini si traductions vides) |
+| `DELETE /api/chat/messages?y=&m=&d=&id=` | ✅ Bearer | Supprime un message (auteur uniquement) |
+| `POST /api/chat/transcribe` | ✅ Bearer | Transcrit audio base64 + traduit (Gemini) |
+| `POST /api/chat/suggest` | ✅ Bearer | Correction + traductions + leçon (Gemini) |
 
 ---
 

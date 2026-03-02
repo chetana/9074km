@@ -433,6 +433,92 @@ Gains observés :
 
 ---
 
+## VAD — Voice Activity Detection (Silero v5)
+
+### Pourquoi VAD plutôt que `MediaRecorder` + bouton ?
+
+| Approche | UX | Complexité |
+|----------|-----|-----------|
+| Bouton "Enregistrer" + `MediaRecorder` | Appui long ou bouton toggle | Simple |
+| VAD automatique (Silero) | Parle → détecté → envoyé | Moyen |
+
+Le VAD permet une UX mains-libres : l'utilisateur parle naturellement, le segment est automatiquement découpé et envoyé. Pas besoin de tenir un bouton.
+
+### Silero v5 + ONNX Runtime Web
+
+`@ricky0123/vad-web` embarque le modèle Silero VAD (ONNX) qui tourne entièrement dans le navigateur via `onnxruntime-web`. Zéro latence réseau pour la détection.
+
+**Contraintes de déploiement** (voir `vite.config.ts`) :
+- Les fichiers WASM et ONNX doivent être à la racine `/` (pas dans `/_app/immutable/chunks/`)
+- `ortConfig: (ort) => { ort.env.wasm.wasmPaths = '/'; }` dans `MicVAD.new()` est obligatoire
+- `ort-wasm-simd-threaded.mjs` doit être copié explicitement via `viteStaticCopy`
+
+### iOS Safari — SharedArrayBuffer
+
+ONNX Runtime utilise des threads via `SharedArrayBuffer`. Sur iOS Safari, `SharedArrayBuffer` requiert les headers COOP/COEP (`Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: require-corp`).
+
+Ces headers ne sont pas activés par défaut sur Vercel → ONNX tombe en mode non-threadé (WASM simple). Init plus lente (~3–5s au lieu de ~1s) mais fonctionnel.
+
+**Fix potentiel** si trop lent pour Lys : ajouter dans `vercel.json` :
+```json
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" }
+      ]
+    }
+  ]
+}
+```
+> ⚠️ Ces headers bloquent les iframes tierces (Google Maps, Stripe…) — à n'activer que si nécessaire.
+
+### Filtre durée min (0.8s)
+
+Les segments < 0.8s sont ignorés. Évite d'envoyer des claquements de doigts, toussotements ou bruits ambiants courts à Gemini.
+
+---
+
+## TTS — Text-to-Speech (Web Speech API)
+
+### Pourquoi Web Speech API plutôt que Google Cloud TTS ?
+
+| Solution | Qualité voix | Coût | Latence | Infra |
+|----------|-------------|------|---------|-------|
+| Web Speech API | Voix système (variable) | Gratuit | Zéro | Aucune |
+| Google Cloud TTS | Voix neuronales | Payant (~$4/1M chars) | ~200ms + réseau | Endpoint backend |
+
+L'objectif est simple : lire une traduction à voix haute pour aider Lys à apprendre la prononciation. La voix système est suffisante. Zéro coût, zéro appel réseau.
+
+### Support Khmer (`km-KH`)
+
+- ✅ iOS Safari — Apple intègre des voix Khmer (utile pour Lys sur iPhone)
+- ✅ Android Chrome — utilise le moteur TTS du téléphone (souvent présent pour les marchés asiatiques)
+- ❌ Windows/Mac desktop — voix Khmer rarement installées → silence (pas d'erreur)
+
+Le `speechSynthesis.cancel()` avant chaque `speak()` évite qu'une lecture précédente continue en fond.
+
+### Implémentation
+
+```typescript
+function speakSelected(lang: 'fr' | 'en' | 'kh') {
+  const msg = messages.find(m => m.id === selectedMsg);
+  if (!msg || !('speechSynthesis' in window)) return;
+  const textMap  = { fr: msg.fr || msg.text, en: msg.en || msg.text, kh: msg.kh || msg.text };
+  const localeMap = { fr: 'fr-FR', en: 'en-US', kh: 'km-KH' };
+  speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(textMap[lang]);
+  utt.lang = localeMap[lang];
+  speechSynthesis.speak(utt);
+}
+```
+
+Le fallback `|| msg.text` couvre les anciens messages sans traductions.
+
+---
+
 ## meta `mobile-web-app-capable` (Chrome PWA)
 
 `app.html` avait uniquement `apple-mobile-web-app-capable` (pour Safari/iOS). Chrome avait un avertissement de dépréciation car la valeur standard est `mobile-web-app-capable`.

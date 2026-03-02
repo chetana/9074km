@@ -65,6 +65,38 @@ Les éditions ciblées (Edit tool) fonctionnent bien. Pour les très gros patche
 - **Suppression** : auteur uniquement (vérifié côté backend)
 - **Navigation historique** : `viewOffset` ($state) — 0=aujourd'hui, -1=hier, etc. — boutons ← →
 - **Polling** : toutes les 8s (messages du jour uniquement, `if (isToday)`)
+- **Heure** : affichée sous chaque bulle — `🇫🇷 hh:mm · 🇰🇭 hh:mm` via `fmtTime()` (Europe/Paris) et `fmtTimeKH()` (Asia/Phnom_Penh)
+- **Badge 🎤** : badge `position: absolute` top-right sur `.bubble` (`position: relative`) pour les messages `source: 'audio'`
+- **Copier** : action bar → `copySelected()` copie `text\n🇫🇷 fr\n🇬🇧 en\n🇰🇭 kh` dans le presse-papier
+- **Toast erreur** : `errorToast` ($state), `showError(msg)` — affiché 3s si envoi/image/transcription échoue
+- **Toast copie** : `copyToast` ($state) — affiché 2s après copie réussie
+- **TTS** : `speakSelected(lang)` → `SpeechSynthesisUtterance` avec `lang` = `fr-FR`/`en-US`/`km-KH` — boutons 🔊🇫🇷/🔊🇬🇧/🔊🇰🇭 en 2ème ligne de l'action bar
+
+### Détection langue utilisateur
+
+```typescript
+// ✅ CORRECT — Chet → FR, tout autre → KH par défaut (robuste si prénom Google varie)
+const userLang = $derived<'fr' | 'kh'>(
+  firstName.toLowerCase() === 'chet' ? 'fr' : 'kh'
+)
+// ❌ FRAGILE — dépend du prénom exact de Lys dans Google
+// firstName.toLowerCase() === 'lys' ? 'kh' : 'fr'
+```
+
+### Suggestion Gemini (`GeminiSuggestion`)
+
+```typescript
+interface GeminiSuggestion {
+  corrected: string   // texte corrigé dans la langue détectée
+  fr: string
+  en: string
+  kh: string
+  question: string    // dans la langue de l'auteur
+  lesson?: string     // explication de la correction — FR pour Chet, KH pour Lys
+                      // absent si aucune faute détectée
+}
+```
+La `lesson` (📖 ...) est affichée dans la popup suggestion avec une barre rose à gauche.
 
 ### États audio (VAD)
 
