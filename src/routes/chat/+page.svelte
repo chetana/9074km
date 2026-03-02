@@ -501,9 +501,6 @@
 		{:else if suggestion}
 			<div class="suggestion">
 				<p class="suggestion-question">{suggestion.question}</p>
-				{#if userLang === 'fr' && suggestion.corrected}
-					<p class="suggestion-question-kh">តើអ្នកចង់និយាយថា «{suggestion.corrected}» ?</p>
-				{/if}
 				<p class="suggestion-corrected">"{suggestion.corrected}"</p>
 				{#if suggestion.fr}<p class="suggestion-translation"><span class="transl-flag">🇫🇷</span>{suggestion.fr}</p>{/if}
 				{#if suggestion.en}<p class="suggestion-translation"><span class="transl-flag">🇬🇧</span>{suggestion.en}</p>{/if}
@@ -786,13 +783,6 @@
 		font-size: var(--fs-sm);
 		font-weight: 600;
 		color: var(--accent);
-	}
-
-	.suggestion-question-kh {
-		font-size: var(--fs-sm);
-		color: var(--accent);
-		opacity: 0.75;
-		font-weight: 500;
 	}
 
 	.suggestion-corrected {
