@@ -4,6 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
+	optimizeDeps: {
+		exclude: ['@ricky0123/vad-web', 'onnxruntime-web'],
+	},
 	plugins: [
 		sveltekit(),
 		VitePWA({
@@ -19,6 +22,7 @@ export default defineConfig({
 				{ src: 'node_modules/@ricky0123/vad-web/dist/silero_vad_v5.onnx', dest: './' },
 				{ src: 'node_modules/@ricky0123/vad-web/dist/silero_vad_legacy.onnx', dest: './' },
 				{ src: 'node_modules/onnxruntime-web/dist/*.wasm', dest: './' },
+				{ src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs', dest: './' },
 			]
 		})
 	]

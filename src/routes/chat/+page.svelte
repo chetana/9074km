@@ -229,6 +229,9 @@
 			// Import dynamique (SSR-safe) — charge le modèle Silero + ONNX
 			const { MicVAD } = await import('@ricky0123/vad-web');
 			const micVad = await MicVAD.new({
+				workletURL: '/vad.worklet.bundle.min.js',
+				modelURL: '/silero_vad_v5.onnx',
+				ortConfig: (ort: any) => { ort.env.wasm.wasmPaths = '/'; },
 				additionalAudioConstraints: { noiseSuppression: true, echoCancellation: true, autoGainControl: true },
 				onSpeechEnd: (audio: Float32Array) => {
 					if (!transcribing) void processAudio(audio);
