@@ -117,6 +117,27 @@
 	function fmtTime(ts: string) {
 		return new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 	}
+
+	// ── UI bilingue selon l'utilisateur ──────────────────────────────────
+	const ui = $derived(userLang === 'kh' ? {
+		thinking:    '✨ កំពុងគិត…',
+		placeholder: 'សរសេរសារ…',
+		yes:         '✓ បាទ/ចាស',
+		no:          '✗ ទេ',
+		empty:       'មិនទាន់មានសាររបស់ថ្ងៃនេះទេ',
+		emptySub:    'ចាប់ផ្តើមមុននៅថ្ងៃនេះ ♡',
+		authMsg:     'ចូលគណនីដើម្បីប្រើ Chat 💬',
+		authBtn:     'ចូលជាមួយ Google',
+	} : {
+		thinking:    '✨ Gemini réfléchit…',
+		placeholder: 'Écris un message…',
+		yes:         '✓ Oui',
+		no:          '✗ Non',
+		empty:       'Pas encore de messages aujourd\'hui',
+		emptySub:    'Commence la conversation ♡',
+		authMsg:     'Connecte-toi pour accéder au chat 💬',
+		authBtn:     'Se connecter avec Google',
+	});
 </script>
 
 <svelte:head>
@@ -128,9 +149,9 @@
 	{#if !$user}
 		<!-- Auth gate identique au coffre -->
 		<div class="auth-gate">
-			<p class="auth-msg">Connecte-toi pour accéder au chat 💬</p>
+			<p class="auth-msg">{ui.authMsg}</p>
 			<button class="sign-in-btn" onclick={() => auth.signIn()}>
-				Se connecter avec Google
+				{ui.authBtn}
 			</button>
 		</div>
 	{:else}
@@ -139,8 +160,8 @@
 			{#if messages.length === 0}
 				<div class="empty">
 					<span class="empty-icon">💬</span>
-					<p>Pas encore de messages aujourd'hui</p>
-					<p class="empty-sub">Commence la conversation ♡</p>
+					<p>{ui.empty}</p>
+					<p class="empty-sub">{ui.emptySub}</p>
 				</div>
 			{/if}
 
@@ -164,7 +185,7 @@
 		<!-- ── Suggestion Gemini ── -->
 		{#if suggestionLoading}
 			<div class="suggestion suggestion-loading">
-				<span class="suggestion-dots">✨ Gemini réfléchit…</span>
+				<span class="suggestion-dots">{ui.thinking}</span>
 			</div>
 		{:else if suggestion}
 			<div class="suggestion">
@@ -172,8 +193,8 @@
 				<p class="suggestion-corrected">"{suggestion.corrected}"</p>
 				<p class="suggestion-translation">→ {suggestion.translation}</p>
 				<div class="suggestion-actions">
-					<button class="suggestion-btn accept" onclick={acceptSuggestion}>✓ Oui</button>
-					<button class="suggestion-btn dismiss" onclick={dismissSuggestion}>✗ Non</button>
+					<button class="suggestion-btn accept" onclick={acceptSuggestion}>{ui.yes}</button>
+					<button class="suggestion-btn dismiss" onclick={dismissSuggestion}>{ui.no}</button>
 				</div>
 			</div>
 		{/if}
@@ -185,7 +206,7 @@
 				bind:value={inputText}
 				oninput={onInput}
 				onkeydown={onKeydown}
-				placeholder="Écris un message…"
+				placeholder={ui.placeholder}
 				rows="1"
 				disabled={sending}
 			></textarea>
