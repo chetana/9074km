@@ -173,6 +173,7 @@ export interface ChatMessage {
 	kh: string;
 	ts: string;
 	image?: string;
+	source?: 'audio';
 }
 
 export interface GeminiSuggestion {
@@ -196,12 +197,22 @@ export async function sendMessage(
 	y: string, m: string, d: string,
 	author: string, text: string,
 	translations: { fr: string; en: string; kh: string },
-	image?: string
+	image?: string,
+	source?: 'audio'
 ): Promise<ChatMessage> {
 	const res = await apiFetch(`/api/chat/messages?y=${y}&m=${m}&d=${d}`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ author, text, ...translations, ...(image ? { image } : {}) })
+		body: JSON.stringify({ author, text, ...translations, ...(image ? { image } : {}), ...(source ? { source } : {}) })
+	});
+	return res.json();
+}
+
+export async function transcribeAudio(audio: string, mimeType: string): Promise<{ text: string; fr: string; en: string; kh: string }> {
+	const res = await apiFetch('/api/chat/transcribe', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ audio, mimeType })
 	});
 	return res.json();
 }

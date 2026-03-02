@@ -2,7 +2,7 @@
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { auth, userStore } from '$lib/auth';
 	import {
-		fetchMessages, sendMessage, suggestMessage, deleteMessage,
+		fetchMessages, sendMessage, suggestMessage, deleteMessage, transcribeAudio,
 		signUpload, uploadFile, signDownload, invalidateListCache,
 		type ChatMessage, type GeminiSuggestion
 	} from '$lib/api';
@@ -23,6 +23,10 @@
 	let listEl = $state<HTMLElement | null>(null);
 	let imageUrls = $state<Record<string, string>>({});
 	let imageInput: HTMLInputElement | undefined;
+	let recording = $state(false);
+	let transcribing = $state(false);
+	let mediaRecorder: MediaRecorder | null = null;
+	let audioChunks: Blob[] = [];
 	let selectedMsg = $state<string | null>(null);
 
 	const user = userStore;
@@ -173,6 +177,69 @@
 		}
 	}
 
+	// ── Audio ───────────────────────────────────────────────────────────────
+	function getAudioMimeType(): string {
+		const types = [
+			'audio/webm;codecs=opus',
+			'audio/webm',
+			'audio/mp4',       // iOS Safari
+			'audio/ogg;codecs=opus',
+		];
+		return types.find(t => MediaRecorder.isTypeSupported(t)) ?? '';
+	}
+
+	function arrayBufferToBase64(buf: ArrayBuffer): string {
+		const bytes = new Uint8Array(buf);
+		let binary = '';
+		for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+		return btoa(binary);
+	}
+
+	async function startRecording() {
+		const mimeType = getAudioMimeType();
+		if (!mimeType) { console.error('MediaRecorder not supported'); return; }
+		const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+		audioChunks = [];
+		mediaRecorder = new MediaRecorder(stream, { mimeType });
+		mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+		mediaRecorder.onstop = async () => {
+			stream.getTracks().forEach(t => t.stop());
+			await processAudio(mimeType);
+		};
+		mediaRecorder.start(250); // collect chunks every 250ms
+		recording = true;
+		// Auto-stop après 60 secondes
+		setTimeout(() => { if (recording) stopRecording(); }, 60000);
+	}
+
+	function stopRecording() {
+		if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
+		recording = false;
+	}
+
+	async function processAudio(mimeType: string) {
+		if (!audioChunks.length || !firstName) return;
+		transcribing = true;
+		try {
+			const blob = new Blob(audioChunks, { type: mimeType });
+			const base64 = arrayBufferToBase64(await blob.arrayBuffer());
+			const result = await transcribeAudio(base64, mimeType);
+			const msg = await sendMessage(Y, M, D, firstName, result.text, { fr: result.fr, en: result.en, kh: result.kh }, undefined, 'audio');
+			messages = [...messages, msg];
+			await tick();
+			scrollToBottom();
+		} catch (e) {
+			console.error('Transcription failed:', e);
+		} finally {
+			transcribing = false;
+		}
+	}
+
+	async function toggleRecording() {
+		if (recording) { stopRecording(); }
+		else { await startRecording(); }
+	}
+
 	// ── Envoi ─────────────────────────────────────────────────────────────
 	async function send() {
 		const text = inputText.trim();
@@ -269,7 +336,7 @@
 						<span class="author-label">{msg.author}</span>
 					{/if}
 					<div class="bubble" class:mine={isMine}>
-						<p class="bubble-text">{msg.text}</p>
+						<p class="bubble-text">{msg.text}{#if msg.source === 'audio'}<span class="source-audio"> 🎤</span>{/if}</p>
 						{#if msg.image}
 							{#if imageUrls[msg.image]}
 								<img class="bubble-img" src={imageUrls[msg.image]} alt="" loading="lazy" />
@@ -340,9 +407,17 @@
 			<button
 				class="img-btn"
 				onclick={pickAndSendImage}
-				disabled={sending}
+				disabled={sending || recording || transcribing}
 				aria-label="Envoyer une image"
 			>📷</button>
+			<button
+				class="mic-btn"
+				class:recording
+				class:transcribing
+				onclick={toggleRecording}
+				disabled={sending || transcribing}
+				aria-label={recording ? 'Arrêter' : 'Message vocal'}
+			>{transcribing ? '…' : recording ? '⏹' : '🎤'}</button>
 			<textarea
 				class="input"
 				bind:value={inputText}
@@ -688,6 +763,45 @@
 
 	.img-btn:disabled {
 		opacity: 0.35;
+	}
+
+	.mic-btn {
+		width: 2.75rem;
+		height: 2.75rem;
+		border-radius: var(--radius-full);
+		background: color-mix(in srgb, var(--accent) 12%, var(--card));
+		border: 1px solid var(--border);
+		font-size: 1.2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		transition: background 0.15s, opacity 0.15s;
+	}
+
+	.mic-btn.recording {
+		background: #e53935;
+		color: #fff;
+		border-color: #e53935;
+		animation: pulse-rec 1s ease-in-out infinite;
+	}
+
+	.mic-btn.transcribing {
+		opacity: 0.5;
+	}
+
+	.mic-btn:disabled {
+		opacity: 0.35;
+	}
+
+	@keyframes pulse-rec {
+		0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, #e53935 40%, transparent); }
+		50% { box-shadow: 0 0 0 6px color-mix(in srgb, #e53935 0%, transparent); }
+	}
+
+	.source-audio {
+		opacity: 0.5;
+		font-size: 0.75em;
 	}
 
 	.bubble-img {
