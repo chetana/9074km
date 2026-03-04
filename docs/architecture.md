@@ -343,6 +343,7 @@ interface ChatMessage {
   fr: string       // traduction française (Gemini)
   en: string       // traduction anglaise (Gemini)
   kh: string       // traduction khmère (Gemini)
+  lang?: string    // langue détectée du message original : 'fr', 'en' ou 'kh'
   ts: string       // ISO timestamp
   image?: string   // chemin GCS optionnel
   source?: 'audio' // message transcrit depuis un vocal
@@ -353,10 +354,10 @@ interface ChatMessage {
 
 ```
 Utilisateur tape → debounce 1s → POST /api/chat/suggest
-    → GeminiSuggestion { corrected, fr, en, kh, question, lesson? }
+    → GeminiSuggestion { corrected, fr, en, kh, lang, question, lesson? }
     → popup confirmation avec mini leçon 📖
 
-Utilisateur valide → POST /api/chat/messages
+Utilisateur valide → POST /api/chat/messages (avec lang issu de la suggestion)
     → message sauvegardé GCS + broadcast prochain poll
 ```
 
@@ -383,6 +384,15 @@ Ligne 2 : [🔊🇫🇷]        [🔊🇬🇧]           [🔊🇰🇭]
 
 **TTS** : `SpeechSynthesisUtterance` avec `lang` `fr-FR` / `en-US` / `km-KH` — Web Speech API native, zéro appel réseau.
 
+### Affichage bulle
+
+3 lignes par message (pas 4) :
+1. `msg.text` flaggé selon `msg.lang` (🇫🇷/🇬🇧/🇰🇭) — le message original envoyé
+2. + l'une des 2 autres traductions (ex: si 🇫🇷, afficher 🇰🇭 kh)
+3. + la 3ème (EN conditionnel — affiché seulement si `msg.lang !== 'en'`)
+
+Fallback : anciens messages sans `lang` → heuristique `isChet(msg.author)`.
+
 ### Suggestion Gemini
 
 ```typescript
@@ -391,17 +401,24 @@ interface GeminiSuggestion {
   fr: string
   en: string
   kh: string
+  lang: string       // langue détectée du message original : 'fr', 'en' ou 'kh'
   question: string   // "Tu voulais dire..." (FR) ou "តើអ្នកចង់និយាយថា..." (KH)
-  lesson?: string    // explication grammaticale — absent si aucune faute
-                     // en FR pour Chet, en KH pour Lys
+  lesson?: string    // explication — TOUJOURS dans la langue natale de l'auteur
+                     // (FR pour Chet, KH pour Lys — quelle que soit la langue écrite)
+                     // absent si aucune faute
 }
 ```
 
 ### Détection langue UI
 
 ```typescript
-// Chet → fr, tout autre → kh (robuste si prénom Google varie)
-const userLang = firstName.toLowerCase() === 'chet' ? 'fr' : 'kh'
+// NFD normalization obligatoire — "Chétana".normalize('NFD') → détecte correctement
+function isChet(name: string): boolean {
+  const n = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  return n === 'chet' || n === 'chetana'
+}
+// Chet → fr, tout autre → kh (robuste si prénom Google varie ou a un accent)
+const userLang = $derived<'fr' | 'kh'>(isChet(firstName) ? 'fr' : 'kh')
 ```
 
 ### États

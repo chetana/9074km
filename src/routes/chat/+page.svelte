@@ -4,7 +4,7 @@
 	import {
 		fetchMessages, sendMessage, suggestMessage, deleteMessage, transcribeAudio,
 		signUpload, uploadFile, signDownload, invalidateListCache,
-		type ChatMessage, type GeminiSuggestion
+		fetchLessons, type ChatMessage, type GeminiSuggestion, type LessonEntry
 	} from '$lib/api';
 
 	// ── Date du jour (pour GCS — envoi toujours vers aujourd'hui) ────────
@@ -32,6 +32,9 @@
 	let viewOffset = $state(0);       // 0 = aujourd'hui, -1 = hier, etc.
 	let isOnline = $state(true);
 	let loadingMessages = $state(false);
+	let showLessons = $state(false);
+	let lessons = $state<LessonEntry[]>([]);
+	let lessonsLoading = $state(false);
 
 	const user = userStore;
 	// Vérifie si un prénom correspond à Chet (Chet, Chetana, Chétana, etc.)
@@ -371,6 +374,7 @@
 			en: suggestion?.en ?? '',
 			kh: suggestion?.kh ?? '',
 			lang: suggestion?.lang ?? '',
+			...(suggestion?.lesson ? { lesson: suggestion.lesson, corrected: suggestion.corrected } : {}),
 		};
 		sending = true;
 		suggestion = null;
@@ -389,6 +393,13 @@
 		} finally {
 			sending = false;
 		}
+	}
+
+	async function loadLessons() {
+		showLessons = true;
+		if (lessons.length > 0) return;
+		lessonsLoading = true;
+		try { lessons = await fetchLessons(); } finally { lessonsLoading = false; }
 	}
 
 	function onKeydown(e: KeyboardEvent) {
@@ -417,6 +428,8 @@
 		emptySub:    'ចាប់ផ្តើមមុននៅថ្ងៃនេះ ♡',
 		authMsg:     'ចូលគណនីដើម្បីប្រើ Chat 💬',
 		authBtn:     'ចូលជាមួយ Google',
+		lessonsTitle: 'មេរៀនរបស់ខ្ញុំ',
+		lessonsEmpty: 'មិនទាន់មានការកែប្រែ',
 	} : {
 		thinking:    'proposition en cours…',
 		placeholder: 'Écris un message…',
@@ -426,6 +439,8 @@
 		emptySub:    'Commence la conversation ♡',
 		authMsg:     'Connecte-toi pour accéder au chat 💬',
 		authBtn:     'Se connecter avec Google',
+		lessonsTitle: 'Mes leçons',
+		lessonsEmpty: 'Aucune leçon pour l\'instant',
 	});
 </script>
 
@@ -454,6 +469,7 @@
 			<button class="date-btn" onclick={prevDay} aria-label="Jour précédent">‹</button>
 			<span class="date-label">{dayLabelStr}</span>
 			<button class="date-btn" onclick={nextDay} disabled={isToday} aria-label="Jour suivant">›</button>
+			<button class="lessons-btn" onclick={loadLessons} aria-label="Leçons">📖</button>
 		</div>
 
 		<!-- ── Liste des messages ── -->
@@ -559,6 +575,38 @@
 				<div class="suggestion-actions">
 					<button class="suggestion-btn accept" onclick={acceptSuggestion}>{ui.yes}</button>
 					<button class="suggestion-btn dismiss" onclick={dismissSuggestion}>{ui.no}</button>
+				</div>
+			</div>
+		{/if}
+
+		<!-- ── Panel leçons ── -->
+		{#if showLessons}
+			<div class="lessons-overlay" onclick={() => showLessons = false} role="button" tabindex="-1" aria-label="Fermer">
+				<div class="lessons-panel" onclick={(e) => e.stopPropagation()} role="dialog">
+					<div class="lessons-header">
+						<span class="lessons-title">📖 {ui.lessonsTitle}</span>
+						<button class="lessons-close" onclick={() => showLessons = false}>✕</button>
+					</div>
+					<div class="lessons-body">
+						{#if lessonsLoading}
+							<div class="lessons-loading"><span class="loading-spinner"></span></div>
+						{:else if lessons.length === 0}
+							<p class="lessons-empty">{ui.lessonsEmpty}</p>
+						{:else}
+							{#each lessons as l (l.id)}
+								{@const lFlag = l.lang === 'fr' ? '🇫🇷' : l.lang === 'en' ? '🇬🇧' : '🇰🇭'}
+								<div class="lesson-card">
+									<div class="lesson-meta">
+										<span class="lesson-author">{l.author}</span>
+										<span class="lesson-flag">{lFlag}</span>
+										<span class="lesson-date">{new Date(l.ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+									</div>
+									<p class="lesson-original"><s>{l.original}</s> → {l.corrected}</p>
+									<p class="lesson-text">📖 {l.lesson}</p>
+								</div>
+							{/each}
+						{/if}
+					</div>
 				</div>
 			</div>
 		{/if}
@@ -1157,5 +1205,145 @@
 		justify-content: center;
 		color: var(--muted);
 		font-size: var(--fs-sm);
+	}
+
+	/* ── Bouton leçons ── */
+	.lessons-btn {
+		width: 2rem;
+		height: 2rem;
+		border-radius: var(--radius-full);
+		background: color-mix(in srgb, var(--accent) 10%, var(--card));
+		border: 1px solid var(--border);
+		font-size: 0.95rem;
+		color: var(--text);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-left: auto;
+	}
+
+	/* ── Panel leçons ── */
+	.lessons-overlay {
+		position: fixed;
+		inset: 0;
+		background: color-mix(in srgb, #000 50%, transparent);
+		z-index: 50;
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		animation: fade-in 0.15s ease;
+	}
+
+	@keyframes fade-in {
+		from { opacity: 0; }
+		to   { opacity: 1; }
+	}
+
+	.lessons-panel {
+		width: 100%;
+		max-width: 640px;
+		max-height: 80vh;
+		background: var(--card);
+		border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+		display: flex;
+		flex-direction: column;
+		animation: slide-up 0.2s ease;
+		overflow: hidden;
+	}
+
+	.lessons-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--space-4) var(--space-5);
+		border-bottom: 1px solid var(--border);
+		flex-shrink: 0;
+	}
+
+	.lessons-title {
+		font-size: var(--fs-base);
+		font-weight: 700;
+		color: var(--text);
+	}
+
+	.lessons-close {
+		width: 2rem;
+		height: 2rem;
+		border-radius: var(--radius-full);
+		background: color-mix(in srgb, var(--muted) 12%, transparent);
+		color: var(--muted);
+		font-size: var(--fs-sm);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.lessons-body {
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+		padding: var(--space-4) var(--space-5);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+
+	.lessons-loading {
+		display: flex;
+		justify-content: center;
+		padding: var(--space-6) 0;
+	}
+
+	.lessons-empty {
+		text-align: center;
+		color: var(--muted);
+		font-size: var(--fs-sm);
+		padding: var(--space-6) 0;
+	}
+
+	.lesson-card {
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-xl);
+		padding: var(--space-3) var(--space-4);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+
+	.lesson-meta {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.lesson-author {
+		font-size: var(--fs-xs);
+		font-weight: 600;
+		color: var(--accent);
+	}
+
+	.lesson-flag {
+		font-size: var(--fs-xs);
+	}
+
+	.lesson-date {
+		font-size: var(--fs-xs);
+		color: var(--muted);
+		margin-left: auto;
+	}
+
+	.lesson-original {
+		font-size: var(--fs-sm);
+		color: var(--text);
+	}
+
+	.lesson-text {
+		font-size: var(--fs-sm);
+		color: var(--muted);
+		background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+		border-left: 2px solid var(--accent);
+		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+		padding: var(--space-1) var(--space-3);
+		line-height: 1.5;
 	}
 </style>

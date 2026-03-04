@@ -519,6 +519,84 @@ Le fallback `|| msg.text` couvre les anciens messages sans traductions.
 
 ---
 
+## Affichage chat — 3 lignes par message (pas 4)
+
+### Décision
+
+Chaque bulle affiche 3 lignes au lieu de 4 (texte brut + 3 traductions) :
+1. `msg.text` (le texte réellement envoyé) avec le drapeau de sa langue détectée (`msg.lang`)
+2. Une 2ème traduction
+3. Une 3ème traduction (EN conditionnel : affiché seulement si `msg.lang !== 'en'`)
+
+### Pourquoi `msg.text` et non `msg.fr` / la version corrigée ?
+
+L'utilisateur peut **refuser** la suggestion Gemini avant d'envoyer. Ce qui est sauvegardé en GCS est toujours le message original tapé par l'utilisateur (`text`), jamais la correction forcée. Afficher `msg.fr` aurait substitué le texte de l'utilisateur par la version Gemini sans son accord.
+
+### `msg.lang` — langue détectée par Gemini
+
+Gemini retourne un champ `lang` (`'fr'|'en'|'kh'`) dans tous ses JSON (suggest, translate, transcribe). Ce champ est stocké dans le message GCS et utilisé pour le drapeau. Avantage : si Lys écrit en français, le drapeau 🇫🇷 s'affiche correctement — sans heuristique sur le prénom de l'auteur.
+
+Fallback pour anciens messages sans `lang` : `isChet(msg.author) ? 'fr' : 'kh'`.
+
+---
+
+## `isChet()` — NFD normalization pour le compte Google
+
+### Problème
+
+Le prénom Google de Chet est "Chétana" (avec accent). `"chétana".toLowerCase() === 'chet'` → **false** → Chet était traité comme Lys dans tout le frontend (`userLang`, flags, copie, suggestions).
+
+### Solution
+
+```typescript
+function isChet(name: string): boolean {
+  const n = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  return n === 'chet' || n === 'chetana'
+}
+```
+
+La normalisation NFD décompose "é" → "e" + combining accent, puis strip les accents. Gère : "Chet", "Chetana", "Chétana", "chétana", etc.
+
+Cette fonction remplace partout `firstName.toLowerCase() === 'chet'` qui était fragile.
+
+---
+
+## `authorLang` côté backend — sécurité et robustesse
+
+### Décision
+
+`suggest.post.ts` détermine `authorLang` depuis le token Google (via `requireAuth`), jamais depuis le client.
+
+```typescript
+const firstName = user.name.split(' ')[0]
+const normalized = firstName.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const authorLang: 'fr' | 'kh' = /^(chet|chetana)$/i.test(normalized) ? 'fr' : 'kh'
+```
+
+### Pourquoi pas côté client ?
+
+- Le client pourrait envoyer n'importe quel `lang` param → Chet recevrait des leçons en khmer
+- La détection côté backend est la source de vérité : c'est le token Google signé qui dit qui est l'auteur
+- Même logique que `coupleContext()` dans `vertex.ts`
+
+---
+
+## `coupleContext()` — contexte Gemini partagé
+
+Contexte injecté dans les 3 fonctions Gemini (`geminiTranslateAll`, `geminiSuggest`, `geminiTranscribeAndTranslate`) pour corriger deux classes de bugs récurrents :
+
+1. **Genre** : Gemini voit "Chetana" → assume femme → corrige "heureux" en "heureuse". Fix : préciser explicitement "Chet est un HOMME, accord MASCULIN obligatoire".
+
+2. **Pronoms khmer bang/oun** : Chet écrit "bang" (pour se désigner) et appelle Lys "oun". Gemini corrigeait ces pronoms car il ne comprenait pas le système. Fix : règle explicite dans le prompt.
+
+```
+- Chet (aussi appelé "Chetana") est un HOMME français. Accord MASCULIN obligatoire.
+- Pronoms khmer : quand Chet écrit → "bang" (បង) = lui, "oun" (អូន) = Lys
+                  quand Lys écrit → "oun" (អូន) = elle, "bang" (បង) = Chet
+```
+
+---
+
 ## meta `mobile-web-app-capable` (Chrome PWA)
 
 `app.html` avait uniquement `apple-mobile-web-app-capable` (pour Safari/iOS). Chrome avait un avertissement de dépréciation car la valeur standard est `mobile-web-app-capable`.

@@ -199,7 +199,7 @@ export async function fetchMessages(y: string, m: string, d: string): Promise<Ch
 export async function sendMessage(
 	y: string, m: string, d: string,
 	author: string, text: string,
-	translations: { fr: string; en: string; kh: string; lang?: string },
+	translations: { fr: string; en: string; kh: string; lang?: string; lesson?: string; corrected?: string },
 	image?: string,
 	source?: 'audio'
 ): Promise<ChatMessage> {
@@ -209,6 +209,25 @@ export async function sendMessage(
 		body: JSON.stringify({ author, text, ...translations, ...(image ? { image } : {}), ...(source ? { source } : {}) })
 	});
 	return res.json();
+}
+
+export interface LessonEntry {
+	id: string;
+	ts: string;
+	author: string;
+	original: string;
+	corrected: string;
+	lesson: string;
+	lang: string;
+}
+
+export async function fetchLessons(): Promise<LessonEntry[]> {
+	try {
+		const res = await apiFetch('/api/chat/lessons');
+		return res.json();
+	} catch {
+		return [];
+	}
 }
 
 export async function transcribeAudio(audio: string, mimeType: string): Promise<{ text: string; fr: string; en: string; kh: string }> {
