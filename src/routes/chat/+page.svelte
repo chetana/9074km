@@ -34,12 +34,15 @@
 	let loadingMessages = $state(false);
 
 	const user = userStore;
+	// Vérifie si un prénom correspond à Chet (Chet, Chetana, Chétana, etc.)
+	function isChet(name: string): boolean {
+		const n = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+		return n === 'chet' || n === 'chetana';
+	}
 	// $user est réactif (store Svelte 4), contrairement à auth.getFirstName() qui utilise get()
 	const firstName = $derived($user?.name.split(' ')[0] ?? '');
 	// Détermine la langue de l'utilisateur connecté : Chet → fr, tout autre → kh par défaut
-	const userLang = $derived<'fr' | 'kh'>(
-		firstName.toLowerCase() === 'chet' ? 'fr' : 'kh'
-	);
+	const userLang = $derived<'fr' | 'kh'>(isChet(firstName) ? 'fr' : 'kh');
 
 	// ── Date de navigation ────────────────────────────────────────────────
 	const viewDate = $derived(new Date(today.getFullYear(), today.getMonth(), today.getDate() + viewOffset));
@@ -253,7 +256,7 @@
 		if (!msg) return;
 		const parts: string[] = [];
 		if (msg.fr || msg.en || msg.kh) {
-			const aLang = (msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (msg.author.toLowerCase() === 'chet' ? 'fr' : 'kh');
+			const aLang = (msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (isChet(msg.author) ? 'fr' : 'kh');
 			const flagMap: Record<string, string> = { fr: '🇫🇷 ', en: '🇬🇧 ', kh: '🇰🇭 ' };
 			parts.push((flagMap[aLang] ?? '') + msg.text);
 			if (aLang !== 'fr' && msg.fr) parts.push('🇫🇷 ' + msg.fr);
@@ -470,7 +473,7 @@
 			{#each messages as msg (msg.id)}
 				{@const isMine = msg.author === firstName}
 				{@const legacy = (msg as unknown as { translation?: string }).translation}
-				{@const aLang = (msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (msg.author.toLowerCase() === 'chet' ? 'fr' : 'kh')}
+				{@const aLang = (msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (isChet(msg.author) ? 'fr' : 'kh')}
 				<div class="bubble-row" class:mine={isMine} class:selected={selectedMsg === msg.id} onclick={() => selectMsg(msg.id)} role="button" tabindex="0">
 					{#if !isMine}
 						<span class="author-label">{msg.author}</span>
