@@ -252,10 +252,16 @@
 		const msg = messages.find(m => m.id === selectedMsg);
 		if (!msg) return;
 		const parts: string[] = [];
-		if (msg.text) parts.push(msg.text);
-		if (msg.fr)   parts.push('🇫🇷 ' + msg.fr);
-		if (msg.en)   parts.push('🇬🇧 ' + msg.en);
-		if (msg.kh)   parts.push('🇰🇭 ' + msg.kh);
+		if (msg.fr || msg.en || msg.kh) {
+			const aLang = msg.author.toLowerCase() === 'chet' ? 'fr' : 'kh';
+			const flag = aLang === 'fr' ? '🇫🇷 ' : '🇰🇭 ';
+			parts.push(flag + msg.text);
+			if (aLang !== 'fr' && msg.fr) parts.push('🇫🇷 ' + msg.fr);
+			if (msg.en) parts.push('🇬🇧 ' + msg.en);
+			if (aLang !== 'kh' && msg.kh) parts.push('🇰🇭 ' + msg.kh);
+		} else if (msg.text) {
+			parts.push(msg.text);
+		}
 		try {
 			await navigator.clipboard.writeText(parts.join('\n'));
 			selectedMsg = null;
@@ -463,13 +469,13 @@
 			{#each messages as msg (msg.id)}
 				{@const isMine = msg.author === firstName}
 				{@const legacy = (msg as unknown as { translation?: string }).translation}
+				{@const aLang = msg.author.toLowerCase() === 'chet' ? 'fr' : 'kh'}
 				<div class="bubble-row" class:mine={isMine} class:selected={selectedMsg === msg.id} onclick={() => selectMsg(msg.id)} role="button" tabindex="0">
 					{#if !isMine}
 						<span class="author-label">{msg.author}</span>
 					{/if}
 					<div class="bubble" class:mine={isMine}>
 						{#if msg.source === 'audio'}<span class="source-badge">🎤</span>{/if}
-					<p class="bubble-text">{msg.text}</p>
 						{#if msg.image}
 							{#if imageUrls[msg.image]}
 								<img class="bubble-img" src={imageUrls[msg.image]} alt="" loading="lazy" />
@@ -479,14 +485,18 @@
 						{/if}
 						{#if msg.fr || msg.en || msg.kh}
 							<div class="bubble-translations">
-								{#if msg.fr}<p class="bubble-translation"><span class="transl-flag">🇫🇷</span>{msg.fr}</p>{/if}
+								<p class="bubble-translation"><span class="transl-flag">{aLang === 'fr' ? '🇫🇷' : '🇰🇭'}</span>{msg.text}</p>
+								{#if aLang !== 'fr' && msg.fr}<p class="bubble-translation"><span class="transl-flag">🇫🇷</span>{msg.fr}</p>{/if}
 								{#if msg.en}<p class="bubble-translation"><span class="transl-flag">🇬🇧</span>{msg.en}</p>{/if}
-								{#if msg.kh}<p class="bubble-translation"><span class="transl-flag">🇰🇭</span>{msg.kh}</p>{/if}
+								{#if aLang !== 'kh' && msg.kh}<p class="bubble-translation"><span class="transl-flag">🇰🇭</span>{msg.kh}</p>{/if}
 							</div>
-						{:else if legacy}
-							<div class="bubble-translations">
-								<p class="bubble-translation">{legacy}</p>
-							</div>
+						{:else}
+							<p class="bubble-text">{msg.text}</p>
+							{#if legacy}
+								<div class="bubble-translations">
+													<p class="bubble-translation">{legacy}</p>
+								</div>
+							{/if}
 						{/if}
 						<span class="bubble-time">🇫🇷 {fmtTime(msg.ts)} · 🇰🇭 {fmtTimeKH(msg.ts)}</span>
 					</div>
