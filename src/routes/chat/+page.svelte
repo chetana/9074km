@@ -35,6 +35,7 @@
 	let showLessons = $state(false);
 	let lessons = $state<LessonEntry[]>([]);
 	let lessonsLoading = $state(false);
+	let pendingLessons = $state<LessonItem[]>([]);
 
 	const user = userStore;
 	// Vérifie si un prénom correspond à Chet (Chet, Chetana, Chétana, etc.)
@@ -118,6 +119,7 @@
 
 	function onInput() {
 		suggestion = null;
+		pendingLessons = [];
 		clearTimeout(debounceTimer);
 		const text = inputText.trim();
 		if (text.length < 3 || text === lastSuggestedText) return;
@@ -137,6 +139,7 @@
 	function acceptSuggestion() {
 		if (!suggestion) return;
 		inputText = suggestion.corrected;
+		pendingLessons = suggestion.lessons ?? [];
 		suggestion = null;
 	}
 
@@ -374,10 +377,11 @@
 			en: suggestion?.en ?? '',
 			kh: suggestion?.kh ?? '',
 			lang: suggestion?.lang ?? '',
-			...(suggestion?.lessons?.length ? { lessons: suggestion.lessons } : {}),
+			...(suggestion?.lessons?.length ? { lessons: suggestion.lessons } : pendingLessons.length ? { lessons: pendingLessons } : {}),
 		};
 		sending = true;
 		suggestion = null;
+		pendingLessons = [];
 		inputText = '';
 		lastSuggestedText = '';
 		clearTimeout(debounceTimer);
