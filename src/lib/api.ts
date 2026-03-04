@@ -177,6 +177,12 @@ export interface ChatMessage {
 	source?: 'audio';
 }
 
+export interface LessonItem {
+	original: string;
+	corrected: string;
+	explanation: string;
+}
+
 export interface GeminiSuggestion {
 	corrected: string;
 	fr: string;
@@ -184,7 +190,7 @@ export interface GeminiSuggestion {
 	kh: string;
 	lang: string;    // langue détectée du message original : 'fr', 'en' ou 'kh'
 	question: string;
-	lesson?: string;
+	lessons?: LessonItem[];  // une entrée par faute — absent si aucune faute
 }
 
 export async function fetchMessages(y: string, m: string, d: string): Promise<ChatMessage[]> {
@@ -199,7 +205,7 @@ export async function fetchMessages(y: string, m: string, d: string): Promise<Ch
 export async function sendMessage(
 	y: string, m: string, d: string,
 	author: string, text: string,
-	translations: { fr: string; en: string; kh: string; lang?: string; lesson?: string; corrected?: string },
+	translations: { fr: string; en: string; kh: string; lang?: string; lessons?: LessonItem[] },
 	image?: string,
 	source?: 'audio'
 ): Promise<ChatMessage> {

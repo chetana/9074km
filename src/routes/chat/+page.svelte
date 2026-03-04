@@ -4,7 +4,7 @@
 	import {
 		fetchMessages, sendMessage, suggestMessage, deleteMessage, transcribeAudio,
 		signUpload, uploadFile, signDownload, invalidateListCache,
-		fetchLessons, type ChatMessage, type GeminiSuggestion, type LessonEntry
+		fetchLessons, type ChatMessage, type GeminiSuggestion, type LessonEntry, type LessonItem
 	} from '$lib/api';
 
 	// ── Date du jour (pour GCS — envoi toujours vers aujourd'hui) ────────
@@ -374,7 +374,7 @@
 			en: suggestion?.en ?? '',
 			kh: suggestion?.kh ?? '',
 			lang: suggestion?.lang ?? '',
-			...(suggestion?.lesson ? { lesson: suggestion.lesson, corrected: suggestion.corrected } : {}),
+			...(suggestion?.lessons?.length ? { lessons: suggestion.lessons } : {}),
 		};
 		sending = true;
 		suggestion = null;
@@ -569,8 +569,10 @@
 				{#if suggestion.fr}<p class="suggestion-translation"><span class="transl-flag">🇫🇷</span>{suggestion.fr}</p>{/if}
 				{#if suggestion.en}<p class="suggestion-translation"><span class="transl-flag">🇬🇧</span>{suggestion.en}</p>{/if}
 				{#if suggestion.kh}<p class="suggestion-translation"><span class="transl-flag">🇰🇭</span>{suggestion.kh}</p>{/if}
-				{#if suggestion.lesson}
-					<p class="suggestion-lesson">📖 {suggestion.lesson}</p>
+				{#if suggestion.lessons?.length}
+					{#each suggestion.lessons as l}
+						<p class="suggestion-lesson"><s>{l.original}</s> → <strong>{l.corrected}</strong> — {l.explanation}</p>
+					{/each}
 				{/if}
 				<div class="suggestion-actions">
 					<button class="suggestion-btn accept" onclick={acceptSuggestion}>{ui.yes}</button>
