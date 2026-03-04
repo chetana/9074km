@@ -121,7 +121,7 @@
 		debounceTimer = setTimeout(async () => {
 			suggestionLoading = true;
 			try {
-				suggestion = await suggestMessage(text, userLang);
+				suggestion = await suggestMessage(text);
 				lastSuggestedText = text;
 			} catch {
 				suggestion = null;
