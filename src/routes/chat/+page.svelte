@@ -397,7 +397,6 @@
 
 	async function loadLessons() {
 		showLessons = true;
-		if (lessons.length > 0) return;
 		lessonsLoading = true;
 		try { lessons = await fetchLessons(); } finally { lessonsLoading = false; }
 	}
