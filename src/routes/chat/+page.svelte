@@ -253,11 +253,11 @@
 		if (!msg) return;
 		const parts: string[] = [];
 		if (msg.fr || msg.en || msg.kh) {
-			const aLang = msg.author.toLowerCase() === 'chet' ? 'fr' : 'kh';
-			const flag = aLang === 'fr' ? '🇫🇷 ' : '🇰🇭 ';
-			parts.push(flag + msg.text);
+			const aLang = (msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (msg.author.toLowerCase() === 'chet' ? 'fr' : 'kh');
+			const flagMap: Record<string, string> = { fr: '🇫🇷 ', en: '🇬🇧 ', kh: '🇰🇭 ' };
+			parts.push((flagMap[aLang] ?? '') + msg.text);
 			if (aLang !== 'fr' && msg.fr) parts.push('🇫🇷 ' + msg.fr);
-			if (msg.en) parts.push('🇬🇧 ' + msg.en);
+			if (aLang !== 'en' && msg.en) parts.push('🇬🇧 ' + msg.en);
 			if (aLang !== 'kh' && msg.kh) parts.push('🇰🇭 ' + msg.kh);
 		} else if (msg.text) {
 			parts.push(msg.text);
@@ -367,6 +367,7 @@
 			fr: suggestion?.fr ?? '',
 			en: suggestion?.en ?? '',
 			kh: suggestion?.kh ?? '',
+			lang: suggestion?.lang ?? '',
 		};
 		sending = true;
 		suggestion = null;
@@ -469,7 +470,7 @@
 			{#each messages as msg (msg.id)}
 				{@const isMine = msg.author === firstName}
 				{@const legacy = (msg as unknown as { translation?: string }).translation}
-				{@const aLang = msg.author.toLowerCase() === 'chet' ? 'fr' : 'kh'}
+				{@const aLang = (msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (msg.author.toLowerCase() === 'chet' ? 'fr' : 'kh')}
 				<div class="bubble-row" class:mine={isMine} class:selected={selectedMsg === msg.id} onclick={() => selectMsg(msg.id)} role="button" tabindex="0">
 					{#if !isMine}
 						<span class="author-label">{msg.author}</span>
@@ -485,9 +486,9 @@
 						{/if}
 						{#if msg.fr || msg.en || msg.kh}
 							<div class="bubble-translations">
-								<p class="bubble-translation"><span class="transl-flag">{aLang === 'fr' ? '🇫🇷' : '🇰🇭'}</span>{msg.text}</p>
+								<p class="bubble-translation"><span class="transl-flag">{aLang === 'fr' ? '🇫🇷' : aLang === 'en' ? '🇬🇧' : '🇰🇭'}</span>{msg.text}</p>
 								{#if aLang !== 'fr' && msg.fr}<p class="bubble-translation"><span class="transl-flag">🇫🇷</span>{msg.fr}</p>{/if}
-								{#if msg.en}<p class="bubble-translation"><span class="transl-flag">🇬🇧</span>{msg.en}</p>{/if}
+								{#if aLang !== 'en' && msg.en}<p class="bubble-translation"><span class="transl-flag">🇬🇧</span>{msg.en}</p>{/if}
 								{#if aLang !== 'kh' && msg.kh}<p class="bubble-translation"><span class="transl-flag">🇰🇭</span>{msg.kh}</p>{/if}
 							</div>
 						{:else}

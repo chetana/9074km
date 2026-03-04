@@ -171,6 +171,7 @@ export interface ChatMessage {
 	fr: string;
 	en: string;
 	kh: string;
+	lang?: string;   // langue détectée du message original : 'fr', 'en' ou 'kh'
 	ts: string;
 	image?: string;
 	source?: 'audio';
@@ -181,8 +182,9 @@ export interface GeminiSuggestion {
 	fr: string;
 	en: string;
 	kh: string;
+	lang: string;    // langue détectée du message original : 'fr', 'en' ou 'kh'
 	question: string;
-	lesson?: string;  // explication courte en khmer (pour Lys uniquement)
+	lesson?: string;
 }
 
 export async function fetchMessages(y: string, m: string, d: string): Promise<ChatMessage[]> {
@@ -197,7 +199,7 @@ export async function fetchMessages(y: string, m: string, d: string): Promise<Ch
 export async function sendMessage(
 	y: string, m: string, d: string,
 	author: string, text: string,
-	translations: { fr: string; en: string; kh: string },
+	translations: { fr: string; en: string; kh: string; lang?: string },
 	image?: string,
 	source?: 'audio'
 ): Promise<ChatMessage> {
