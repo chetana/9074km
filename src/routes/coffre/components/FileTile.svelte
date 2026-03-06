@@ -132,7 +132,12 @@
 		overflow: hidden;
 		cursor: pointer;
 		border: 2px solid transparent;
-		transition: border-color 0.15s;
+		transition: border-color 0.15s, transform 0.2s ease, box-shadow 0.2s ease;
+	}
+
+	.tile:hover {
+		transform: scale(1.03);
+		box-shadow: var(--shadow-md);
 	}
 
 	.tile.selected {

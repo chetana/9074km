@@ -106,20 +106,38 @@
 		gap: var(--space-1);
 		padding: var(--space-2) var(--space-2) var(--space-2);
 		color: var(--muted);
-		transition: color 0.2s;
+		transition: color 0.2s, background 0.2s;
+		border-radius: var(--radius-md);
+		margin: var(--space-1) var(--space-2);
 	}
 
 	.tab.active {
 		color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+	}
+
+	.tab:not(.active):hover {
+		color: var(--text);
+		background: color-mix(in srgb, var(--accent) 6%, transparent);
 	}
 
 	.icon {
 		font-size: var(--fs-3xl);
 		line-height: 1;
+		transition: transform 0.2s ease;
+	}
+
+	.tab.active .icon {
+		transform: scale(1.12);
 	}
 
 	.label {
 		font-size: var(--fs-xs);
 		letter-spacing: 0.3px;
+		font-weight: 500;
+	}
+
+	.tab.active .label {
+		font-weight: 700;
 	}
 </style>

@@ -99,12 +99,15 @@
 		border-radius: var(--radius-md);
 		padding: var(--space-4);
 		text-align: left;
-		transition: border-color 0.15s;
+		transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
 		width: 100%;
+		box-shadow: var(--shadow-sm);
 	}
 
 	.card:hover {
-		border-color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+		transform: translateY(-2px);
+		box-shadow: var(--shadow-md), var(--shadow-accent);
 	}
 
 	.year {
