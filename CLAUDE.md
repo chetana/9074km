@@ -60,14 +60,15 @@ Les éditions ciblées (Edit tool) fonctionnent bien. Pour les très gros patche
 
 - **Messages** stockés dans GCS : `chat/YYYY/MM/DD.json`
 - **Images** stockées dans GCS : `YYYY/MM/DD/filename` (même format coffre → sync automatique)
-- **Traductions** : chaque message a `fr`, `en`, `kh` générés par Gemini
+- **Traductions** : chaque message a `fr`, `en`, `kh`, `lang` générés par Gemini
 - **Audio** : VAD détecte la voix → base64 → POST `/api/chat/transcribe` → texte + traductions → `source: 'audio'`
 - **Suppression** : auteur uniquement (vérifié côté backend)
 - **Navigation historique** : `viewOffset` ($state) — 0=aujourd'hui, -1=hier, etc. — boutons ← →
 - **Polling** : toutes les 8s (messages du jour uniquement, `if (isToday)`)
 - **Heure** : affichée sous chaque bulle — `🇫🇷 hh:mm · 🇰🇭 hh:mm` via `fmtTime()` (Europe/Paris) et `fmtTimeKH()` (Asia/Phnom_Penh)
 - **Badge 🎤** : badge `position: absolute` top-right sur `.bubble` (`position: relative`) pour les messages `source: 'audio'`
-- **Copier** : action bar → `copySelected()` copie `text\n🇫🇷 fr\n🇬🇧 en\n🇰🇭 kh` dans le presse-papier
+- **Affichage bulle** : 3 lignes — `msg.text` flaggé (`msg.lang` → 🇫🇷/🇬🇧/🇰🇭) + 2 autres traductions. EN est conditionnel (affiché seulement si `msg.lang !== 'en'`)
+- **Copier** : action bar → `copySelected()` copie `[flag] text\n🇫🇷 fr\n[🇬🇧 en\n]🇰🇭 kh` selon `msg.lang`
 - **Toast erreur** : `errorToast` ($state), `showError(msg)` — affiché 3s si envoi/image/transcription échoue
 - **Toast copie** : `copyToast` ($state) — affiché 2s après copie réussie
 - **TTS** : `speakSelected(lang)` → `SpeechSynthesisUtterance` avec `lang` = `fr-FR`/`en-US`/`km-KH` — boutons 🔊🇫🇷/🔊🇬🇧/🔊🇰🇭 en 2ème ligne de l'action bar
@@ -75,12 +76,23 @@ Les éditions ciblées (Edit tool) fonctionnent bien. Pour les très gros patche
 ### Détection langue utilisateur
 
 ```typescript
-// ✅ CORRECT — Chet → FR, tout autre → KH par défaut (robuste si prénom Google varie)
-const userLang = $derived<'fr' | 'kh'>(
-  firstName.toLowerCase() === 'chet' ? 'fr' : 'kh'
-)
-// ❌ FRAGILE — dépend du prénom exact de Lys dans Google
-// firstName.toLowerCase() === 'lys' ? 'kh' : 'fr'
+// ✅ CORRECT — NFD normalization obligatoire pour gérer "Chétana" (compte Google)
+function isChet(name: string): boolean {
+  const n = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  return n === 'chet' || n === 'chetana'
+}
+const userLang = $derived<'fr' | 'kh'>(isChet(firstName) ? 'fr' : 'kh')
+
+// ❌ FAUX — "chétana".toLowerCase() === 'chet' → false → Chet traité comme Lys !
+// firstName.toLowerCase() === 'chet'
+```
+
+### Langue affichée par bulle (`msg.lang`)
+
+```typescript
+// Dans {#each messages as msg}
+{@const aLang = msg.lang ?? (isChet(msg.author) ? 'fr' : 'kh')}
+// Fallback heuristique pour les anciens messages sans champ lang
 ```
 
 ### Suggestion Gemini (`GeminiSuggestion`)
@@ -91,8 +103,10 @@ interface GeminiSuggestion {
   fr: string
   en: string
   kh: string
+  lang: string        // langue détectée du message original : 'fr', 'en' ou 'kh'
   question: string    // dans la langue de l'auteur
-  lesson?: string     // explication de la correction — FR pour Chet, KH pour Lys
+  lesson?: string     // explication — TOUJOURS dans la langue NATALE de l'auteur
+                      // (FR pour Chet, KH pour Lys — quelle que soit la langue écrite)
                       // absent si aucune faute détectée
 }
 ```

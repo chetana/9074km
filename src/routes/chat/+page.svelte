@@ -269,9 +269,12 @@
 			const aLang = (msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (isChet(msg.author) ? 'fr' : 'kh');
 			const flagMap: Record<string, string> = { fr: '🇫🇷 ', en: '🇬🇧 ', kh: '🇰🇭 ' };
 			parts.push((flagMap[aLang] ?? '') + msg.text);
-			if (aLang !== 'fr' && msg.fr) parts.push('🇫🇷 ' + msg.fr);
-			if (aLang !== 'en' && msg.en) parts.push('🇬🇧 ' + msg.en);
-			if (aLang !== 'kh' && msg.kh) parts.push('🇰🇭 ' + msg.kh);
+			// Langue partenaire : FR↔KH uniquement (pas d'anglais dans le copier)
+			if (aLang === 'kh') {
+				if (msg.fr) parts.push('🇫🇷 ' + msg.fr);
+			} else {
+				if (msg.kh) parts.push('🇰🇭 ' + msg.kh);
+			}
 		} else if (msg.text) {
 			parts.push(msg.text);
 		}
