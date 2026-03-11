@@ -445,6 +445,13 @@
 		lessonsTitle: 'Mes leçons',
 		lessonsEmpty: 'Aucune leçon pour l\'instant',
 	});
+
+	// Période Nouvel An Khmer (1–20 avril)
+	const isKhmerNewYear = $derived(() => {
+		const m = today.getMonth(); // 0-indexed
+		const d = today.getDate();
+		return m === 3 && d >= 1 && d <= 20;
+	});
 </script>
 
 <svelte:head>
@@ -454,8 +461,11 @@
 <div class="page">
 
 	{#if !$user}
-		<!-- Auth gate identique au coffre -->
 		<div class="auth-gate">
+			<span class="auth-lotus">🪷</span>
+			{#if isKhmerNewYear()}
+				<p class="auth-festival">សួស្តីឆ្នាំថ្មី ✨</p>
+			{/if}
 			<p class="auth-msg">{ui.authMsg}</p>
 			<button class="sign-in-btn" onclick={() => auth.signIn()}>
 				{ui.authBtn}
@@ -670,7 +680,29 @@
 		height: 100%;
 		overflow: hidden;
 		background:
-			radial-gradient(ellipse 80% 30% at 50% 0%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 70%);
+			radial-gradient(ellipse 80% 30% at 50% 0%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 70%);
+		position: relative;
+	}
+
+	/* ── Pétales dorés flottants ── */
+	.page::before {
+		content: '';
+		position: fixed;
+		inset: 0;
+		pointer-events: none;
+		z-index: 0;
+		background-image:
+			radial-gradient(1.5px 5px at 12% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent),
+			radial-gradient(1.5px 5px at 38% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent),
+			radial-gradient(2px 6px at 62% 0%, color-mix(in srgb, var(--accent) 15%, transparent), transparent),
+			radial-gradient(1.5px 4px at 85% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent);
+		background-size: 100% 100%;
+		animation: petals-fall 25s linear infinite;
+	}
+
+	@keyframes petals-fall {
+		0%   { background-position: 0 -100vh, 10px -60vh, -5px -80vh, 15px -40vh; }
+		100% { background-position: 25px 100vh, -15px 140vh, 20px 120vh, -10px 160vh; }
 	}
 
 	/* ── Offline banner ── */
@@ -694,33 +726,41 @@
 		padding: var(--space-2) var(--space-4);
 		flex-shrink: 0;
 		border-bottom: 1px solid var(--border);
+		position: relative;
+		z-index: 1;
 	}
 
 	.date-label {
 		font-size: var(--fs-sm);
-		color: var(--muted);
-		font-weight: 500;
+		color: var(--accent);
+		font-weight: 600;
 		min-width: 8rem;
 		text-align: center;
 		text-transform: capitalize;
+		letter-spacing: 0.3px;
 	}
 
 	.date-btn {
 		width: 2rem;
 		height: 2rem;
 		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--accent) 10%, var(--card));
-		border: 1px solid var(--border);
+		background: color-mix(in srgb, var(--accent) 8%, var(--card));
+		border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
 		font-size: 1.1rem;
-		color: var(--text);
+		color: var(--accent);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: opacity 0.15s;
+		transition: opacity 0.15s, transform 0.12s;
+	}
+
+	.date-btn:not(:disabled):active {
+		transform: scale(0.9);
 	}
 
 	.date-btn:disabled {
-		opacity: 0.25;
+		opacity: 0.2;
+		color: var(--muted);
 	}
 
 	/* ── Auth gate ── */
@@ -732,6 +772,26 @@
 		justify-content: center;
 		gap: var(--space-4);
 		padding: var(--space-6);
+		position: relative;
+		z-index: 1;
+	}
+
+	.auth-lotus {
+		font-size: 4rem;
+		animation: lotus-breathe 3s ease-in-out infinite;
+		filter: drop-shadow(0 0 20px color-mix(in srgb, var(--accent) 30%, transparent));
+	}
+
+	@keyframes lotus-breathe {
+		0%, 100% { transform: scale(1); opacity: 0.9; }
+		50% { transform: scale(1.08); opacity: 1; }
+	}
+
+	.auth-festival {
+		font-size: var(--fs-xl);
+		color: var(--accent);
+		font-weight: 600;
+		letter-spacing: 0.5px;
 	}
 
 	.auth-msg {
@@ -741,12 +801,18 @@
 	}
 
 	.sign-in-btn {
-		background: var(--accent);
+		background: linear-gradient(135deg, var(--accent), var(--accent-warm));
 		color: var(--on-accent);
 		border-radius: var(--radius-xl);
 		padding: var(--space-3) var(--space-6);
 		font-size: var(--fs-base);
 		font-weight: 600;
+		box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 25%, transparent);
+		transition: transform 0.12s, box-shadow 0.15s;
+	}
+
+	.sign-in-btn:active {
+		transform: scale(0.96);
 	}
 
 	/* ── Messages ── */
@@ -758,6 +824,18 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
+		position: relative;
+		z-index: 1;
+	}
+
+	.message-list::-webkit-scrollbar { width: 4px; }
+	.message-list::-webkit-scrollbar-track { background: transparent; }
+	.message-list::-webkit-scrollbar-thumb {
+		background: color-mix(in srgb, var(--accent) 30%, transparent);
+		border-radius: 2px;
+	}
+	.message-list::-webkit-scrollbar-thumb:hover {
+		background: color-mix(in srgb, var(--accent) 50%, transparent);
 	}
 
 	.empty {
@@ -794,6 +872,12 @@
 		align-items: flex-start;
 		gap: 2px;
 		max-width: 80%;
+		animation: msg-in 0.25s ease-out;
+	}
+
+	@keyframes msg-in {
+		from { opacity: 0; transform: translateY(8px); }
+		to   { opacity: 1; transform: translateY(0); }
 	}
 
 	.bubble-row.mine {
@@ -836,10 +920,11 @@
 	}
 
 	.bubble.mine {
-		background: color-mix(in srgb, var(--accent) 15%, var(--card));
-		border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+		background: color-mix(in srgb, var(--accent) 12%, var(--card));
+		border-color: color-mix(in srgb, var(--accent) 25%, transparent);
 		border-bottom-left-radius: var(--radius-2xl);
 		border-bottom-right-radius: var(--radius-sm);
+		box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 8%, transparent);
 	}
 
 	.bubble-text {
@@ -850,7 +935,6 @@
 	}
 
 	.bubble-translations {
-		border-top: 1px solid var(--border);
 		padding-top: var(--space-1);
 		display: flex;
 		flex-direction: column;
@@ -864,6 +948,16 @@
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-1);
+	}
+
+	.bubble-translation:first-child {
+		font-size: var(--fs-base);
+		color: var(--text);
+		font-style: normal;
+		font-weight: 500;
+		padding-bottom: var(--space-1);
+		border-bottom: 1px solid var(--border);
+		margin-bottom: 1px;
 	}
 
 	.transl-flag {
@@ -881,13 +975,17 @@
 	/* ── Suggestion Gemini ── */
 	.suggestion {
 		margin: 0 var(--space-4) var(--space-2);
-		background: color-mix(in srgb, var(--accent) 8%, var(--card));
-		border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-		border-radius: var(--radius-xl);
+		background: color-mix(in srgb, var(--accent) 6%, var(--card));
+		border: none;
+		border-left: 3px solid var(--accent);
+		border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
 		padding: var(--space-3) var(--space-4);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
+		box-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 8%, transparent);
+		position: relative;
+		z-index: 1;
 	}
 
 	.suggestion-loading {
@@ -926,13 +1024,19 @@
 	.suggestion-btn {
 		font-size: var(--fs-sm);
 		font-weight: 700;
-		border-radius: var(--radius-lg);
-		padding: var(--space-1) var(--space-3);
+		border-radius: var(--radius-full);
+		padding: var(--space-1) var(--space-4);
+		transition: transform 0.1s;
+	}
+
+	.suggestion-btn:active {
+		transform: scale(0.95);
 	}
 
 	.suggestion-btn.accept {
-		background: var(--accent);
+		background: linear-gradient(135deg, var(--accent), var(--accent-warm));
 		color: var(--on-accent);
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 
 	.suggestion-btn.dismiss {
@@ -957,9 +1061,13 @@
 		align-items: flex-end;
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-		background: var(--card);
-		border-top: 1px solid var(--border);
+		background: color-mix(in srgb, var(--card) 85%, transparent);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		border-top: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
 		flex-shrink: 0;
+		position: relative;
+		z-index: 1;
 	}
 
 	.input {
@@ -988,18 +1096,24 @@
 		width: 2.75rem;
 		height: 2.75rem;
 		border-radius: var(--radius-full);
-		background: var(--accent);
+		background: linear-gradient(135deg, var(--accent), var(--accent-warm));
 		color: var(--on-accent);
 		font-size: var(--fs-lg);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		transition: opacity 0.15s;
+		transition: opacity 0.15s, transform 0.12s, box-shadow 0.15s;
+		box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 30%, transparent);
+	}
+
+	.send-btn:not(:disabled):active {
+		transform: scale(0.92);
 	}
 
 	.send-btn:disabled {
 		opacity: 0.35;
+		box-shadow: none;
 	}
 
 	/* ── Actions (copier / supprimer) ── */
@@ -1079,7 +1193,7 @@
 		bottom: 6rem;
 		left: 50%;
 		transform: translateX(-50%);
-		background: color-mix(in srgb, var(--accent) 90%, transparent);
+		background: linear-gradient(135deg, var(--accent), var(--accent-warm));
 		color: var(--on-accent);
 		font-size: var(--fs-sm);
 		font-weight: 600;
@@ -1087,6 +1201,8 @@
 		border-radius: var(--radius-full);
 		pointer-events: none;
 		animation: fade-toast 2s ease forwards;
+		box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 30%, transparent);
+		z-index: 10;
 	}
 
 	@keyframes fade-toast {
@@ -1122,14 +1238,18 @@
 		width: 2.75rem;
 		height: 2.75rem;
 		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--accent) 12%, var(--card));
-		border: 1px solid var(--border);
+		background: color-mix(in srgb, var(--accent) 8%, var(--card));
+		border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
 		font-size: 1.2rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		transition: opacity 0.15s;
+		transition: opacity 0.15s, transform 0.12s;
+	}
+
+	.img-btn:not(:disabled):active {
+		transform: scale(0.92);
 	}
 
 	.img-btn:disabled {
@@ -1140,14 +1260,14 @@
 		width: 2.75rem;
 		height: 2.75rem;
 		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--accent) 12%, var(--card));
-		border: 1px solid var(--border);
+		background: color-mix(in srgb, var(--accent) 8%, var(--card));
+		border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
 		font-size: 1.2rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		transition: background 0.15s, opacity 0.15s;
+		transition: background 0.15s, opacity 0.15s, transform 0.12s;
 	}
 
 	.mic-btn.loading {
@@ -1217,14 +1337,19 @@
 		width: 2rem;
 		height: 2rem;
 		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--accent) 10%, var(--card));
-		border: 1px solid var(--border);
+		background: color-mix(in srgb, var(--accent) 8%, var(--card));
+		border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
 		font-size: 0.95rem;
-		color: var(--text);
+		color: var(--accent);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		margin-left: auto;
+		transition: transform 0.12s;
+	}
+
+	.lessons-btn:active {
+		transform: scale(0.9);
 	}
 
 	/* ── Panel leçons ── */

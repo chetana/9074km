@@ -92,8 +92,10 @@
 
 	.bottom-nav {
 		display: flex;
-		background: var(--card);
-		border-top: 1px solid var(--border);
+		background: color-mix(in srgb, var(--card) 90%, transparent);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		border-top: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
 		padding-bottom: env(safe-area-inset-bottom);
 		flex-shrink: 0;
 	}
@@ -113,7 +115,8 @@
 
 	.tab.active {
 		color: var(--accent);
-		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		background: color-mix(in srgb, var(--accent) 10%, transparent);
+		box-shadow: inset 0 2px 0 var(--accent);
 	}
 
 	.tab:not(.active):hover {

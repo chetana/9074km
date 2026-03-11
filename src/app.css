@@ -1,12 +1,13 @@
 :root {
-	/* ── Couleurs ── */
-	--bg: #2D2840;
-	--card: #38324E;
-	--accent: #C4A8F0;
-	--on-accent: #0f0f1a;  /* texte sur fond accent (clair en dark mode) */
-	--text: #EDE8F8;
-	--muted: #9088B8;
-	--border: rgba(196, 168, 240, 0.25);
+	/* ── Couleurs — Chaul Chnam Thmey 🪷 ── */
+	--bg: #1A1520;
+	--card: #2A2235;
+	--accent: #F0C850;
+	--accent-warm: #E8A040;
+	--on-accent: #1A1520;
+	--text: #F5F0E8;
+	--muted: #A89878;
+	--border: rgba(240, 200, 80, 0.18);
 
 	/* ── Espacements ── */
 	--space-1: 0.25rem;   /* 4px  */
@@ -38,7 +39,7 @@
 	--shadow-sm:     0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
 	--shadow-md:     0 4px 12px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.2);
 	--shadow-lg:     0 8px 24px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.25);
-	--shadow-accent: 0 4px 16px rgba(196,168,240,0.2);
+	--shadow-accent: 0 4px 16px rgba(240,200,80,0.15);
 
 	/* ── Transitions ── */
 	--transition: 0.22s ease;
@@ -91,13 +92,14 @@ textarea {
 /* ── Thème clair système ── */
 @media (prefers-color-scheme: light) {
 	:root {
-		--bg:       #F0EDF8;
+		--bg:       #FBF8F0;
 		--card:     #FFFFFF;
-		--accent:   #7C5CBF;
-		--on-accent: #FFFFFF;  /* texte sur fond accent (blanc en light mode) */
-		--text:     #1E1830;
-		--muted:    #7068A0;
-		--border:   rgba(124, 92, 191, 0.2);
+		--accent:   #B8860B;
+		--accent-warm: #D4A030;
+		--on-accent: #FFFFFF;
+		--text:     #1E1810;
+		--muted:    #8A7A60;
+		--border:   rgba(184, 134, 11, 0.18);
 	}
 }
 
