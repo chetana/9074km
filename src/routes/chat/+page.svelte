@@ -217,8 +217,12 @@
 		}
 	}
 
-	function selectMsg(id: string) {
+	async function selectMsg(id: string) {
 		selectedMsg = selectedMsg === id ? null : id;
+		if (selectedMsg) {
+			await tick();
+			scrollToBottom();
+		}
 	}
 
 	async function deleteSelected() {
@@ -535,30 +539,30 @@
 					</div>
 				</div>
 			{/each}
-		</div>
 
-		<!-- ── Popup actions (copier / supprimer / écouter) ── -->
-		{#if selectedMsg}
-			{@const selMsg = messages.find(m => m.id === selectedMsg)}
-			<div class="action-bar">
-				<div class="action-row">
-					<button class="action-btn copy" onclick={copySelected}>
-						{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}
-					</button>
-					{#if selMsg?.author === firstName}
-						<button class="action-btn delete" onclick={deleteSelected}>
-							{userLang === 'kh' ? '🗑 លុប' : '🗑 Supprimer'}
+			<!-- ── Actions (copier / supprimer / écouter) — inline dans la liste ── -->
+			{#if selectedMsg}
+				{@const selMsg = messages.find(m => m.id === selectedMsg)}
+				<div class="action-bar">
+					<div class="action-row">
+						<button class="action-btn copy" onclick={copySelected}>
+							{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}
 						</button>
-					{/if}
-					<button class="action-btn cancel" onclick={() => selectedMsg = null}>{ui.no}</button>
+						{#if selMsg?.author === firstName}
+							<button class="action-btn delete" onclick={deleteSelected}>
+								{userLang === 'kh' ? '🗑 លុប' : '🗑 Supprimer'}
+							</button>
+						{/if}
+						<button class="action-btn cancel" onclick={() => selectedMsg = null}>{ui.no}</button>
+					</div>
+					<div class="action-row">
+						<button class="action-btn listen" onclick={() => speakSelected('fr')}>🔊🇫🇷</button>
+						<button class="action-btn listen" onclick={() => speakSelected('en')}>🔊🇬🇧</button>
+						<button class="action-btn listen" onclick={() => speakSelected('kh')}>🔊🇰🇭</button>
+					</div>
 				</div>
-				<div class="action-row">
-					<button class="action-btn listen" onclick={() => speakSelected('fr')}>🔊🇫🇷</button>
-					<button class="action-btn listen" onclick={() => speakSelected('en')}>🔊🇬🇧</button>
-					<button class="action-btn listen" onclick={() => speakSelected('kh')}>🔊🇰🇭</button>
-				</div>
-			</div>
-		{/if}
+			{/if}
+		</div>
 
 		<!-- ── Toast copie ── -->
 		{#if copyToast}
@@ -1127,12 +1131,16 @@
 	}
 
 	.action-bar {
-		margin: 0 var(--space-4) var(--space-2);
-		background: var(--card);
+		background: color-mix(in srgb, var(--card) 95%, transparent);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-xl);
 		padding: var(--space-2) var(--space-3);
-		animation: slide-up 0.15s ease;
+		animation: slide-up 0.2s ease;
+		position: sticky;
+		bottom: 0;
+		flex-shrink: 0;
 	}
 
 	.action-row {
