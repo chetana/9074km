@@ -25,6 +25,10 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
 		...options,
 		headers: { ...headers, ...(options.headers as Record<string, string>) }
 	});
+	if (res.status === 401) {
+		auth.signOutSilent();
+		throw new Error('Session expired');
+	}
 	if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
 	return res;
 }

@@ -82,8 +82,27 @@ function handleCredential(response: GoogleCredentialResponse): void {
 		picture: payload['picture'] as string
 	});
 	tokenStore.set(jwt);
-	// Persist token in sessionStorage (same session only)
 	sessionStorage.setItem('chetlys_token', jwt);
+	startExpiryWatch();
+}
+
+let expiryTimer: ReturnType<typeof setInterval> | null = null;
+
+function startExpiryWatch(): void {
+	if (expiryTimer) return;
+	expiryTimer = setInterval(() => {
+		const token = get(tokenStore);
+		if (!token) return;
+		const payload = parseJwt(token);
+		const exp = (payload['exp'] as number) * 1000;
+		if (exp <= Date.now()) {
+			auth.signOutSilent();
+		}
+	}, 30_000);
+}
+
+function stopExpiryWatch(): void {
+	if (expiryTimer) { clearInterval(expiryTimer); expiryTimer = null; }
 }
 
 export const auth = {
@@ -101,6 +120,7 @@ export const auth = {
 					picture: payload['picture'] as string
 				});
 				tokenStore.set(saved);
+				startExpiryWatch();
 				return;
 			} else {
 				sessionStorage.removeItem('chetlys_token');
@@ -133,6 +153,15 @@ export const auth = {
 		userStore.set(null);
 		tokenStore.set(null);
 		sessionStorage.removeItem('chetlys_token');
+		stopExpiryWatch();
+	},
+
+	/** Reset auth state without revoking Google (for expired/invalid tokens) */
+	signOutSilent(): void {
+		userStore.set(null);
+		tokenStore.set(null);
+		sessionStorage.removeItem('chetlys_token');
+		stopExpiryWatch();
 	},
 
 	getToken(): string | null {
