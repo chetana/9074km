@@ -544,21 +544,19 @@
 			{#if selectedMsg}
 				{@const selMsg = messages.find(m => m.id === selectedMsg)}
 				<div class="action-bar">
-					<div class="action-row">
-						<button class="action-btn copy" onclick={copySelected}>
-							{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}
-						</button>
+					<button class="action-btn copy" onclick={copySelected}>
+						{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}
+					</button>
+					<div class="action-row-icons">
+						<button class="action-icon listen" onclick={() => speakSelected('fr')} aria-label="Écouter FR">🔊🇫🇷</button>
+						<button class="action-icon listen" onclick={() => speakSelected('en')} aria-label="Écouter EN">🔊🇬🇧</button>
+						<button class="action-icon listen" onclick={() => speakSelected('kh')} aria-label="Écouter KH">🔊🇰🇭</button>
 						{#if selMsg?.author === firstName}
-							<button class="action-btn delete" onclick={deleteSelected}>
-								{userLang === 'kh' ? '🗑 លុប' : '🗑 Supprimer'}
-							</button>
+							<span class="action-sep"></span>
+							<button class="action-icon delete" onclick={deleteSelected} aria-label="Supprimer">🗑</button>
 						{/if}
-						<button class="action-btn cancel" onclick={() => selectedMsg = null}>{ui.no}</button>
-					</div>
-					<div class="action-row">
-						<button class="action-btn listen" onclick={() => speakSelected('fr')}>🔊🇫🇷</button>
-						<button class="action-btn listen" onclick={() => speakSelected('en')}>🔊🇬🇧</button>
-						<button class="action-btn listen" onclick={() => speakSelected('kh')}>🔊🇰🇭</button>
+						<span class="action-sep"></span>
+						<button class="action-icon close" onclick={() => selectedMsg = null} aria-label="Fermer">✕</button>
 					</div>
 				</div>
 			{/if}
@@ -1120,7 +1118,7 @@
 		box-shadow: none;
 	}
 
-	/* ── Actions (copier / supprimer) ── */
+	/* ── Actions (copier / supprimer / écouter) ── */
 	.bubble-row {
 		cursor: pointer;
 	}
@@ -1141,18 +1139,9 @@
 		position: sticky;
 		bottom: 0;
 		flex-shrink: 0;
-	}
-
-	.action-row {
 		display: flex;
-		align-items: center;
+		flex-direction: column;
 		gap: var(--space-2);
-	}
-
-	.action-row + .action-row {
-		margin-top: var(--space-2);
-		padding-top: var(--space-2);
-		border-top: 1px solid var(--border);
 	}
 
 	@keyframes slide-up {
@@ -1160,39 +1149,68 @@
 		to   { opacity: 1; transform: translateY(0); }
 	}
 
-	.action-btn {
+	/* Ligne 1 : Copier pleine largeur */
+	.action-btn.copy {
+		width: 100%;
 		font-size: var(--fs-sm);
 		font-weight: 600;
-		border-radius: var(--radius-lg);
-		padding: var(--space-1) var(--space-3);
-		flex-shrink: 0;
-	}
-
-	.action-btn.copy {
+		border-radius: var(--radius-full);
+		padding: var(--space-2) var(--space-4);
 		background: color-mix(in srgb, var(--accent) 15%, var(--card));
 		color: var(--accent);
 		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-		flex: 1;
+		transition: transform 0.1s;
 	}
 
-	.action-btn.delete {
-		background: color-mix(in srgb, #e53935 12%, var(--card));
-		color: #e53935;
-		border: 1px solid color-mix(in srgb, #e53935 30%, transparent);
-		flex: 1;
+	.action-btn.copy:active {
+		transform: scale(0.97);
 	}
 
-	.action-btn.cancel {
-		background: color-mix(in srgb, var(--muted) 12%, transparent);
-		color: var(--muted);
+	/* Ligne 2 : icônes compactes */
+	.action-row-icons {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
 	}
 
-	.action-btn.listen {
-		background: color-mix(in srgb, #42a5f5 12%, var(--card));
+	.action-sep {
+		width: 1px;
+		height: 1.2rem;
+		background: var(--border);
+		flex-shrink: 0;
+	}
+
+	.action-icon {
+		width: 2.25rem;
+		height: 2.25rem;
+		border-radius: var(--radius-full);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.95rem;
+		flex-shrink: 0;
+		transition: transform 0.1s, background 0.15s;
+	}
+
+	.action-icon:active {
+		transform: scale(0.9);
+	}
+
+	.action-icon.listen {
+		background: color-mix(in srgb, #42a5f5 10%, var(--card));
 		color: #42a5f5;
-		border: 1px solid color-mix(in srgb, #42a5f5 30%, transparent);
-		flex: 1;
-		font-size: 1rem;
+	}
+
+	.action-icon.delete {
+		background: color-mix(in srgb, #e53935 10%, var(--card));
+		color: #e53935;
+	}
+
+	.action-icon.close {
+		background: color-mix(in srgb, var(--muted) 10%, transparent);
+		color: var(--muted);
+		font-size: var(--fs-sm);
 	}
 
 	/* ── Toast copie ── */
