@@ -38,6 +38,12 @@
 	let pendingLessons = $state<LessonItem[]>([]);
 
 	const user = userStore;
+
+	// Action Svelte : rend le bouton Google natif (fiable, pas soumis aux suppressions FedCM)
+	function googleSignInBtn(node: HTMLElement) {
+		auth.renderSignInButton(node);
+	}
+
 	// Vérifie si un prénom correspond à Chet (Chet, Chetana, Chétana, etc.)
 	function isChet(name: string): boolean {
 		const n = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -474,9 +480,7 @@
 				<p class="auth-festival">សួស្តីឆ្នាំថ្មី ✨</p>
 			{/if}
 			<p class="auth-msg">{ui.authMsg}</p>
-			<button class="sign-in-btn" onclick={() => auth.signIn()}>
-				{ui.authBtn}
-			</button>
+			<div use:googleSignInBtn></div>
 		</div>
 	{:else}
 		<!-- ── Bannière offline ── -->
@@ -803,21 +807,6 @@
 		font-size: var(--fs-lg);
 		color: var(--muted);
 		text-align: center;
-	}
-
-	.sign-in-btn {
-		background: linear-gradient(135deg, var(--accent), var(--accent-warm));
-		color: var(--on-accent);
-		border-radius: var(--radius-xl);
-		padding: var(--space-3) var(--space-6);
-		font-size: var(--fs-base);
-		font-weight: 600;
-		box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 25%, transparent);
-		transition: transform 0.12s, box-shadow 0.15s;
-	}
-
-	.sign-in-btn:active {
-		transform: scale(0.96);
 	}
 
 	/* ── Messages ── */

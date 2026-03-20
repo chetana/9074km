@@ -20,6 +20,14 @@ export interface GoogleAccounts {
 			use_fedcm_for_prompt?: boolean;
 		}) => void;
 		prompt: (notification?: (n: { isNotDisplayed: () => boolean; isSkippedMoment: () => boolean }) => void) => void;
+		renderButton: (parent: HTMLElement, options: {
+			type?: string;
+			theme?: string;
+			size?: string;
+			text?: string;
+			shape?: string;
+			width?: number;
+		}) => void;
 		disableAutoSelect: () => void;
 		revoke: (hint: string, done: () => void) => void;
 	};
@@ -136,11 +144,20 @@ export const auth = {
 		if (!browser) return;
 		await loadGsiScript();
 		initGsi(handleCredential);
-		window.google!.accounts.id.prompt((notification) => {
-			// If prompt suppressed, fallback to One Tap won't show — user must retry
-			if (notification?.isNotDisplayed() || notification?.isSkippedMoment()) {
-				// Already handled via auto_select or dismissed
-			}
+		window.google!.accounts.id.prompt();
+	},
+
+	async renderSignInButton(container: HTMLElement): Promise<void> {
+		if (!browser) return;
+		await loadGsiScript();
+		initGsi(handleCredential);
+		window.google!.accounts.id.renderButton(container, {
+			type: 'standard',
+			theme: 'filled_black',
+			size: 'large',
+			text: 'signin_with',
+			shape: 'pill',
+			width: 240,
 		});
 	},
 
