@@ -105,6 +105,75 @@ textarea {
 	}
 }
 
+/* ── Thème Nouvel An Khmer — Eau 💧 (1–20 avril) ── */
+.khmer-new-year {
+	--accent:        #58C4DC;
+	--accent-warm:   #35A8C8;
+	--bg:            #0B1A28;
+	--card:          #10243A;
+	--muted:         #6AAABB;
+	--border:        rgba(88, 196, 220, 0.18);
+	--shadow-accent: 0 4px 16px rgba(88, 196, 220, 0.2);
+	--on-accent:     #0B1A28;
+}
+
+@media (prefers-color-scheme: light) {
+	.khmer-new-year {
+		--bg:            #EDF7FC;
+		--card:          #FFFFFF;
+		--accent:        #1A8EAE;
+		--accent-warm:   #0F6E8E;
+		--on-accent:     #FFFFFF;
+		--text:          #0D2233;
+		--muted:         #5A8899;
+		--border:        rgba(26, 142, 174, 0.2);
+	}
+}
+
+/* Lueur d'eau au bas de l'écran */
+.water-glow {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 50vh;
+	pointer-events: none;
+	z-index: 0;
+	background: radial-gradient(
+		ellipse 130% 55% at 50% 110%,
+		rgba(88, 196, 220, 0.18) 0%,
+		rgba(30, 130, 190, 0.09) 45%,
+		transparent 70%
+	);
+	animation: water-breathe 5s ease-in-out infinite;
+}
+
+/* Reflets animés sur la lueur */
+.water-glow::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: repeating-linear-gradient(
+		0deg,
+		transparent,
+		transparent 17px,
+		rgba(88, 196, 220, 0.05) 17px,
+		rgba(88, 196, 220, 0.05) 19px
+	);
+	animation: water-lines 2.4s linear infinite;
+}
+
+@keyframes water-breathe {
+	0%   { opacity: 0.7; transform: scaleX(1);    }
+	50%  { opacity: 1;   transform: scaleX(1.04); }
+	100% { opacity: 0.7; transform: scaleX(1);    }
+}
+
+@keyframes water-lines {
+	from { background-position: 0 0;    }
+	to   { background-position: 0 19px; }
+}
+
 /* ── Skeleton shimmer global ── */
 @keyframes shimmer {
 	0%   { background-position: -200% 0; }

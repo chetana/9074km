@@ -26,6 +26,13 @@
 		return m >= 30 ? CLOCK_HALF[h] : CLOCK_FULL[h];
 	});
 
+	// Période Nouvel An Khmer : 1–20 avril
+	const isKhmerNewYear = $derived(() => {
+		const m = now.getMonth();
+		const d = now.getDate();
+		return m === 3 && d >= 1 && d <= 20;
+	});
+
 	const tabs = $derived([
 		{ path: '/horloge', icon: clockIcon(), label: 'Horloge', kh: 'នាឡិកា' },
 		{ path: '/coffre',  icon: '🗃',         label: 'Coffre',  kh: 'ប្រអប់'  },
@@ -38,7 +45,10 @@
 	let { children } = $props();
 </script>
 
-<div class="app">
+<div class="app" class:khmer-new-year={isKhmerNewYear()}>
+	{#if isKhmerNewYear()}
+		<div class="water-glow" aria-hidden="true"></div>
+	{/if}
 	<main>
 		{#key currentPath}
 			<div
