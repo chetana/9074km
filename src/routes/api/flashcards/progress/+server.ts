@@ -6,6 +6,7 @@ import { cardGameCors } from '$lib/server/cors'
 
 export interface FlashProgress {
   name: string
+  email?: string
   xp: number
   sessions: { date: string; correct: number; approx: number; wrong: number; xp_gained: number }[]
 }
@@ -38,7 +39,7 @@ export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json() as { correct: number; approx: number; wrong: number; xp_gained: number }
 
   const bucket = getGcsBucket()
-  let progress: FlashProgress = { name, xp: 0, sessions: [] }
+  let progress: FlashProgress = { name, email: user.email, xp: 0, sessions: [] }
   try {
     const [contents] = await bucket.file(progressPath(name)).download()
     progress = JSON.parse(contents.toString('utf-8'))
@@ -46,6 +47,8 @@ export const POST: RequestHandler = async ({ request }) => {
     if (e?.code !== 404) throw error(502, 'Failed to read progress')
   }
 
+  // Toujours mettre à jour l'email (stable, même si le display name change)
+  progress.email = user.email
   progress.xp += body.xp_gained
   progress.sessions.unshift({
     date: new Date().toISOString().slice(0, 10),
