@@ -2,18 +2,18 @@
 
 PWA SvelteKit pour **Chet** (Paris 🇫🇷) et **Lys** (Phnom Penh 🇰🇭).
 
-**Live** : [https://chetlys.vercel.app](https://chetlys.vercel.app)
+**Live** : [https://lys.chetana.dev](https://lys.chetana.dev)
 
 ---
 
 ## Stack
 
 - **Frontend** : SvelteKit 5 + Svelte 5 runes + TypeScript
-- **Déploiement** : Vercel — auto-deploy sur push `master`
-- **Backend API** : [chetana.dev](https://chetana.dev) (Nuxt 3 / Nitro)
+- **Déploiement** : Cloud Run (`lys`, europe-west1) — `gcloud run deploy lys --source . --env-vars-file envvars.yaml`
+- **Backend intégré** : `src/routes/api/` (chat, coffre, og-image — plus de dépendance externe)
 - **Stockage** : Google Cloud Storage bucket `chet-lys-coffre`
 - **Auth** : Google Identity Services (GIS) — JWT Bearer token
-- **AI** : Vertex AI Gemini 2.5 Flash (traductions, transcription, suggestions)
+- **AI** : Vertex AI Gemini (`gemini-3-flash-preview` → fallback `gemini-2.5-flash`)
 - **VAD** : Silero v5 via `@ricky0123/vad-web` + ONNX Runtime Web
 
 ---
@@ -81,7 +81,11 @@ src/
     coffre/components/    — Breadcrumb, YearList, MonthList, DayList,
                             DayNavBar, DaysChipBar, NoteField, FileTile,
                             FabUpload, FileViewer, DayFiles
-    chat/+page.svelte     — Chat complet : texte, image, vocal, TTS
+    chat/+page.svelte     — Chat complet : texte, image, vocal, TTS, emojis
+    api/
+      chat/             — messages, suggest, transcribe, lessons
+      coffre/           — list, sign-upload, sign-download, delete,
+                          preview, og-image, note, meta, reactions
 ```
 
 ---
@@ -89,11 +93,12 @@ src/
 ## Conventions
 
 - **Svelte 5 runes** : `$state`, `$derived`, `$effect`, `$props` — pas d'API Options
-- **CSS variables** : `--bg`, `--card`, `--accent`, `--text`, `--muted`, `--border`
+- **CSS variables** : `--bg`, `--card`, `--accent`, `--accent-warm`, `--text`, `--muted`, `--border`
 - **GCS** : `YYYY/MM/DD/filename` pour les fichiers, `chat/YYYY/MM/DD.json` pour les messages
-- **Thème** : dark uniquement, accent rose `#E8A4B8`
+- **Thème** : dark/light, sakura rose → eau teal (Nouvel An Khmer 1–20 avril)
+- **Polices** : Inter (latin) + Noto Sans Khmer — Google Fonts variable
+- **Navigation** : Floating dock 3D — Horloge | Chat | Coffre (Chat centré)
 - **Bilinguisme** : FR + Khmer partout dans l'UI
-- **Langue UI** : `firstName === 'chet'` → FR, tout autre → KH par défaut
 
 ---
 
@@ -102,26 +107,28 @@ src/
 ```bash
 npm install
 npm run dev       # http://localhost:5173
-npm run build     # build production (ignore l'erreur EPERM symlink Windows)
+npm run build     # build production
 npm run preview
 ```
-
-> L'erreur `EPERM symlink` sur Windows après le build Vite est normale (adapter-vercel).
-> Le build Vite lui-même (`✓ built`) est correct. Vercel construit sur Linux sans problème.
 
 ---
 
 ## Déploiement
 
-Push sur `master` → Vercel auto-déploie → `chetlys.vercel.app`
+```bash
+node gen-envvars.cjs        # génère envvars.yaml depuis .env
+gcloud run deploy lys \
+  --source . \
+  --env-vars-file envvars.yaml \
+  --region europe-west1 \
+  --project cykt-399216 \
+  --allow-unauthenticated
+```
+
+**Ne jamais committer** `.env` ni `envvars.yaml`.
 
 ---
 
-## Documentation
-
-- [Architecture](docs/architecture.md) — Structure, flux de données, composants
-- [Choix techniques](docs/technical-choices.md) — Décisions, bugs résolus, patterns
-
 ## Archive
 
-Le code Flutter original est conservé dans `app-flutter/` pour référence historique.
+Le code Flutter original est conservé localement dans `app-flutter/` (non versionné, 120 MB).

@@ -21,3 +21,13 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Déploiement
+envvars.yaml
+
+# IDE
+.idea/
+*.iml
+
+# Flutter archive (120 MB — non versionné)
+app-flutter/
