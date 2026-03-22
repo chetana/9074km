@@ -104,20 +104,42 @@
 		background: var(--bg);
 	}
 
-	/* ── Floating dock wrapper ── */
+	/* ── Floating dock wrapper — texture glaçon ── */
 	.nav-wrapper {
+		position: relative;
 		flex-shrink: 0;
 		display: flex;
 		justify-content: center;
 		padding: 0.75rem var(--space-4) calc(0.875rem + env(safe-area-inset-bottom, 0px));
-		background: linear-gradient(
-			to bottom,
-			transparent 0%,
-			color-mix(in srgb, var(--accent) 5%, var(--bg)) 40%,
-			color-mix(in srgb, var(--accent) 8%, var(--bg)) 100%
-		);
-		backdrop-filter: blur(10px);
-		-webkit-backdrop-filter: blur(10px);
+		/* Frosted ice glass */
+		backdrop-filter: blur(22px) saturate(1.5) brightness(1.06);
+		-webkit-backdrop-filter: blur(22px) saturate(1.5) brightness(1.06);
+		/* Facettes de glace — dégradés croisés */
+		background:
+			linear-gradient(128deg,
+				rgba(255,255,255,0.10) 0%, transparent 32%,
+				rgba(200,240,255,0.07) 52%, transparent 72%,
+				rgba(255,255,255,0.05) 100%),
+			repeating-linear-gradient(112deg,
+				transparent, transparent 11px,
+				rgba(180,235,255,0.055) 11px, rgba(180,235,255,0.055) 12px),
+			repeating-linear-gradient(22deg,
+				transparent, transparent 16px,
+				rgba(160,220,255,0.04) 16px, rgba(160,220,255,0.04) 17px),
+			linear-gradient(to bottom,
+				transparent 0%,
+				color-mix(in srgb, var(--accent) 10%, var(--bg)) 100%);
+		border-top: 1px solid rgba(200, 240, 255, 0.14);
+	}
+
+	/* Grain — texture de surface glaçon */
+	.nav-wrapper::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.055'/%3E%3C/svg%3E");
+		pointer-events: none;
+		z-index: 0;
 	}
 
 	/* ── Floating pill nav ── */
