@@ -233,16 +233,14 @@
 		-webkit-overflow-scrolling: touch;
 		padding: var(--space-4) var(--space-4) var(--space-6);
 		gap: 0;
-		background:
-			radial-gradient(ellipse 80% 30% at 50% 20%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 70%),
-			radial-gradient(ellipse 80% 30% at 50% 80%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 70%);
+		background: transparent;
 	}
 
 	/* ── Mini-carte ── */
 	.map-card {
 		position: relative;
-		background: var(--card);
-		border: 1px solid var(--border);
+		background: color-mix(in srgb, var(--card) 30%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
 		border-radius: var(--radius-2xl);
 		overflow: hidden;
 		flex-shrink: 0;
@@ -347,8 +345,8 @@
 	/* ── Cartes ── */
 	.clock-card {
 		position: relative;
-		background: var(--card);
-		border: 1px solid var(--border);
+		background: color-mix(in srgb, var(--card) 30%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
 		border-radius: var(--radius-2xl);
 		padding: var(--space-6) var(--space-6) var(--space-6);
 		display: flex;
