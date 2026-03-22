@@ -502,13 +502,22 @@
 			<div class="offline-banner">📡 {userLang === 'kh' ? 'គ្មានការតភ្ជាប់' : 'Hors ligne'}</div>
 		{/if}
 
-		<!-- ── Navigation date ── -->
-		<div class="date-nav">
-			<button class="date-btn" onclick={prevDay} aria-label="Jour précédent">‹</button>
-			<span class="date-label">{dayLabelStr}</span>
-			<button class="date-btn" onclick={nextDay} disabled={isToday} aria-label="Jour suivant">›</button>
+		<!-- ── Header ── -->
+		<header class="chat-header">
+			<button class="avatar-btn" onclick={() => auth.signOut()} title="Déconnexion">
+				{#if $user?.picture}
+					<img src={$user.picture} alt={$user.name} class="header-avatar" />
+				{:else}
+					<span class="avatar-placeholder">👤</span>
+				{/if}
+			</button>
+			<div class="date-center">
+				<button class="date-btn" onclick={prevDay} aria-label="Jour précédent">‹</button>
+				<span class="date-label">{dayLabelStr}</span>
+				<button class="date-btn" onclick={nextDay} disabled={isToday} aria-label="Jour suivant">›</button>
+			</div>
 			<button class="lessons-btn" onclick={loadLessons} aria-label="Leçons">📖</button>
-		</div>
+		</header>
 
 		<!-- ── Liste des messages ── -->
 		<div class="message-list" bind:this={listEl}>
@@ -721,27 +730,6 @@
 		position: relative;
 	}
 
-	/* ── Pétales dorés flottants ── */
-	.page::before {
-		content: '';
-		position: fixed;
-		inset: 0;
-		pointer-events: none;
-		z-index: 0;
-		background-image:
-			radial-gradient(1.5px 5px at 12% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent),
-			radial-gradient(1.5px 5px at 38% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent),
-			radial-gradient(2px 6px at 62% 0%, color-mix(in srgb, var(--accent) 15%, transparent), transparent),
-			radial-gradient(1.5px 4px at 85% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent);
-		background-size: 100% 100%;
-		animation: petals-fall 25s linear infinite;
-	}
-
-	@keyframes petals-fall {
-		0%   { background-position: 0 -100vh, 10px -60vh, -5px -80vh, 15px -40vh; }
-		100% { background-position: 25px 100vh, -15px 140vh, 20px 120vh, -10px 160vh; }
-	}
-
 	/* ── Offline banner ── */
 	.offline-banner {
 		background: color-mix(in srgb, #e65100 15%, var(--card));
@@ -754,17 +742,58 @@
 		flex-shrink: 0;
 	}
 
-	/* ── Date nav ── */
-	.date-nav {
+	/* ── Chat header (glassmorphism) ── */
+	.chat-header {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		gap: var(--space-3);
-		padding: var(--space-2) var(--space-4);
+		justify-content: space-between;
+		padding: 0.45rem var(--space-4);
 		flex-shrink: 0;
-		border-bottom: 1px solid var(--border);
 		position: relative;
-		z-index: 1;
+		z-index: 2;
+		backdrop-filter: blur(20px) saturate(1.4);
+		-webkit-backdrop-filter: blur(20px) saturate(1.4);
+		background:
+			linear-gradient(180deg,
+				color-mix(in srgb, var(--accent) 8%, var(--bg)) 0%,
+				transparent 100%),
+			color-mix(in srgb, var(--card) 70%, transparent);
+		border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+		box-shadow: 0 1px 12px rgba(0, 0, 0, 0.12);
+	}
+
+	.avatar-btn {
+		width: 2.1rem;
+		height: 2.1rem;
+		border-radius: var(--radius-full);
+		overflow: hidden;
+		padding: 0;
+		border: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+		transition: transform 0.15s, border-color 0.2s;
+		flex-shrink: 0;
+	}
+
+	.avatar-btn:hover {
+		border-color: var(--accent);
+		transform: scale(1.07);
+	}
+
+	.header-avatar {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	.avatar-placeholder {
+		font-size: 1rem;
+		line-height: 2.1rem;
+	}
+
+	.date-center {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
 	}
 
 	.date-label {
@@ -778,17 +807,21 @@
 	}
 
 	.date-btn {
-		width: 2rem;
-		height: 2rem;
+		width: 1.9rem;
+		height: 1.9rem;
 		border-radius: var(--radius-full);
 		background: color-mix(in srgb, var(--accent) 8%, var(--card));
 		border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-		font-size: 1.1rem;
+		font-size: 1rem;
 		color: var(--accent);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: opacity 0.15s, transform 0.12s;
+		transition: opacity 0.15s, transform 0.12s, background 0.15s;
+	}
+
+	.date-btn:not(:disabled):hover {
+		background: color-mix(in srgb, var(--accent) 16%, var(--card));
 	}
 
 	.date-btn:not(:disabled):active {

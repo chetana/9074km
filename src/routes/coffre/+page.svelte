@@ -354,14 +354,24 @@
 		border-color: var(--accent);
 	}
 
-	/* Header */
+	/* Header (glassmorphism) */
 	.header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--space-3) var(--space-4);
-		border-bottom: 1px solid var(--border);
+		padding: 0.5rem var(--space-4);
 		flex-shrink: 0;
+		position: relative;
+		z-index: 2;
+		backdrop-filter: blur(20px) saturate(1.4);
+		-webkit-backdrop-filter: blur(20px) saturate(1.4);
+		background:
+			linear-gradient(180deg,
+				color-mix(in srgb, var(--accent) 8%, var(--bg)) 0%,
+				transparent 100%),
+			color-mix(in srgb, var(--card) 70%, transparent);
+		border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+		box-shadow: 0 1px 12px rgba(0, 0, 0, 0.12);
 	}
 
 	.header-actions {
