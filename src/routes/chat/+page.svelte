@@ -791,9 +791,16 @@
 	}
 
 	.date-center {
+		position: absolute;
+		left: 50%;
+		transform: translateX(-50%);
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
+		gap: 0.25rem;
+		background: color-mix(in srgb, var(--accent) 10%, var(--card));
+		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+		border-radius: 2rem;
+		padding: 0.2rem 0.35rem;
 	}
 
 	.date-label {
@@ -829,8 +836,10 @@
 	}
 
 	.date-btn:disabled {
-		opacity: 0.2;
+		opacity: 0.35;
 		color: var(--muted);
+		background: transparent;
+		border-color: transparent;
 	}
 
 	/* ── Auth gate ── */
