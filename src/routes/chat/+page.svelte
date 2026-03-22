@@ -1095,7 +1095,9 @@
 
 	/* ── Emoji bar ── */
 	.emoji-bar {
-		display: flex;
+		display: grid;
+		grid-template-rows: 1fr 1fr;
+		grid-auto-flow: column;
 		overflow-x: auto;
 		gap: var(--space-1);
 		padding: var(--space-2) var(--space-3);
@@ -1110,11 +1112,14 @@
 	.emoji-bar::-webkit-scrollbar { display: none; }
 
 	.emoji-btn {
-		font-size: 1.45rem;
+		font-size: 1.5rem;
 		line-height: 1;
-		padding: var(--space-1);
+		width: 2.5rem;
+		height: 2.5rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		border-radius: var(--radius-sm);
-		flex-shrink: 0;
 		transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s;
 	}
 
@@ -1122,16 +1127,30 @@
 	.emoji-btn:active { transform: scale(0.82); }
 
 	.emoji-toggle {
-		font-size: var(--fs-xl);
-		padding: var(--space-1);
+		width: 2.75rem;
+		height: 2.75rem;
 		border-radius: var(--radius-full);
+		background: color-mix(in srgb, var(--accent) 8%, var(--card));
+		border: 1px solid var(--border);
+		font-size: var(--fs-xl);
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		flex-shrink: 0;
-		transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.18s;
+		transition: opacity 0.15s, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, box-shadow 0.2s;
 	}
 
-	.emoji-toggle:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-	.emoji-toggle:active { transform: scale(0.86); }
-	.emoji-toggle.active { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+	.emoji-toggle:hover {
+		background: color-mix(in srgb, var(--accent) 15%, var(--card));
+		border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+		box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 18%, transparent);
+	}
+	.emoji-toggle:active { transform: scale(0.9); }
+	.emoji-toggle.active {
+		background: color-mix(in srgb, var(--accent) 20%, var(--card));
+		border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+		box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 22%, transparent);
+	}
 
 	/* ── Input ── */
 	.input-bar {
