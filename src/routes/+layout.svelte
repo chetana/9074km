@@ -31,8 +31,8 @@
 
 	const tabs = $derived([
 		{ path: '/horloge', icon: clockIcon(), label: 'Horloge', kh: 'នាឡិកា' },
+		{ path: '/chat',    icon: '💬',         label: 'Chat',    kh: 'ជជែក'   },
 		{ path: '/coffre',  icon: '🗃',         label: 'Coffre',  kh: 'ប្រអប់'  },
-		{ path: '/chat',    icon: '💬',         label: 'Chat',    kh: 'ជជែក'   }
 	]);
 
 	const currentPath = $derived($page.url.pathname);
@@ -57,20 +57,23 @@
 		{/key}
 	</main>
 
-	<nav class="bottom-nav" style="--tab-i: {activeIndex < 0 ? 2 : activeIndex}">
-		<div class="nav-indicator" aria-hidden="true"></div>
-		{#each tabs as tab}
-			{@const active = $page.url.pathname.startsWith(tab.path)}
-			<button
-				class="tab"
-				class:active
-				onclick={() => goto(tab.path)}
-			>
-				<span class="icon">{tab.icon}</span>
-				<span class="label">{tab.label} · {tab.kh}</span>
-			</button>
-		{/each}
-	</nav>
+	<div class="nav-wrapper">
+		<nav class="bottom-nav">
+			{#each tabs as tab, i}
+				{@const active = $page.url.pathname.startsWith(tab.path)}
+				{@const offset = i - (activeIndex < 0 ? 2 : activeIndex)}
+				<button
+					class="tab"
+					class:active
+					style="--offset: {offset}"
+					onclick={() => goto(tab.path)}
+				>
+					<span class="icon">{tab.icon}</span>
+					<span class="label">{tab.label} · {tab.kh}</span>
+				</button>
+			{/each}
+		</nav>
+	</div>
 </div>
 
 <style>
@@ -98,52 +101,56 @@
 		background: var(--bg);
 	}
 
+	/* ── Floating dock wrapper ── */
+	.nav-wrapper {
+		flex-shrink: 0;
+		display: flex;
+		justify-content: center;
+		padding: 0.5rem var(--space-4) calc(0.625rem + env(safe-area-inset-bottom, 0px));
+		background: transparent;
+	}
+
+	/* ── Floating pill nav ── */
 	.bottom-nav {
 		display: flex;
-		position: relative;
-		background: color-mix(in srgb, var(--card) 92%, transparent);
-		backdrop-filter: blur(16px);
-		-webkit-backdrop-filter: blur(16px);
-		border-top: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
-		padding-bottom: env(safe-area-inset-bottom);
-		flex-shrink: 0;
+		gap: var(--space-1);
+		padding: 0.45rem 0.5rem;
+		background: color-mix(in srgb, var(--card) 88%, transparent);
+		backdrop-filter: blur(28px);
+		-webkit-backdrop-filter: blur(28px);
+		border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+		border-radius: 2rem;
+		box-shadow:
+			0 10px 36px rgba(0, 0, 0, 0.38),
+			0 2px 8px rgba(0, 0, 0, 0.22),
+			inset 0 1px 0 rgba(255, 255, 255, 0.07);
+		perspective: 560px;
 	}
 
-	/* Indicateur glissant */
-	.nav-indicator {
-		position: absolute;
-		top: 6px;
-		/* centre du tab i : i * 33.33% + 16.67% */
-		left: calc(var(--tab-i, 2) * 100% / 3 + 100% / 6 - 18px);
-		width: 36px;
-		height: 3px;
-		background: linear-gradient(90deg, var(--accent), var(--accent-warm));
-		border-radius: 0 0 3px 3px;
-		transition: left 0.38s cubic-bezier(0.34, 1.4, 0.64, 1);
-		pointer-events: none;
-		box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 50%, transparent);
-	}
-
+	/* ── Tabs 3D ── */
 	.tab {
-		flex: 1;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--space-1);
-		padding: var(--space-2) var(--space-2) var(--space-2);
+		justify-content: center;
+		gap: 3px;
+		padding: 0.5rem 1.25rem;
+		border-radius: 1.5rem;
 		color: var(--muted);
-		transition: color 0.25s, background 0.25s, transform 0.12s;
-		border-radius: var(--radius-md);
-		margin: var(--space-1) var(--space-2);
-	}
-
-	.tab:active {
-		transform: scale(0.92);
+		min-width: 5rem;
+		transform:
+			rotateY(calc(var(--offset, 0) * -20deg))
+			translateZ(-5px);
+		transition:
+			transform 0.44s cubic-bezier(0.34, 1.2, 0.64, 1),
+			color 0.3s,
+			background 0.3s;
 	}
 
 	.tab.active {
 		color: var(--accent);
-		background: color-mix(in srgb, var(--accent) 10%, transparent);
+		background: color-mix(in srgb, var(--accent) 13%, transparent);
+		transform: rotateY(0deg) translateZ(22px) scale(1.03);
 	}
 
 	.tab:not(.active):hover {
@@ -151,24 +158,39 @@
 		background: color-mix(in srgb, var(--accent) 6%, transparent);
 	}
 
+	.tab:active {
+		transform:
+			rotateY(calc(var(--offset, 0) * -20deg))
+			translateZ(-5px)
+			scale(0.91);
+	}
+
+	.tab.active:active {
+		transform: rotateY(0) translateZ(22px) scale(0.95);
+	}
+
+	/* ── Icône & label ── */
 	.icon {
 		font-size: var(--fs-3xl);
 		line-height: 1;
-		transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+		transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 	}
 
 	.tab.active .icon {
-		transform: scale(1.18);
+		transform: scale(1.14);
 	}
 
 	.label {
-		font-size: var(--fs-xs);
-		letter-spacing: 0.3px;
+		font-size: 0.625rem;
 		font-weight: 500;
-		transition: font-weight 0.2s, color 0.25s;
+		letter-spacing: 0.2px;
+		white-space: nowrap;
+		opacity: 0.45;
+		transition: opacity 0.25s, font-weight 0.2s;
 	}
 
 	.tab.active .label {
+		opacity: 1;
 		font-weight: 700;
 	}
 </style>
