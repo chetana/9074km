@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { requireAuth } from '$lib/server/auth'
+import { cardGameCors } from '$lib/server/cors'
 
 export interface FlashCard {
   id: string; fr: string; kh: string; en?: string
@@ -31,7 +32,11 @@ const CARDS: FlashCard[] = [
   { id: '20', fr: 'Prends soin de toi',     kh: 'ថែរក្សាខ្លួនឯង',           en: 'Take care of yourself', phonetic_kh: 'thae roksa kluan eng',         phonetic_fr: 'pran swan deu twa'     },
 ]
 
+export const OPTIONS: RequestHandler = async ({ request }) => {
+  return new Response(null, { status: 204, headers: cardGameCors(request.headers.get('origin')) })
+}
+
 export const GET: RequestHandler = async ({ request }) => {
   await requireAuth(request)
-  return json(CARDS)
+  return json(CARDS, { headers: cardGameCors(request.headers.get('origin')) })
 }
