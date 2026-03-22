@@ -26,7 +26,7 @@ function getCredentials() {
 
 export function getGcsBucket() {
   const creds = getCredentials()
-  return new Storage({ credentials: creds }).bucket(process.env.GCS_BUCKET_NAME!)
+  return new Storage({ credentials: creds }).bucket(process.env.GCS_BUCKET_NAME!.trim())
 }
 
 function buildSignedUrl(path: string, method: 'PUT' | 'GET', expiresSeconds: number, contentType?: string): string {
