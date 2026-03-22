@@ -109,8 +109,15 @@
 		flex-shrink: 0;
 		display: flex;
 		justify-content: center;
-		padding: 0.5rem var(--space-4) calc(0.625rem + env(safe-area-inset-bottom, 0px));
-		background: transparent;
+		padding: 0.75rem var(--space-4) calc(0.875rem + env(safe-area-inset-bottom, 0px));
+		background: linear-gradient(
+			to bottom,
+			transparent 0%,
+			color-mix(in srgb, var(--accent) 5%, var(--bg)) 40%,
+			color-mix(in srgb, var(--accent) 8%, var(--bg)) 100%
+		);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
 	}
 
 	/* ── Floating pill nav ── */
