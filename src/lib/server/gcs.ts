@@ -26,12 +26,13 @@ function getCredentials() {
 
 export function getGcsBucket() {
   const creds = getCredentials()
-  return new Storage({ credentials: creds }).bucket(process.env.GCS_BUCKET_NAME!.trim())
+  const bucketName = process.env.GCS_BUCKET_NAME!.replace(/\\n/g, '').trim()
+  return new Storage({ credentials: creds }).bucket(bucketName)
 }
 
 function buildSignedUrl(path: string, method: 'PUT' | 'GET', expiresSeconds: number, contentType?: string): string {
   const creds = getCredentials()
-  const bucket = process.env.GCS_BUCKET_NAME!.trim()
+  const bucket = process.env.GCS_BUCKET_NAME!.replace(/\\n/g, '').trim()
   const now = new Date()
 
   const pad = (n: number) => n.toString().padStart(2, '0')
