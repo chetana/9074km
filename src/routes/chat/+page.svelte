@@ -6,6 +6,8 @@
 		signUpload, uploadFile, signDownload, invalidateListCache,
 		fetchLessons, type ChatMessage, type GeminiSuggestion, type LessonEntry, type LessonItem
 	} from '$lib/api';
+	import FlashcardGame from '$lib/FlashcardGame.svelte';
+	import { getLevel, getAvatar, xpProgressPct } from '$lib/flashcard-levels';
 
 	// ── Date du jour (pour GCS — envoi toujours vers aujourd'hui) ────────
 	const today = new Date();
@@ -33,6 +35,8 @@
 	let isOnline = $state(true);
 	let loadingMessages = $state(false);
 	let showLessons = $state(false);
+	let showFlashcards = $state(false);
+	let chatXp = $state(0);
 	let lessons = $state<LessonEntry[]>([]);
 	let lessonsLoading = $state(false);
 	let pendingLessons = $state<LessonItem[]>([]);
@@ -53,6 +57,9 @@
 	const firstName = $derived($user?.name.split(' ')[0] ?? '');
 	// Détermine la langue de l'utilisateur connecté : Chet → fr, tout autre → kh par défaut
 	const userLang = $derived<'fr' | 'kh'>(isChet(firstName) ? 'fr' : 'kh');
+	const chatLevel  = $derived(getLevel(chatXp));
+	const chatAvatar = $derived(getAvatar(chatXp, userLang));
+	const chatLvlPct = $derived(xpProgressPct(chatXp));
 
 	// ── Date de navigation ────────────────────────────────────────────────
 	const viewDate = $derived(new Date(today.getFullYear(), today.getMonth(), today.getDate() + viewOffset));
@@ -107,10 +114,20 @@
 		if ($user && !chatInitialized) {
 			chatInitialized = true;
 			void loadDate();
+			void loadChatXp();
 		} else if (!$user) {
-			chatInitialized = false; // reset si déconnexion
+			chatInitialized = false;
 		}
 	});
+
+	async function loadChatXp() {
+		const token = await auth.getToken();
+		if (!token) return;
+		try {
+			const res = await fetch('/api/flashcards/progress', { headers: { Authorization: `Bearer ${token}` } });
+			if (res.ok) { const p = await res.json(); chatXp = p.xp ?? 0; }
+		} catch { /* silencieux */ }
+	}
 
 	onMount(() => {
 		isOnline = navigator.onLine;
@@ -516,7 +533,14 @@
 				<span class="date-label">{dayLabelStr}</span>
 				<button class="date-btn" onclick={nextDay} disabled={isToday} aria-label="Jour suivant">›</button>
 			</div>
-			<button class="lessons-btn" onclick={loadLessons} aria-label="Leçons">📖</button>
+			<button class="fc-badge-btn" onclick={() => showFlashcards = true} aria-label="Flashcards" title="Flashcards · Nv.{chatLevel.level}">
+				<div class="fc-badge-icon-wrap">
+					<span class="fc-badge-icon">🎴</span>
+					<span class="fc-badge-lvl">{chatLevel.level}</span>
+				</div>
+				<span class="fc-badge-avatar">{chatAvatar}</span>
+				<div class="fc-badge-bar" style="--pct:{chatLvlPct}%"></div>
+			</button>
 		</header>
 
 		<!-- ── Liste des messages ── -->
@@ -656,6 +680,11 @@
 					</div>
 				</div>
 			</div>
+		{/if}
+
+		<!-- ── Flashcards ── -->
+		{#if showFlashcards}
+			<FlashcardGame {userLang} userName={firstName} onClose={() => { showFlashcards = false; void loadChatXp(); }} />
 		{/if}
 
 		<!-- ── Zone de saisie ── -->
@@ -1513,24 +1542,81 @@
 		font-size: var(--fs-sm);
 	}
 
-	/* ── Bouton leçons ── */
-	.lessons-btn {
-		width: 2rem;
-		height: 2rem;
-		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--accent) 8%, var(--card));
-		border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-		font-size: 0.95rem;
-		color: var(--accent);
+	/* ── Bouton flashcard niveau (game HUD) ── */
+	.fc-badge-btn {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		margin-left: auto;
-		transition: transform 0.12s;
+		gap: 1px;
+		padding: 0.22rem 0.4rem 0.18rem;
+		border-radius: 0.6rem;
+		background:
+			linear-gradient(135deg,
+				color-mix(in srgb, var(--accent) 18%, var(--card)) 0%,
+				color-mix(in srgb, var(--accent-warm, #D4956A) 12%, var(--card)) 100%);
+		border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+		box-shadow:
+			0 0 6px color-mix(in srgb, var(--accent) 20%, transparent),
+			inset 0 1px 0 rgba(255,255,255,0.08);
+		transition: transform 0.12s, box-shadow 0.2s;
+		position: relative;
+		overflow: visible;
 	}
+	.fc-badge-btn:hover {
+		box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
+		transform: translateY(-1px);
+	}
+	.fc-badge-btn:active { transform: scale(0.92); }
 
-	.lessons-btn:active {
-		transform: scale(0.9);
+	.fc-badge-icon-wrap {
+		position: relative;
+		perspective: 400px;
+	}
+	.fc-badge-icon {
+		font-size: 1rem;
+		display: block;
+		animation: fc-card-flip 5s ease-in-out infinite;
+	}
+	@keyframes fc-card-flip {
+		0%, 70%, 100% { transform: rotateY(0deg); }
+		80%            { transform: rotateY(180deg); }
+	}
+	.fc-badge-lvl {
+		position: absolute;
+		top: -5px;
+		right: -7px;
+		background: var(--accent);
+		color: #fff;
+		font-size: 0.5rem;
+		font-weight: 800;
+		line-height: 1;
+		padding: 1px 3px;
+		border-radius: 999px;
+		min-width: 13px;
+		text-align: center;
+		box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 60%, transparent);
+	}
+	.fc-badge-avatar {
+		font-size: 0.72rem;
+		line-height: 1;
+	}
+	.fc-badge-bar {
+		width: 100%;
+		height: 2px;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--accent) 20%, transparent);
+		position: relative;
+		overflow: hidden;
+	}
+	.fc-badge-bar::after {
+		content: '';
+		position: absolute;
+		inset-block: 0;
+		left: 0;
+		width: var(--pct, 0%);
+		border-radius: 999px;
+		background: linear-gradient(90deg, var(--accent), var(--accent-warm, #D4956A));
+		transition: width 0.6s ease;
 	}
 
 	/* ── Panel leçons ── */
