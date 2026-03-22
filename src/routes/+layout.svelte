@@ -46,6 +46,10 @@
 		<div class="water-bg" aria-hidden="true">
 			<div class="water-blob-3"></div>
 			<div class="water-shimmer"></div>
+			<div class="ripple r1"></div>
+			<div class="ripple r2"></div>
+			<div class="ripple r3"></div>
+			<div class="ripple r4"></div>
 		</div>
 	{/if}
 	<main>
