@@ -375,6 +375,15 @@
 		padding: var(--space-1);
 		border-radius: var(--radius-full);
 		background: none;
+		transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.18s;
+	}
+
+	.icon-btn:hover {
+		background: color-mix(in srgb, var(--accent) 10%, transparent);
+	}
+
+	.icon-btn:active {
+		transform: scale(0.86);
 	}
 
 	.avatar {

@@ -866,15 +866,21 @@
 		align-items: flex-start;
 		gap: 2px;
 		max-width: 80%;
-		animation: msg-in 0.25s ease-out;
+		animation: msg-in-left 0.32s cubic-bezier(0.34, 1.4, 0.64, 1);
 	}
 
-	@keyframes msg-in {
-		from { opacity: 0; transform: translateY(8px); }
-		to   { opacity: 1; transform: translateY(0); }
+	@keyframes msg-in-left {
+		from { opacity: 0; transform: translateX(-14px) translateY(8px) scale(0.97); }
+		to   { opacity: 1; transform: none; }
+	}
+
+	@keyframes msg-in-right {
+		from { opacity: 0; transform: translateX(14px) translateY(8px) scale(0.97); }
+		to   { opacity: 1; transform: none; }
 	}
 
 	.bubble-row.mine {
+		animation: msg-in-right 0.32s cubic-bezier(0.34, 1.4, 0.64, 1);
 		align-self: flex-end;
 		align-items: flex-end;
 	}
@@ -914,11 +920,13 @@
 	}
 
 	.bubble.mine {
-		background: color-mix(in srgb, var(--accent) 12%, var(--card));
-		border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+		background: color-mix(in srgb, var(--accent) 14%, var(--card));
+		border-color: color-mix(in srgb, var(--accent) 30%, transparent);
 		border-bottom-left-radius: var(--radius-2xl);
 		border-bottom-right-radius: var(--radius-sm);
-		box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 8%, transparent);
+		box-shadow:
+			0 2px 12px color-mix(in srgb, var(--accent) 12%, transparent),
+			0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
 	}
 
 	.bubble-text {
@@ -977,9 +985,17 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
-		box-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 8%, transparent);
+		box-shadow:
+			0 2px 12px color-mix(in srgb, var(--accent) 10%, transparent),
+			0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
 		position: relative;
 		z-index: 1;
+		animation: suggest-in 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+	}
+
+	@keyframes suggest-in {
+		from { opacity: 0; transform: translateY(10px) scale(0.97); }
+		to   { opacity: 1; transform: none; }
 	}
 
 	.suggestion-loading {
@@ -1084,6 +1100,8 @@
 	.input:focus {
 		outline: none;
 		border-color: var(--accent);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+		transition: border-color 0.2s, box-shadow 0.2s;
 	}
 
 	.send-btn {
@@ -1097,12 +1115,22 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		transition: opacity 0.15s, transform 0.12s, box-shadow 0.15s;
-		box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 30%, transparent);
+		transition: opacity 0.15s, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
+		box-shadow:
+			0 4px 16px color-mix(in srgb, var(--accent) 35%, transparent),
+			0 1px 4px color-mix(in srgb, var(--accent) 20%, transparent);
+	}
+
+	.send-btn:not(:disabled):hover {
+		transform: scale(1.07);
+		box-shadow:
+			0 6px 24px color-mix(in srgb, var(--accent) 50%, transparent),
+			0 2px 8px color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 
 	.send-btn:not(:disabled):active {
-		transform: scale(0.92);
+		transform: scale(0.89);
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 20%, transparent);
 	}
 
 	.send-btn:disabled {
@@ -1263,11 +1291,17 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		transition: opacity 0.15s, transform 0.12s;
+		transition: opacity 0.15s, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, box-shadow 0.2s;
+	}
+
+	.img-btn:not(:disabled):hover {
+		background: color-mix(in srgb, var(--accent) 15%, var(--card));
+		border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+		box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 18%, transparent);
 	}
 
 	.img-btn:not(:disabled):active {
-		transform: scale(0.92);
+		transform: scale(0.9);
 	}
 
 	.img-btn:disabled {

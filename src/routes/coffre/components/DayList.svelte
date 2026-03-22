@@ -67,8 +67,8 @@
 	{:else if items && items.length === 0}
 		<div class="empty">Aucun jour disponible</div>
 	{:else}
-		{#each items ?? [] as item}
-			<button class="card" onclick={() => onSelect(item.dd)}>
+		{#each items ?? [] as item, i}
+			<button class="card" style="--i:{i}" onclick={() => onSelect(item.dd)}>
 				<div class="info">
 					<span class="label">{item.label}</span>
 					<span class="count">
@@ -138,6 +138,20 @@
 	.arrow {
 		font-size: var(--fs-xl);
 		color: var(--muted);
+	}
+
+	@keyframes card-in {
+		from { opacity: 0; transform: translateY(10px) scale(0.98); }
+		to   { opacity: 1; transform: none; }
+	}
+
+	.card {
+		animation: card-in 0.28s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+		animation-delay: calc(var(--i, 0) * 55ms);
+	}
+
+	.card:active {
+		transform: scale(0.97);
 	}
 
 	.skeleton {

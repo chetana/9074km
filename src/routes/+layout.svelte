@@ -33,6 +33,7 @@
 	]);
 
 	const currentPath = $derived($page.url.pathname);
+	const activeIndex = $derived(tabs.findIndex(t => $page.url.pathname.startsWith(t.path)));
 
 	let { children } = $props();
 </script>
@@ -42,15 +43,16 @@
 		{#key currentPath}
 			<div
 				class="page-wrapper"
-				in:fade={{ duration: 150 }}
-				out:fade={{ duration: 150 }}
+				in:fade={{ duration: 180, delay: 40 }}
+				out:fade={{ duration: 120 }}
 			>
 				{@render children()}
 			</div>
 		{/key}
 	</main>
 
-	<nav class="bottom-nav">
+	<nav class="bottom-nav" style="--tab-i: {activeIndex < 0 ? 2 : activeIndex}">
+		<div class="nav-indicator" aria-hidden="true"></div>
 		{#each tabs as tab}
 			{@const active = $page.url.pathname.startsWith(tab.path)}
 			<button
@@ -92,12 +94,28 @@
 
 	.bottom-nav {
 		display: flex;
-		background: color-mix(in srgb, var(--card) 90%, transparent);
-		backdrop-filter: blur(12px);
-		-webkit-backdrop-filter: blur(12px);
-		border-top: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
+		position: relative;
+		background: color-mix(in srgb, var(--card) 92%, transparent);
+		backdrop-filter: blur(16px);
+		-webkit-backdrop-filter: blur(16px);
+		border-top: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
 		padding-bottom: env(safe-area-inset-bottom);
 		flex-shrink: 0;
+	}
+
+	/* Indicateur glissant */
+	.nav-indicator {
+		position: absolute;
+		top: 6px;
+		/* centre du tab i : i * 33.33% + 16.67% */
+		left: calc(var(--tab-i, 2) * 100% / 3 + 100% / 6 - 18px);
+		width: 36px;
+		height: 3px;
+		background: linear-gradient(90deg, var(--accent), var(--accent-warm));
+		border-radius: 0 0 3px 3px;
+		transition: left 0.38s cubic-bezier(0.34, 1.4, 0.64, 1);
+		pointer-events: none;
+		box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 50%, transparent);
 	}
 
 	.tab {
@@ -108,15 +126,18 @@
 		gap: var(--space-1);
 		padding: var(--space-2) var(--space-2) var(--space-2);
 		color: var(--muted);
-		transition: color 0.2s, background 0.2s;
+		transition: color 0.25s, background 0.25s, transform 0.12s;
 		border-radius: var(--radius-md);
 		margin: var(--space-1) var(--space-2);
+	}
+
+	.tab:active {
+		transform: scale(0.92);
 	}
 
 	.tab.active {
 		color: var(--accent);
 		background: color-mix(in srgb, var(--accent) 10%, transparent);
-		box-shadow: inset 0 2px 0 var(--accent);
 	}
 
 	.tab:not(.active):hover {
@@ -127,17 +148,18 @@
 	.icon {
 		font-size: var(--fs-3xl);
 		line-height: 1;
-		transition: transform 0.2s ease;
+		transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 	}
 
 	.tab.active .icon {
-		transform: scale(1.12);
+		transform: scale(1.18);
 	}
 
 	.label {
 		font-size: var(--fs-xs);
 		letter-spacing: 0.3px;
 		font-weight: 500;
+		transition: font-weight 0.2s, color 0.25s;
 	}
 
 	.tab.active .label {
