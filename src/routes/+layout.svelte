@@ -85,6 +85,7 @@
 		flex-direction: column;
 		height: 100dvh;
 		overflow: hidden;
+		background: var(--bg);
 	}
 
 	main {
@@ -101,7 +102,7 @@
 		inset: 0;
 		display: flex;
 		flex-direction: column;
-		background: var(--bg);
+		background: transparent;
 	}
 
 	/* ── Floating dock wrapper — texture glaçon ── */
@@ -110,7 +111,7 @@
 		flex-shrink: 0;
 		display: flex;
 		justify-content: center;
-		padding: 0.75rem var(--space-4) calc(0.875rem + env(safe-area-inset-bottom, 0px));
+		padding: 0.35rem var(--space-4) calc(0.45rem + env(safe-area-inset-bottom, 0px));
 		/* Frosted ice glass */
 		backdrop-filter: blur(22px) saturate(1.5) brightness(1.06);
 		-webkit-backdrop-filter: blur(22px) saturate(1.5) brightness(1.06);
@@ -162,14 +163,14 @@
 	/* ── Tabs 3D ── */
 	.tab {
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		align-items: center;
 		justify-content: center;
-		gap: 3px;
-		padding: 0.5rem 1.25rem;
+		gap: 0.35rem;
+		padding: 0.4rem 0.9rem;
 		border-radius: 1.5rem;
 		color: var(--muted);
-		min-width: 5rem;
+		min-width: 0;
 		transform:
 			rotateY(calc(var(--offset, 0) * -20deg))
 			translateZ(-5px);
@@ -203,17 +204,17 @@
 
 	/* ── Icône & label ── */
 	.icon {
-		font-size: var(--fs-3xl);
+		font-size: 1.15rem;
 		line-height: 1;
 		transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 	}
 
 	.tab.active .icon {
-		transform: scale(1.14);
+		transform: scale(1.1);
 	}
 
 	.label {
-		font-size: 0.625rem;
+		font-size: 0.7rem;
 		font-weight: 500;
 		letter-spacing: 0.2px;
 		white-space: nowrap;
