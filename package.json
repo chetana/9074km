@@ -12,8 +12,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^7.0.0",
-		"@sveltejs/adapter-vercel": "^6.3.2",
+		"@sveltejs/adapter-node": "^5.2.12",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"svelte": "^5.51.0",
@@ -24,9 +23,14 @@
 		"vite-plugin-static-copy": "^3.2.0"
 	},
 	"dependencies": {
+		"@google-cloud/storage": "^7.16.0",
+		"@neondatabase/serverless": "^0.10.4",
 		"@ricky0123/vad-web": "^0.0.30",
 		"date-fns": "^4.1.0",
 		"date-fns-tz": "^3.2.0",
+		"drizzle-orm": "^0.38.3",
+		"google-auth-library": "^9.15.1",
+		"sharp": "^0.33.5",
 		"swiper": "^12.1.2"
 	}
 }

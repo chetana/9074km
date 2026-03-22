@@ -1,6 +1,6 @@
 import { auth } from './auth';
 
-const BASE = 'https://chetana.dev';
+const BASE = '';
 
 export interface CoffreItem {
 	name: string;
