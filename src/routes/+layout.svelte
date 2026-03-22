@@ -26,12 +26,8 @@
 		return m >= 30 ? CLOCK_HALF[h] : CLOCK_FULL[h];
 	});
 
-	// Période Nouvel An Khmer : 1–20 avril
-	const isKhmerNewYear = $derived(() => {
-		const m = now.getMonth();
-		const d = now.getDate();
-		return m === 3 && d >= 1 && d <= 20;
-	});
+	// Période Nouvel An Khmer : 1–20 avril (activé manuellement en avance)
+	const isKhmerNewYear = $derived(() => true);
 
 	const tabs = $derived([
 		{ path: '/horloge', icon: clockIcon(), label: 'Horloge', kh: 'នាឡិកា' },
