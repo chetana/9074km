@@ -465,6 +465,20 @@
 		const d = today.getDate();
 		return m === 3 && d >= 1 && d <= 20;
 	});
+
+	// ── Emoji picker ──────────────────────────────────────────────────────
+	let showEmojis = $state(false);
+	const EMOJIS = [
+		'❤️','🩷','💕','💞','💓','💗','💖','💝','🥰','😍',
+		'😘','🥺','😊','🤗','😂','😅','😭','🥹','😌','🙏',
+		'✨','🌸','🌺','🌷','🌹','💐','🌙','⭐','☀️','🎉',
+		'👍','🙌','💪','🤍','🕊️','🦋','🐱','🐶','🐰','🍀',
+	];
+
+	function insertEmoji(emoji: string) {
+		inputText += emoji;
+		onInput();
+	}
 </script>
 
 <svelte:head>
@@ -643,7 +657,21 @@
 			class="image-input-hidden"
 			onchange={onImageSelected}
 		/>
+		<!-- ── Emoji panel ── -->
+		{#if showEmojis}
+			<div class="emoji-bar">
+				{#each EMOJIS as e}
+					<button class="emoji-btn" onclick={() => insertEmoji(e)}>{e}</button>
+				{/each}
+			</div>
+		{/if}
 		<div class="input-bar">
+			<button
+				class="emoji-toggle"
+				class:active={showEmojis}
+				onclick={() => showEmojis = !showEmojis}
+				aria-label="Emojis"
+			>😊</button>
 			<button
 				class="img-btn"
 				onclick={pickAndSendImage}
@@ -1064,6 +1092,46 @@
 		margin-top: var(--space-1);
 		line-height: 1.5;
 	}
+
+	/* ── Emoji bar ── */
+	.emoji-bar {
+		display: flex;
+		overflow-x: auto;
+		gap: var(--space-1);
+		padding: var(--space-2) var(--space-3);
+		background: color-mix(in srgb, var(--card) 90%, transparent);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		border-top: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
+		flex-shrink: 0;
+		scrollbar-width: none;
+	}
+
+	.emoji-bar::-webkit-scrollbar { display: none; }
+
+	.emoji-btn {
+		font-size: 1.45rem;
+		line-height: 1;
+		padding: var(--space-1);
+		border-radius: var(--radius-sm);
+		flex-shrink: 0;
+		transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s;
+	}
+
+	.emoji-btn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+	.emoji-btn:active { transform: scale(0.82); }
+
+	.emoji-toggle {
+		font-size: var(--fs-xl);
+		padding: var(--space-1);
+		border-radius: var(--radius-full);
+		flex-shrink: 0;
+		transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.18s;
+	}
+
+	.emoji-toggle:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+	.emoji-toggle:active { transform: scale(0.86); }
+	.emoji-toggle.active { background: color-mix(in srgb, var(--accent) 15%, transparent); }
 
 	/* ── Input ── */
 	.input-bar {
