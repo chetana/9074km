@@ -1,9 +1,24 @@
 import { createSign } from 'crypto'
 
+function parseServiceAccountJson(raw: string): Record<string, string> {
+  // gcloud --env-vars-file YAML uses single-quoted strings where \n is literal backslash+n.
+  // Strip \n sequences outside of JSON string values (structural whitespace from pretty-printing).
+  let fixed = '', inString = false, i = 0
+  while (i < raw.length) {
+    if (inString && raw[i] === '\\') { fixed += raw[i++]; if (i < raw.length) fixed += raw[i++]; continue }
+    if (raw[i] === '"') inString = !inString
+    if (!inString && raw[i] === '\\' && raw[i + 1] === 'n') { i += 2; continue }
+    fixed += raw[i++]
+  }
+  const creds = JSON.parse(fixed)
+  creds.private_key = (creds.private_key as string).replace(/\\n/g, '\n').trim() + '\n'
+  creds.client_email = (creds.client_email as string).trim()
+  return creds
+}
+
 export async function getAccessToken(): Promise<string> {
   const raw = process.env.GCS_SERVICE_ACCOUNT_JSON!.trim()
-  const creds = JSON.parse(raw)
-  creds.private_key = (creds.private_key as string).replace(/\\n/g, '\n').trim() + '\n'
+  const creds = parseServiceAccountJson(raw)
 
   const now = Math.floor(Date.now() / 1000)
   const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url')
