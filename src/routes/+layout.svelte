@@ -43,7 +43,10 @@
 
 <div class="app" class:khmer-new-year={isKhmerNewYear()}>
 	{#if isKhmerNewYear()}
-		<div class="water-glow" aria-hidden="true"></div>
+		<div class="water-bg" aria-hidden="true">
+			<div class="water-blob-3"></div>
+			<div class="water-shimmer"></div>
+		</div>
 	{/if}
 	<main>
 		{#key currentPath}
