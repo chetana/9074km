@@ -127,21 +127,43 @@
 		position: relative;
 		width: 100%;
 		height: 100%;
-		background: var(--card);
+		background: var(--surface);
 		border-radius: var(--radius-sm);
 		overflow: hidden;
 		cursor: pointer;
 		border: 2px solid transparent;
-		transition: border-color 0.15s, transform 0.2s ease, box-shadow 0.2s ease;
+		transition: border-color 0.15s, transform 0.18s cubic-bezier(0.34, 1.3, 0.64, 1), box-shadow 0.18s ease;
+	}
+
+	/* Gradient de lisibilité permanent (bas de la vignette) */
+	.tile::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(
+			to top,
+			rgba(0,0,0,0.45) 0%,
+			rgba(0,0,0,0.15) 35%,
+			transparent 60%
+		);
+		pointer-events: none;
+		border-radius: inherit;
+		opacity: 0.6;
+		transition: opacity 0.2s;
 	}
 
 	.tile:hover {
-		transform: scale(1.03);
-		box-shadow: var(--shadow-md);
+		transform: scale(1.04);
+		box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+	}
+
+	.tile:hover::after {
+		opacity: 0.8;
 	}
 
 	.tile.selected {
 		border-color: var(--accent);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 
 	.tile img {
@@ -204,24 +226,30 @@
 		bottom: var(--space-1);
 		left: var(--space-1);
 		font-size: var(--fs-xs);
-		background: rgba(0, 0, 0, 0.6);
-		color: white;
-		padding: 2px 5px;
-		border-radius: var(--space-1);
+		background: rgba(0, 0, 0, 0.65);
+		backdrop-filter: blur(6px);
+		-webkit-backdrop-filter: blur(6px);
+		color: rgba(255,255,255,0.9);
+		padding: 2px 7px;
+		border-radius: var(--radius-full);
 		max-width: 60%;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		z-index: 1;
 	}
 
 	.reactions-badge {
 		position: absolute;
 		bottom: var(--space-1);
 		right: var(--space-1);
-		font-size: var(--fs-base);
-		background: rgba(0, 0, 0, 0.5);
-		padding: 2px 4px;
-		border-radius: 0.375rem;
+		font-size: 0.9rem;
+		background: rgba(0, 0, 0, 0.55);
+		backdrop-filter: blur(6px);
+		-webkit-backdrop-filter: blur(6px);
+		padding: 2px 6px;
+		border-radius: var(--radius-full);
 		letter-spacing: 1px;
+		z-index: 1;
 	}
 </style>

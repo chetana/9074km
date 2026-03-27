@@ -345,7 +345,7 @@
 	/* ── Cartes ── */
 	.clock-card {
 		position: relative;
-		background: color-mix(in srgb, var(--card) 30%, transparent);
+		background: color-mix(in srgb, var(--surface) 60%, transparent);
 		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
 		border-radius: var(--radius-2xl);
 		padding: var(--space-6) var(--space-6) var(--space-6);
@@ -354,6 +354,7 @@
 		gap: var(--space-2);
 		overflow: hidden;
 		flex: 1;
+		box-shadow: 0 4px 24px rgba(0,0,0,0.3), 0 1px 0 color-mix(in srgb, var(--accent) 10%, transparent);
 	}
 
 	.landmark {
@@ -432,18 +433,21 @@
 	}
 
 	.time {
-		font-size: clamp(2.625rem, 12vw, 4rem);
-		font-weight: 800;
+		font-size: clamp(3.2rem, 15vw, 5rem);   /* +25% plus grand */
+		font-weight: 200;                          /* ultra-light — plus élégant */
 		color: var(--accent);
 		font-variant-numeric: tabular-nums;
-		letter-spacing: 2px;
+		letter-spacing: -0.01em;
 		line-height: 1;
 		animation: pulse-text 1s ease-in-out infinite alternate;
+		text-shadow:
+			0 0 40px color-mix(in srgb, var(--accent) 45%, transparent),
+			0 0 80px color-mix(in srgb, var(--accent) 20%, transparent);
 	}
 
 	@keyframes pulse-text {
-		from { opacity: 1; }
-		to   { opacity: 0.82; }
+		from { opacity: 1;    text-shadow: 0 0 40px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 80px color-mix(in srgb, var(--accent) 20%, transparent); }
+		to   { opacity: 0.82; text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 40px color-mix(in srgb, var(--accent) 10%, transparent); }
 	}
 
 	.dates {
@@ -465,10 +469,15 @@
 	}
 
 	.status {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		gap: var(--space-2);
-		margin-top: var(--space-1);
+		margin-top: var(--space-2);
+		padding: 6px 14px;
+		border-radius: var(--radius-full);
+		background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+		border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+		width: fit-content;
 	}
 
 	.status-icon {
@@ -477,8 +486,9 @@
 	}
 
 	.status-text {
-		font-size: var(--fs-base);
-		color: var(--text);
+		font-size: var(--fs-md);
+		color: var(--text-secondary);
+		line-height: 1.4;
 	}
 
 

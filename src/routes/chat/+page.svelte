@@ -991,15 +991,16 @@
 	}
 
 	.bubble {
-		background: var(--card);
+		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-2xl);
-		border-bottom-left-radius: var(--radius-sm);
+		border-bottom-left-radius: 4px;   /* queue bulle gauche */
 		padding: var(--space-3) var(--space-4);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
 		position: relative;
+		box-shadow: 0 2px 8px rgba(0,0,0,0.22);
 	}
 
 	.source-badge {
@@ -1019,51 +1020,54 @@
 	}
 
 	.bubble.mine {
-		background: color-mix(in srgb, var(--accent) 14%, var(--card));
+		background: color-mix(in srgb, var(--accent) 14%, var(--surface));
 		border-color: color-mix(in srgb, var(--accent) 30%, transparent);
 		border-bottom-left-radius: var(--radius-2xl);
-		border-bottom-right-radius: var(--radius-sm);
+		border-bottom-right-radius: 4px;   /* queue bulle droite */
 		box-shadow:
-			0 2px 12px color-mix(in srgb, var(--accent) 12%, transparent),
+			0 2px 12px color-mix(in srgb, var(--accent) 14%, transparent),
 			0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
 	}
 
 	.bubble-text {
-		font-size: var(--fs-base);
+		font-size: var(--fs-md);   /* 14px — message original plus lisible */
+		font-weight: 500;
 		color: var(--text);
+		line-height: 1.55;
 		white-space: pre-wrap;
 		word-break: break-word;
 	}
 
 	.bubble-translations {
-		padding-top: var(--space-1);
+		margin-top: var(--space-2);
+		padding-top: var(--space-2);
+		border-top: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: 4px;
 	}
 
 	.bubble-translation {
-		font-size: var(--fs-sm);
+		font-size: var(--fs-xs);   /* 11px — traductions discrètes */
 		color: var(--muted);
 		font-style: italic;
+		line-height: 1.4;
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-1);
 	}
 
-	.bubble-translation:first-child {
-		font-size: var(--fs-base);
-		color: var(--text);
+	/* Langue natale du destinataire — légèrement plus visible */
+	.bubble-translation.primary-lang {
+		font-size: var(--fs-sm);   /* 12px */
+		color: var(--text-secondary);
 		font-style: normal;
-		font-weight: 500;
-		padding-bottom: var(--space-1);
-		border-bottom: 1px solid var(--border);
-		margin-bottom: 1px;
 	}
 
 	.transl-flag {
 		font-style: normal;
 		flex-shrink: 0;
+		font-size: 0.75em;
 	}
 
 	.bubble-time {
@@ -1240,17 +1244,18 @@
 
 	.input {
 		flex: 1;
-		background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+		background: color-mix(in srgb, var(--accent) 6%, var(--raised));
 		border: 1px solid var(--border);
 		border-radius: var(--radius-xl);
 		padding: var(--space-3) var(--space-4);
-		font-size: var(--fs-base);
+		font-size: 1rem;  /* 16px min — évite le zoom auto iOS */
 		color: var(--text);
 		font-family: inherit;
 		resize: none;
+		min-height: 2.5rem;
 		max-height: 8rem;
 		overflow-y: auto;
-		line-height: 1.4;
+		line-height: 1.5;
 	}
 
 	.input::placeholder { color: var(--muted); opacity: 0.6; }
@@ -1263,7 +1268,7 @@
 	}
 
 	.send-btn {
-		width: 2.75rem;
+		width: 2.75rem;   /* légèrement plus grand que les autres */
 		height: 2.75rem;
 		border-radius: var(--radius-full);
 		background: linear-gradient(135deg, var(--accent), var(--accent-warm));
@@ -1438,13 +1443,16 @@
 		display: none;
 	}
 
-	.img-btn {
-		width: 2.75rem;
-		height: 2.75rem;
+	/* Style commun boutons action input (img + mic + emoji) */
+	.img-btn,
+	.mic-btn,
+	.emoji-toggle {
+		width: 2.625rem;    /* 42px — cohérent */
+		height: 2.625rem;
 		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--accent) 8%, var(--card));
+		background: var(--raised);
 		border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-		font-size: 1.2rem;
+		font-size: 1.15rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -1452,10 +1460,14 @@
 		transition: opacity 0.15s, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, box-shadow 0.2s;
 	}
 
+	.img-btn {
+		/* garde les props communes, surchargées ici si besoin */
+	}
+
 	.img-btn:not(:disabled):hover {
-		background: color-mix(in srgb, var(--accent) 15%, var(--card));
+		background: color-mix(in srgb, var(--accent) 15%, var(--raised));
 		border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-		box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 18%, transparent);
+		box-shadow: 0 0 12px var(--accent-glow);
 	}
 
 	.img-btn:not(:disabled):active {
@@ -1467,17 +1479,7 @@
 	}
 
 	.mic-btn {
-		width: 2.75rem;
-		height: 2.75rem;
-		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--accent) 8%, var(--card));
-		border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-		font-size: 1.2rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		transition: background 0.15s, opacity 0.15s, transform 0.12s;
+		/* styles d'état écrasent le background commun */
 	}
 
 	.mic-btn.loading {
