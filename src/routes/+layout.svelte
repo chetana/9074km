@@ -44,8 +44,15 @@
 <div class="app" class:khmer-new-year={isKhmerNewYear()}>
 	{#if isKhmerNewYear()}
 		<div class="water-bg" aria-hidden="true">
-			<div class="water-blob-3"></div>
-			<div class="water-shimmer"></div>
+			<div class="caustic-wrap">
+				<div class="caustic-a"></div>
+				<div class="caustic-b"></div>
+				<div class="caustic-c"></div>
+				<div class="caustic-d"></div>
+				<div class="caustic-e"></div>
+				<div class="caustic-f"></div>
+			</div>
+			<div class="caustic-glow"></div>
 			<div class="ripple r1"></div>
 			<div class="ripple r2"></div>
 			<div class="ripple r3"></div>

@@ -148,7 +148,7 @@ textarea {
 	}
 }
 
-/* ── Fond dynamique eau — caustiques animées ── */
+/* ── Fond caustiques eau ── */
 .water-bg {
 	position: fixed;
 	inset: 0;
@@ -157,97 +157,130 @@ textarea {
 	overflow: hidden;
 }
 
-/* Blob 1 — grand, teal accent, dérive depuis haut-gauche, 20s */
-.water-bg::before {
-	content: '';
+/*
+ * Technique caustics : blur+contrast sur un groupe de blobs colorés.
+ * Les zones de chevauchement « s'allument » en lignes caustiques nettes.
+ * mix-blend-mode: screen fait disparaître le fond noir → seules les lignes restent.
+ */
+.caustic-wrap {
 	position: absolute;
-	width: 75vmax;
-	height: 75vmax;
+	inset: -30%;
+	width: 160%;
+	height: 160%;
+	background: #000;
+	filter: blur(18px) contrast(22) brightness(0.30);
+	mix-blend-mode: screen;
+	will-change: filter;
+}
+
+.caustic-a,
+.caustic-b,
+.caustic-c,
+.caustic-d,
+.caustic-e,
+.caustic-f {
+	position: absolute;
+}
+
+/* Blob A — grand teal, haut-gauche, 18s */
+.caustic-a {
+	width: 58vmax; height: 46vmax;
+	border-radius: 62% 38% 54% 46% / 44% 56% 38% 62%;
+	background: radial-gradient(circle at 48% 48%, #4DBFD8 0%, #1E88B0 52%, transparent 74%);
+	top: 0; left: 0;
+	animation: caust-a 18s ease-in-out infinite;
+}
+
+/* Blob B — bleu profond, bas-droite, 14s inverse */
+.caustic-b {
+	width: 48vmax; height: 58vmax;
+	border-radius: 44% 56% 38% 62% / 62% 38% 58% 42%;
+	background: radial-gradient(circle at 46% 54%, #2AA8CC 0%, #145888 58%, transparent 78%);
+	bottom: 0; right: 0;
+	animation: caust-b 14s ease-in-out infinite reverse;
+}
+
+/* Blob C — turquoise vif, centre, 11s */
+.caustic-c {
+	width: 42vmax; height: 42vmax;
+	border-radius: 54% 46% 52% 48% / 48% 52% 46% 54%;
+	background: radial-gradient(circle at 52% 46%, #58E8D0 0%, #28B8A8 44%, transparent 68%);
+	top: 28%; left: 33%;
+	animation: caust-c 11s ease-in-out infinite;
+}
+
+/* Blob D — bleu-nuit, haut-droite, 22s inverse */
+.caustic-d {
+	width: 38vmax; height: 52vmax;
+	border-radius: 48% 52% 62% 38% / 38% 62% 44% 56%;
+	background: radial-gradient(circle at 50% 50%, #1E90C8 0%, #083868 62%, transparent 80%);
+	top: 0; right: 12%;
+	animation: caust-d 22s ease-in-out infinite reverse;
+}
+
+/* Blob E — cyan clair, bas-gauche, 16s */
+.caustic-e {
+	width: 52vmax; height: 40vmax;
+	border-radius: 38% 62% 44% 56% / 56% 44% 62% 38%;
+	background: radial-gradient(circle at 44% 50%, #3ACCE8 0%, #168AB0 52%, transparent 72%);
+	bottom: 5%; left: 0;
+	animation: caust-e 16s ease-in-out infinite;
+}
+
+/* Blob F — indigo, milieu, 9s rapide — crée les mailles fines */
+.caustic-f {
+	width: 44vmax; height: 44vmax;
 	border-radius: 50%;
-	background: radial-gradient(circle at 40% 40%,
-		rgba(88, 196, 220, 0.2) 0%,
-		rgba(60, 160, 200, 0.08) 45%,
-		transparent 68%);
-	top: -28%;
-	left: -22%;
-	filter: blur(55px);
-	animation: water-blob-1 20s ease-in-out infinite;
+	background: radial-gradient(circle at 50% 50%, #1268A8 0%, #062040 56%, transparent 76%);
+	top: 42%; right: 18%;
+	animation: caust-f 9s ease-in-out infinite reverse;
 }
 
-/* Blob 2 — bleu profond, bas-droite, 16s inverse */
-.water-bg::after {
-	content: '';
+@keyframes caust-a {
+	0%,  100% { transform: translate(0,     0)     rotate(0deg)   scale(1);    }
+	25%        { transform: translate(8vw,   13vh)  rotate(22deg)  scale(1.08); }
+	50%        { transform: translate(16vw,  -6vh)  rotate(-8deg)  scale(0.93); }
+	75%        { transform: translate(-4vw,  18vh)  rotate(35deg)  scale(1.05); }
+}
+
+@keyframes caust-b {
+	0%,  100% { transform: translate(0,     0)     rotate(0deg)   scale(1);    }
+	33%        { transform: translate(-11vw, -14vh) rotate(-26deg) scale(1.1);  }
+	66%        { transform: translate(7vw,   8vh)   rotate(15deg)  scale(0.92); }
+}
+
+@keyframes caust-c {
+	0%,  100% { transform: translate(0,     0)     rotate(0deg)   scale(1);    }
+	40%        { transform: translate(-13vw, -11vh) rotate(42deg)  scale(1.16); }
+	70%        { transform: translate(9vw,   15vh)  rotate(-22deg) scale(0.87); }
+}
+
+@keyframes caust-d {
+	0%,  100% { transform: translate(0,     0)     rotate(0deg)   scale(1);    }
+	20%        { transform: translate(5vw,   11vh)  rotate(18deg)  scale(1.06); }
+	50%        { transform: translate(-9vw,  -13vh) rotate(-32deg) scale(0.95); }
+	80%        { transform: translate(13vw,  6vh)   rotate(46deg)  scale(1.08); }
+}
+
+@keyframes caust-e {
+	0%,  100% { transform: translate(0,     0)     rotate(0deg)   scale(1);    }
+	35%        { transform: translate(11vw,  -9vh)  rotate(-21deg) scale(1.07); }
+	65%        { transform: translate(-7vw,  13vh)  rotate(29deg)  scale(0.94); }
+}
+
+@keyframes caust-f {
+	0%,  100% { transform: translate(0,     0)     scale(1);    }
+	50%        { transform: translate(-9vw,  -11vh) scale(1.22); }
+}
+
+/* Lueur ambiante douce par-dessus les caustiques */
+.caustic-glow {
 	position: absolute;
-	width: 65vmax;
-	height: 65vmax;
-	border-radius: 50%;
-	background: radial-gradient(circle at 55% 55%,
-		rgba(28, 100, 190, 0.18) 0%,
-		rgba(20, 70, 150, 0.07) 50%,
-		transparent 70%);
-	bottom: -18%;
-	right: -18%;
-	filter: blur(65px);
-	animation: water-blob-2 16s ease-in-out infinite reverse;
-}
-
-/* Blob 3 — turquoise clair, centre, 12s */
-.water-blob-3 {
-	position: absolute;
-	width: 50vmax;
-	height: 50vmax;
-	border-radius: 50%;
-	background: radial-gradient(circle,
-		rgba(110, 235, 215, 0.13) 0%,
-		rgba(70, 200, 190, 0.05) 50%,
-		transparent 70%);
-	top: 25%;
-	left: 25%;
-	filter: blur(50px);
-	animation: water-blob-3 12s ease-in-out infinite;
-}
-
-/* Reflets caustiques — lignes horizontales qui montent */
-.water-shimmer {
-	position: absolute;
-	bottom: 0;
-	left: 0;
-	right: 0;
-	height: 45vh;
-	background: repeating-linear-gradient(
-		0deg,
-		transparent,
-		transparent 16px,
-		rgba(88, 196, 220, 0.045) 16px,
-		rgba(88, 196, 220, 0.045) 18px
-	);
-	animation: water-lines 2.8s linear infinite;
-	mask-image: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%);
-	-webkit-mask-image: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%);
-}
-
-@keyframes water-blob-1 {
-	0%,  100% { transform: translate(0,     0)    scale(1);    }
-	25%        { transform: translate(9vw,   13vh) scale(1.07); }
-	50%        { transform: translate(4vw,  -7vh)  scale(0.94); }
-	75%        { transform: translate(-6vw,  11vh) scale(1.04); }
-}
-
-@keyframes water-blob-2 {
-	0%,  100% { transform: translate(0,     0)    scale(1);    }
-	33%        { transform: translate(-9vw, -11vh) scale(1.06); }
-	66%        { transform: translate(7vw,   9vh)  scale(0.95); }
-}
-
-@keyframes water-blob-3 {
-	0%,  100% { transform: translate(0,     0)    scale(1);    }
-	40%        { transform: translate(-9vw, -13vh) scale(1.1);  }
-	70%        { transform: translate(11vw,  9vh)  scale(0.91); }
-}
-
-@keyframes water-lines {
-	from { background-position: 0 0;    }
-	to   { background-position: 0 18px; }
+	inset: 0;
+	background:
+		radial-gradient(ellipse 80% 60% at 25% 15%, rgba(77, 191, 216, 0.055) 0%, transparent 60%),
+		radial-gradient(ellipse 60% 55% at 78% 82%, rgba(28, 100, 180, 0.07) 0%, transparent 60%);
+	pointer-events: none;
 }
 
 /* ── Ripples ── */
