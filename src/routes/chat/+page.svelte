@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { auth, userStore } from '$lib/auth';
+	import { auth, userStore, authReadyStore } from '$lib/auth';
 	import {
 		fetchMessages, sendMessage, suggestMessage, deleteMessage, transcribeAudio,
 		signUpload, uploadFile, signDownload, invalidateListCache,
@@ -42,6 +42,7 @@
 	let pendingLessons = $state<LessonItem[]>([]);
 
 	const user = userStore;
+	const authReady = authReadyStore;
 
 	// Action Svelte : rend le bouton Google natif (fiable, pas soumis aux suppressions FedCM)
 	function googleSignInBtn(node: HTMLElement) {
@@ -504,7 +505,12 @@
 
 <div class="page">
 
-	{#if !$user}
+	{#if !$authReady}
+		<div class="auth-gate auth-loading">
+			<span class="auth-lotus">🪷</span>
+			<div class="auth-spinner"></div>
+		</div>
+	{:else if !$user}
 		<div class="auth-gate">
 			<span class="auth-lotus">🪷</span>
 			{#if isKhmerNewYear()}
@@ -907,6 +913,16 @@
 		color: var(--muted);
 		text-align: center;
 	}
+
+	.auth-spinner {
+		width: 2rem;
+		height: 2rem;
+		border-radius: 50%;
+		border: 2px solid color-mix(in srgb, var(--accent) 20%, transparent);
+		border-top-color: var(--accent);
+		animation: spin 0.8s linear infinite;
+	}
+	@keyframes spin { to { transform: rotate(360deg); } }
 
 	/* ── Messages ── */
 	.message-list {

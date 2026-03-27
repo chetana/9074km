@@ -46,6 +46,8 @@ const CLIENT_ID =
 
 export const userStore = writable<User | null>(null);
 export const tokenStore = writable<string | null>(null);
+/** true une fois que auth.init() a terminé sa vérification initiale */
+export const authReadyStore = writable<boolean>(false);
 
 function parseJwt(token: string): Record<string, unknown> {
 	try {
@@ -129,6 +131,7 @@ export const auth = {
 				});
 				tokenStore.set(saved);
 				startExpiryWatch();
+				authReadyStore.set(true);
 				return;
 			} else {
 				sessionStorage.removeItem('chetlys_token');
@@ -138,6 +141,7 @@ export const auth = {
 		await loadGsiScript();
 		initGsi(handleCredential);
 		window.google!.accounts.id.prompt();
+		authReadyStore.set(true);
 	},
 
 	async signIn(): Promise<void> {
