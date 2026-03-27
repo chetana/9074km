@@ -1047,21 +1047,30 @@
 		gap: 4px;
 	}
 
+	/* Message original — toujours le premier enfant */
+	.bubble-translation:first-child {
+		font-size: var(--fs-md);   /* 14px — bien lisible */
+		font-weight: 500;
+		color: var(--text);
+		font-style: normal;
+		line-height: 1.55;
+		padding-bottom: var(--space-2);
+		border-bottom: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+		margin-bottom: 2px;
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-1);
+	}
+
+	/* Traductions — discrètes */
 	.bubble-translation {
-		font-size: var(--fs-xs);   /* 11px — traductions discrètes */
+		font-size: var(--fs-xs);   /* 11px */
 		color: var(--muted);
 		font-style: italic;
 		line-height: 1.4;
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-1);
-	}
-
-	/* Langue natale du destinataire — légèrement plus visible */
-	.bubble-translation.primary-lang {
-		font-size: var(--fs-sm);   /* 12px */
-		color: var(--text-secondary);
-		font-style: normal;
 	}
 
 	.transl-flag {
