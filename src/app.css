@@ -148,7 +148,7 @@ textarea {
 	}
 }
 
-/* ── Fond caustiques eau ── */
+/* ── Fond grain + gradient — statique, premium ── */
 .water-bg {
 	position: fixed;
 	inset: 0;
@@ -158,153 +158,43 @@ textarea {
 }
 
 /*
- * Technique caustics : blur+contrast sur un groupe de blobs colorés.
- * Les zones de chevauchement « s'allument » en lignes caustiques nettes.
- * mix-blend-mode: screen fait disparaître le fond noir → seules les lignes restent.
+ * Gradient multi-couches : profondeur colorée sans animation.
+ * Teal doux haut-gauche, indigo profond bas-droite,
+ * nuance violette au centre pour la chaleur.
  */
-.caustic-wrap {
-	position: absolute;
-	inset: -30%;
-	width: 160%;
-	height: 160%;
-	background: #000;
-	filter: blur(18px) contrast(22) brightness(0.30);
-	mix-blend-mode: screen;
-	will-change: filter;
-}
-
-.caustic-a,
-.caustic-b,
-.caustic-c,
-.caustic-d,
-.caustic-e,
-.caustic-f {
-	position: absolute;
-}
-
-/* Blob A — grand teal, haut-gauche, 18s */
-.caustic-a {
-	width: 58vmax; height: 46vmax;
-	border-radius: 62% 38% 54% 46% / 44% 56% 38% 62%;
-	background: radial-gradient(circle at 48% 48%, #4DBFD8 0%, #1E88B0 52%, transparent 74%);
-	top: 0; left: 0;
-	animation: caust-a 18s ease-in-out infinite;
-}
-
-/* Blob B — bleu profond, bas-droite, 14s inverse */
-.caustic-b {
-	width: 48vmax; height: 58vmax;
-	border-radius: 44% 56% 38% 62% / 62% 38% 58% 42%;
-	background: radial-gradient(circle at 46% 54%, #2AA8CC 0%, #145888 58%, transparent 78%);
-	bottom: 0; right: 0;
-	animation: caust-b 14s ease-in-out infinite reverse;
-}
-
-/* Blob C — turquoise vif, centre, 11s */
-.caustic-c {
-	width: 42vmax; height: 42vmax;
-	border-radius: 54% 46% 52% 48% / 48% 52% 46% 54%;
-	background: radial-gradient(circle at 52% 46%, #58E8D0 0%, #28B8A8 44%, transparent 68%);
-	top: 28%; left: 33%;
-	animation: caust-c 11s ease-in-out infinite;
-}
-
-/* Blob D — bleu-nuit, haut-droite, 22s inverse */
-.caustic-d {
-	width: 38vmax; height: 52vmax;
-	border-radius: 48% 52% 62% 38% / 38% 62% 44% 56%;
-	background: radial-gradient(circle at 50% 50%, #1E90C8 0%, #083868 62%, transparent 80%);
-	top: 0; right: 12%;
-	animation: caust-d 22s ease-in-out infinite reverse;
-}
-
-/* Blob E — cyan clair, bas-gauche, 16s */
-.caustic-e {
-	width: 52vmax; height: 40vmax;
-	border-radius: 38% 62% 44% 56% / 56% 44% 62% 38%;
-	background: radial-gradient(circle at 44% 50%, #3ACCE8 0%, #168AB0 52%, transparent 72%);
-	bottom: 5%; left: 0;
-	animation: caust-e 16s ease-in-out infinite;
-}
-
-/* Blob F — indigo, milieu, 9s rapide — crée les mailles fines */
-.caustic-f {
-	width: 44vmax; height: 44vmax;
-	border-radius: 50%;
-	background: radial-gradient(circle at 50% 50%, #1268A8 0%, #062040 56%, transparent 76%);
-	top: 42%; right: 18%;
-	animation: caust-f 9s ease-in-out infinite reverse;
-}
-
-@keyframes caust-a {
-	0%,  100% { transform: translate(0,     0)     rotate(0deg)   scale(1);    }
-	25%        { transform: translate(8vw,   13vh)  rotate(22deg)  scale(1.08); }
-	50%        { transform: translate(16vw,  -6vh)  rotate(-8deg)  scale(0.93); }
-	75%        { transform: translate(-4vw,  18vh)  rotate(35deg)  scale(1.05); }
-}
-
-@keyframes caust-b {
-	0%,  100% { transform: translate(0,     0)     rotate(0deg)   scale(1);    }
-	33%        { transform: translate(-11vw, -14vh) rotate(-26deg) scale(1.1);  }
-	66%        { transform: translate(7vw,   8vh)   rotate(15deg)  scale(0.92); }
-}
-
-@keyframes caust-c {
-	0%,  100% { transform: translate(0,     0)     rotate(0deg)   scale(1);    }
-	40%        { transform: translate(-13vw, -11vh) rotate(42deg)  scale(1.16); }
-	70%        { transform: translate(9vw,   15vh)  rotate(-22deg) scale(0.87); }
-}
-
-@keyframes caust-d {
-	0%,  100% { transform: translate(0,     0)     rotate(0deg)   scale(1);    }
-	20%        { transform: translate(5vw,   11vh)  rotate(18deg)  scale(1.06); }
-	50%        { transform: translate(-9vw,  -13vh) rotate(-32deg) scale(0.95); }
-	80%        { transform: translate(13vw,  6vh)   rotate(46deg)  scale(1.08); }
-}
-
-@keyframes caust-e {
-	0%,  100% { transform: translate(0,     0)     rotate(0deg)   scale(1);    }
-	35%        { transform: translate(11vw,  -9vh)  rotate(-21deg) scale(1.07); }
-	65%        { transform: translate(-7vw,  13vh)  rotate(29deg)  scale(0.94); }
-}
-
-@keyframes caust-f {
-	0%,  100% { transform: translate(0,     0)     scale(1);    }
-	50%        { transform: translate(-9vw,  -11vh) scale(1.22); }
-}
-
-/* Lueur ambiante douce par-dessus les caustiques */
-.caustic-glow {
+.water-bg::before {
+	content: '';
 	position: absolute;
 	inset: 0;
 	background:
-		radial-gradient(ellipse 80% 60% at 25% 15%, rgba(77, 191, 216, 0.055) 0%, transparent 60%),
-		radial-gradient(ellipse 60% 55% at 78% 82%, rgba(28, 100, 180, 0.07) 0%, transparent 60%);
-	pointer-events: none;
+		radial-gradient(ellipse 130% 90% at 15% 8%,
+			rgba(77, 191, 216, 0.13) 0%,
+			transparent 52%),
+		radial-gradient(ellipse 90% 130% at 88% 92%,
+			rgba(24, 72, 168, 0.16) 0%,
+			transparent 52%),
+		radial-gradient(ellipse 70% 70% at 58% 38%,
+			rgba(60, 30, 100, 0.08) 0%,
+			transparent 55%),
+		radial-gradient(ellipse 50% 50% at 30% 75%,
+			rgba(14, 88, 130, 0.09) 0%,
+			transparent 50%);
 }
 
-/* ── Ripples ── */
-.ripple {
+/*
+ * Grain SVG (feTurbulence fractalNoise).
+ * mix-blend-mode overlay a faible opacite : texture subtile, pas de bruit.
+ * Le tile 200x200 + stitchTiles stitch evite les raccords visibles.
+ */
+.water-bg::after {
+	content: '';
 	position: absolute;
-	border-radius: 50%;
-	border: 1.5px solid color-mix(in srgb, var(--accent) 45%, transparent);
-	width: 60px;
-	height: 60px;
-	transform: scale(0);
-	opacity: 0;
-	animation: ripple-expand 6s ease-out infinite;
-	pointer-events: none;
-}
-
-.r1 { top: 28%; left: 18%; animation-delay: 0s;   animation-duration: 6s;  }
-.r2 { top: 62%; left: 70%; animation-delay: 2.2s; animation-duration: 7s;  }
-.r3 { top: 42%; left: 48%; animation-delay: 4.1s; animation-duration: 5.5s;}
-.r4 { top: 15%; left: 78%; animation-delay: 1.5s; animation-duration: 8s;  }
-
-@keyframes ripple-expand {
-	0%   { transform: scale(0);   opacity: 0.55; }
-	60%  { opacity: 0.2; }
-	100% { transform: scale(8);   opacity: 0;    }
+	inset: 0;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)'/%3E%3C/svg%3E");
+	background-repeat: repeat;
+	background-size: 200px 200px;
+	opacity: 0.055;
+	mix-blend-mode: overlay;
 }
 
 /* ── Skeleton shimmer global ── */
