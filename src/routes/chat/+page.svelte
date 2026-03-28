@@ -146,8 +146,12 @@
 		pendingLessons = [];
 		clearTimeout(debounceTimer);
 		const text = inputText.trim();
-		if (text.length < 3 || text === lastSuggestedText) return;
+		if (text.length < 10 || text === lastSuggestedText) return;
+		// Attend la fin d'un mot (dernier char = espace) ou une vraie pause
+		const endsWord = text.endsWith(' ');
 		debounceTimer = setTimeout(async () => {
+			// Re-vérif : si le texte a changé pendant le délai, on annule
+			if (inputText.trim() !== text) return;
 			suggestionLoading = true;
 			try {
 				suggestion = await suggestMessage(text);
@@ -157,7 +161,7 @@
 			} finally {
 				suggestionLoading = false;
 			}
-		}, 1000);
+		}, endsWord ? 1800 : 2500);
 	}
 
 	function acceptSuggestion() {
