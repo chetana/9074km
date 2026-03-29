@@ -162,6 +162,35 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
   return JSON.parse(raw) as GeminiSuggestion
 }
 
+export async function geminiTts(text: string, lang: 'fr' | 'kh'): Promise<string> {
+  const token = await getAccessToken()
+  const project = process.env.VERTEX_PROJECT_ID ?? 'cykt-399216'
+  const location = process.env.VERTEX_LOCATION ?? 'us-central1'
+  const model = 'gemini-2.5-flash-preview-tts'
+  const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: `Say this in ${lang === 'kh' ? 'Khmer' : 'French'}: ${text}` }] }],
+      generationConfig: {
+        responseModalities: ['AUDIO'],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: lang === 'kh' ? 'Kore' : 'Zephyr' } } },
+      },
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as any
+    throw new Error(`TTS ${res.status}: ${err?.error?.message ?? 'unknown'}`)
+  }
+  const data = await res.json() as any
+  const base64 = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data
+  if (!base64) throw new Error('No audio data returned')
+  return base64 as string
+}
+
 export interface TranscriptionResult { text: string; fr: string; en: string; kh: string }
 
 export async function geminiTranscribeAndTranslate(audioBase64: string, mimeType: string, author?: string): Promise<TranscriptionResult> {

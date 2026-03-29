@@ -6,6 +6,7 @@
 		signUpload, uploadFile, signDownload, invalidateListCache,
 		fetchLessons, type ChatMessage, type GeminiSuggestion, type LessonEntry, type LessonItem
 	} from '$lib/api';
+	import { getAudioCache, setAudioCache } from '$lib/audioCache';
 	import FlashcardGame from '$lib/FlashcardGame.svelte';
 	import { getLevel, getAvatar, xpProgressPct } from '$lib/flashcard-levels';
 
@@ -275,18 +276,62 @@
 		errorToastTimer = setTimeout(() => { errorToast = null; }, 3000);
 	}
 
-	function speakSelected(lang: 'fr' | 'en' | 'kh') {
+	function buildWavHeader(pcmLength: number): ArrayBuffer {
+		const buf = new ArrayBuffer(44), v = new DataView(buf);
+		const sr = 24000, ch = 1, bps = 16;
+		v.setUint32(0, 0x52494646, false); v.setUint32(4, 36 + pcmLength, true);
+		v.setUint32(8, 0x57415645, false); v.setUint32(12, 0x666d7420, false);
+		v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true);
+		v.setUint32(24, sr, true); v.setUint32(28, sr * ch * bps / 8, true);
+		v.setUint16(32, ch * bps / 8, true); v.setUint16(34, bps, true);
+		v.setUint32(36, 0x64617461, false); v.setUint32(40, pcmLength, true);
+		return buf;
+	}
+
+	function playBase64Pcm(b64: string): Promise<void> {
+		const raw = atob(b64), buf = new ArrayBuffer(raw.length), view = new Uint8Array(buf);
+		for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
+		const blob = new Blob([buildWavHeader(raw.length), buf], { type: 'audio/wav' });
+		const url = URL.createObjectURL(blob), audio = new Audio(url);
+		return new Promise((res, rej) => {
+			audio.onended = () => { URL.revokeObjectURL(url); res(); };
+			audio.onerror = () => { URL.revokeObjectURL(url); rej(new Error('playback')); };
+			audio.play().catch(rej);
+		});
+	}
+
+	async function speakSelected(lang: 'fr' | 'en' | 'kh') {
 		const msg = messages.find(m => m.id === selectedMsg);
-		if (!msg || !('speechSynthesis' in window)) return;
+		if (!msg) return;
 		const textMap = { fr: msg.fr || msg.text, en: msg.en || msg.text, kh: msg.kh || msg.text };
-		const localeMap = { fr: 'fr-FR', en: 'en-US', kh: 'km-KH' };
 		const text = textMap[lang];
-		if (!text) return;
-		speechSynthesis.cancel();
-		const utt = new SpeechSynthesisUtterance(text);
-		utt.lang = localeMap[lang];
-		speechSynthesis.speak(utt);
+		if (!text) { selectedMsg = null; return; }
 		selectedMsg = null;
+
+		// Cache hit → lecture instantanée
+		const cached = getAudioCache(text, lang);
+		if (cached) { await playBase64Pcm(cached).catch(() => {}); return; }
+
+		// Gemini TTS via serveur
+		try {
+			const res = await fetch('/api/chat/speak', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ text, lang }),
+			});
+			if (!res.ok) throw new Error('TTS failed');
+			const { audio } = await res.json() as { audio: string };
+			if (!audio) throw new Error('No audio');
+			setAudioCache(text, lang, audio);
+			await playBase64Pcm(audio).catch(() => {});
+		} catch {
+			// Fallback voix synthétique du navigateur
+			if (!('speechSynthesis' in window)) return;
+			speechSynthesis.cancel();
+			const utt = new SpeechSynthesisUtterance(text);
+			utt.lang = { fr: 'fr-FR', en: 'en-US', kh: 'km-KH' }[lang];
+			speechSynthesis.speak(utt);
+		}
 	}
 
 	async function copySelected() {
@@ -735,7 +780,7 @@
 				onclick={toggleRecording}
 				disabled={sending || transcribing}
 				aria-label={vadLoading ? 'Chargement…' : recording ? 'Arrêter' : 'Message vocal'}
-			>{transcribing ? '…' : speaking ? '🔊' : vadLoading ? '⏳' : recording ? '⏹' : '🎤'}</button>
+			>{#if recording || speaking}<span class="wav-bars" class:wav-active={speaking}><span></span><span></span><span></span><span></span><span></span></span>{:else}{transcribing ? '…' : vadLoading ? '⏳' : '🎤'}{/if}</button>
 			<textarea
 				class="input"
 				bind:value={inputText}
@@ -1551,6 +1596,31 @@
 	@keyframes pulse-speak {
 		0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, #2e7d32 50%, transparent); }
 		50% { box-shadow: 0 0 0 8px color-mix(in srgb, #2e7d32 0%, transparent); }
+	}
+
+	.wav-bars {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		height: 20px;
+	}
+	.wav-bars span {
+		display: block;
+		width: 3px;
+		height: 3px;
+		border-radius: 2px;
+		background: #fff;
+		animation: wav 1.4s ease-in-out infinite;
+	}
+	.wav-bars span:nth-child(1) { animation-delay: 0ms; }
+	.wav-bars span:nth-child(2) { animation-delay: 160ms; }
+	.wav-bars span:nth-child(3) { animation-delay: 80ms; }
+	.wav-bars span:nth-child(4) { animation-delay: 220ms; }
+	.wav-bars span:nth-child(5) { animation-delay: 40ms; }
+	.wav-bars.wav-active span { animation-duration: 0.4s; }
+	@keyframes wav {
+		0%, 100% { height: 3px; }
+		50% { height: 18px; }
 	}
 
 	.bubble-img {
