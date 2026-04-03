@@ -31,3 +31,5 @@ envvars.yaml
 
 # Flutter archive (120 MB — non versionné)
 app-flutter/
+
+.vercel
