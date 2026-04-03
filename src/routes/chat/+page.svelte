@@ -643,7 +643,7 @@
 				<div class="bubble-wrapper" class:mine={isMine} class:selected={isSelected}>
 					{#if isSelected && isMine}
 						<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
-							<button class="act-btn copy" class:copy-kh={userLang === 'kh'} onclick={copySelected} aria-label="Copier">{#if userLang === 'kh'}📋 ចម្លង{:else}<span class="copy-emoji">📋</span><span class="copy-text">Copier</span>{/if}</button>
+							<button class="act-btn copy" onclick={copySelected} aria-label="Copier">{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}</button>
 							<div class="act-row">
 								<button class="act-btn" onclick={() => speakSelected('fr')} aria-label="FR">🔊🇫🇷</button>
 								<button class="act-btn" onclick={() => speakSelected('en')} aria-label="EN">🔊🇬🇧</button>
@@ -688,7 +688,7 @@
 					</div>
 					{#if isSelected && !isMine}
 						<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
-							<button class="act-btn copy" class:copy-kh={userLang === 'kh'} onclick={copySelected} aria-label="Copier">{#if userLang === 'kh'}📋 ចម្លង{:else}<span class="copy-emoji">📋</span><span class="copy-text">Copier</span>{/if}</button>
+							<button class="act-btn copy" onclick={copySelected} aria-label="Copier">{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}</button>
 							<div class="act-row">
 								<button class="act-btn" onclick={() => speakSelected('fr')} aria-label="FR">🔊🇫🇷</button>
 								<button class="act-btn" onclick={() => speakSelected('en')} aria-label="EN">🔊🇬🇧</button>
@@ -1482,35 +1482,17 @@
 	}
 
 	.act-btn.copy {
-		width: 2.6rem;
-		height: auto;
-		min-height: 2.6rem;
+		width: auto;
+		min-width: 5.5rem;
+		height: 2.6rem;
 		border-radius: var(--radius-xl);
-		padding: var(--space-2) 2px;
+		padding: 0 var(--space-3);
+		font-size: 0.85rem;
+		font-weight: 600;
 		background: color-mix(in srgb, var(--accent) 12%, var(--card));
 		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 		color: var(--accent);
-		flex-direction: column;
-		gap: 2px;
-	}
-	.act-btn.copy .copy-emoji {
-		font-size: 1rem;
-	}
-	.act-btn.copy .copy-text {
-		writing-mode: vertical-rl;
-		text-orientation: mixed;
-		font-size: 0.65rem;
-		font-weight: 700;
-		letter-spacing: 0.05em;
-	}
-	.act-btn.copy.copy-kh {
-		width: 5.5rem;
-		height: 2.6rem;
-		min-height: unset;
-		font-size: 0.85rem;
-		flex-direction: row;
-		padding: 0;
-		writing-mode: horizontal-tb;
+		white-space: nowrap;
 	}
 
 	.act-btn.delete {
