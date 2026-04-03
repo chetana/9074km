@@ -93,7 +93,10 @@
 		if (cached && cached.length > 0) {
 			messages = cached;
 			await tick();
-			scrollToBottom();
+			// On scroll tout en bas instantanément pour le cache
+			scrollToBottom('auto');
+			// Petit délai pour compenser le rendu des images si elles sont déjà en mémoire
+			setTimeout(() => scrollToBottom('auto'), 50);
 		} else {
 			messages = [];
 		}
@@ -112,8 +115,10 @@
 	function prevDay() { viewOffset--; void loadDate(); }
 	function nextDay() { if (!isToday) { viewOffset++; void loadDate(); } }
 
-	function scrollToBottom() {
-		if (listEl) listEl.scrollTop = listEl.scrollHeight;
+	function scrollToBottom(behavior: ScrollBehavior = 'auto') {
+		if (listEl) {
+			listEl.scrollTo({ top: listEl.scrollHeight, behavior });
+		}
 	}
 
 	let pollInterval: ReturnType<typeof setInterval>;
@@ -1016,6 +1021,7 @@
 		gap: var(--space-3);
 		position: relative;
 		z-index: 1;
+		overflow-anchor: auto;
 	}
 
 	.message-list::-webkit-scrollbar { width: 4px; }
@@ -1658,11 +1664,14 @@
 	}
 
 	.bubble-img {
-		max-width: 100%;
-		max-height: 320px;
-		border-radius: var(--radius-xl);
-		object-fit: cover;
 		display: block;
+		width: 100%;
+		max-width: 100%;
+		border-radius: var(--radius-lg);
+		aspect-ratio: 16/10;   /* réserve l'espace avant le chargement */
+		object-fit: cover;
+		margin-top: var(--space-2);
+		cursor: zoom-in;
 	}
 
 	.bubble-img-loading {
