@@ -344,9 +344,7 @@
 		}
 	}
 
-	async function copySelected() {
-		const msg = messages.find(m => m.id === selectedMsg);
-		if (!msg) return;
+	function formatMsgForCopy(msg: ChatMessage): string {
 		const parts: string[] = [];
 		if (msg.fr || msg.en || msg.kh) {
 			const aLang = (msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (isChet(msg.author) ? 'fr' : 'kh');
@@ -361,8 +359,22 @@
 		} else if (msg.text) {
 			parts.push(msg.text);
 		}
+		return parts.join('\n');
+	}
+
+	async function autoCopy(msg: ChatMessage) {
 		try {
-			await navigator.clipboard.writeText(parts.join('\n'));
+			await navigator.clipboard.writeText(formatMsgForCopy(msg));
+			copyToast = true;
+			setTimeout(() => { copyToast = false; }, 2000);
+		} catch { /* ignore — pas critique */ }
+	}
+
+	async function copySelected() {
+		const msg = messages.find(m => m.id === selectedMsg);
+		if (!msg) return;
+		try {
+			await navigator.clipboard.writeText(formatMsgForCopy(msg));
 			selectedMsg = null;
 			copyToast = true;
 			setTimeout(() => { copyToast = false; }, 2000);
@@ -481,6 +493,7 @@
 			messages = [...messages, msg];
 			await tick();
 			scrollToBottom();
+			void autoCopy(msg);
 		} catch {
 			inputText = text; // restaure si erreur
 			showError(userLang === 'kh' ? '❌ បរាជ័យក្នុងការផ្ញើសារ' : '❌ Échec de l\'envoi');
