@@ -39,6 +39,7 @@
 	let showLessons = $state(false);
 	let showFlashcards = $state(false);
 	let chatXp = $state(0);
+	let speakingMsgId = $state<string | null>(null); // suivi du message en cours de lecture
 	let lessons = $state<LessonEntry[]>([]);
 	let lessonsLoading = $state(false);
 	let pendingLessons = $state<LessonItem[]>([]);
@@ -319,6 +320,8 @@
 		const textMap = { fr: msg.fr || msg.text, en: msg.en || msg.text, kh: msg.kh || msg.text };
 		const text = textMap[lang];
 		if (!text) { selectedMsg = null; return; }
+		
+		const currentId = msg.id;
 		selectedMsg = null;
 
 		// Cache hit → lecture instantanée
@@ -326,6 +329,7 @@
 		if (cached) { await playBase64Pcm(cached).catch(() => {}); return; }
 
 		// Gemini TTS via serveur
+		speakingMsgId = currentId;
 		try {
 			const token = auth.getToken();
 			if (!token) throw new Error('not authenticated');
@@ -346,6 +350,8 @@
 			const utt = new SpeechSynthesisUtterance(text);
 			utt.lang = { fr: 'fr-FR', en: 'en-US', kh: 'km-KH' }[lang];
 			speechSynthesis.speak(utt);
+		} finally {
+			speakingMsgId = null;
 		}
 	}
 
@@ -680,7 +686,8 @@
 				{@const legacy = (msg as unknown as { translation?: string }).translation}
 				{@const aLang = (msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (isChet(msg.author) ? 'fr' : 'kh')}
 				{@const isPending = msg.id.startsWith('temp-')}
-				<div class="bubble-wrapper" class:mine={isMine} class:selected={isSelected} class:is-pending={isPending}>
+				{@const isSpeaking = speakingMsgId === msg.id}
+				<div class="bubble-wrapper" class:mine={isMine} class:selected={isSelected} class:is-pending={isPending || isSpeaking}>
 					{#if isSelected && isMine}
 						<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
 							<button class="act-btn copy" onclick={copySelected} aria-label="Copier">{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}</button>
@@ -700,10 +707,10 @@
 							<span class="author-label">{msg.author}</span>
 						{/if}
 						<div class="bubble" class:mine={isMine}>
-							{#if isPending}
+							{#if isPending || isSpeaking}
 								<div class="magic-loader">
 									<span class="magic-sparkle">✨</span>
-									<span>{userLang === 'kh' ? 'កំពុងកែប្រែ...' : 'Traduction...'}</span>
+									<span>{isSpeaking ? (userLang === 'kh' ? 'កំពុងអាន...' : 'Lecture...') : (userLang === 'kh' ? 'កំពុងកែប្រែ...' : 'Traduction...')}</span>
 								</div>
 							{/if}
 							{#if msg.source === 'audio'}<span class="source-badge">🎤</span>{/if}
