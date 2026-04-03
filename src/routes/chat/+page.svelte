@@ -630,12 +630,16 @@
 				<div class="bubble-wrapper" class:mine={isMine} class:selected={isSelected}>
 					{#if isSelected && isMine}
 						<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
-							<button class="act-btn" onclick={() => speakSelected('fr')} aria-label="FR">🔊🇫🇷</button>
-							<button class="act-btn" onclick={() => speakSelected('en')} aria-label="EN">🔊🇬🇧</button>
-							<button class="act-btn" onclick={() => speakSelected('kh')} aria-label="KH">🔊🇰🇭</button>
-							<button class="act-btn" onclick={copySelected} aria-label="Copier">📋</button>
-							<button class="act-btn delete" onclick={deleteSelected} aria-label="Supprimer">🗑</button>
-							<button class="act-btn close" onclick={() => selectedMsg = null} aria-label="Fermer">✕</button>
+							<button class="act-btn copy" class:copy-kh={userLang === 'kh'} onclick={copySelected} aria-label="Copier">{#if userLang === 'kh'}📋 ចម្លង{:else}<span class="copy-emoji">📋</span><span class="copy-text">Copier</span>{/if}</button>
+							<div class="act-row">
+								<button class="act-btn" onclick={() => speakSelected('fr')} aria-label="FR">🔊🇫🇷</button>
+								<button class="act-btn" onclick={() => speakSelected('en')} aria-label="EN">🔊🇬🇧</button>
+								<button class="act-btn" onclick={() => speakSelected('kh')} aria-label="KH">🔊🇰🇭</button>
+							</div>
+							<div class="act-row">
+								<button class="act-btn delete" onclick={deleteSelected} aria-label="Supprimer">🗑</button>
+								<button class="act-btn close" onclick={() => selectedMsg = null} aria-label="Fermer">✕</button>
+							</div>
 						</div>
 					{/if}
 					<div class="bubble-row" class:mine={isMine} onclick={() => selectMsg(msg.id)} role="button" tabindex="0">
@@ -671,11 +675,15 @@
 					</div>
 					{#if isSelected && !isMine}
 						<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
-							<button class="act-btn" onclick={() => speakSelected('fr')} aria-label="FR">🔊🇫🇷</button>
-							<button class="act-btn" onclick={() => speakSelected('en')} aria-label="EN">🔊🇬🇧</button>
-							<button class="act-btn" onclick={() => speakSelected('kh')} aria-label="KH">🔊🇰🇭</button>
-							<button class="act-btn" onclick={copySelected} aria-label="Copier">📋</button>
-							<button class="act-btn close" onclick={() => selectedMsg = null} aria-label="Fermer">✕</button>
+							<button class="act-btn copy" class:copy-kh={userLang === 'kh'} onclick={copySelected} aria-label="Copier">{#if userLang === 'kh'}📋 ចម្លង{:else}<span class="copy-emoji">📋</span><span class="copy-text">Copier</span>{/if}</button>
+							<div class="act-row">
+								<button class="act-btn" onclick={() => speakSelected('fr')} aria-label="FR">🔊🇫🇷</button>
+								<button class="act-btn" onclick={() => speakSelected('en')} aria-label="EN">🔊🇬🇧</button>
+								<button class="act-btn" onclick={() => speakSelected('kh')} aria-label="KH">🔊🇰🇭</button>
+							</div>
+							<div class="act-row">
+								<button class="act-btn close" onclick={() => selectedMsg = null} aria-label="Fermer">✕</button>
+							</div>
 						</div>
 					{/if}
 				</div>
@@ -1424,7 +1432,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 3px;
+		gap: 4px;
 		animation: fade-in-actions 0.2s ease forwards;
 		flex-shrink: 0;
 	}
@@ -1434,14 +1442,19 @@
 		to   { opacity: 1; transform: scale(1); }
 	}
 
+	.act-row {
+		display: flex;
+		gap: 4px;
+	}
+
 	.act-btn {
-		width: 2rem;
-		height: 2rem;
+		width: 2.6rem;
+		height: 2.6rem;
 		border-radius: var(--radius-full);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 0.8rem;
+		font-size: 1rem;
 		flex-shrink: 0;
 		background: color-mix(in srgb, var(--card) 90%, transparent);
 		backdrop-filter: blur(6px);
@@ -1455,13 +1468,45 @@
 		transform: scale(0.85);
 	}
 
+	.act-btn.copy {
+		width: 2.6rem;
+		height: auto;
+		min-height: 2.6rem;
+		border-radius: var(--radius-xl);
+		padding: var(--space-2) 2px;
+		background: color-mix(in srgb, var(--accent) 12%, var(--card));
+		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+		color: var(--accent);
+		flex-direction: column;
+		gap: 2px;
+	}
+	.act-btn.copy .copy-emoji {
+		font-size: 1rem;
+	}
+	.act-btn.copy .copy-text {
+		writing-mode: vertical-rl;
+		text-orientation: mixed;
+		font-size: 0.65rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+	}
+	.act-btn.copy.copy-kh {
+		width: 5.5rem;
+		height: 2.6rem;
+		min-height: unset;
+		font-size: 0.85rem;
+		flex-direction: row;
+		padding: 0;
+		writing-mode: horizontal-tb;
+	}
+
 	.act-btn.delete {
 		background: color-mix(in srgb, #e53935 12%, var(--card));
 	}
 
 	.act-btn.close {
 		color: var(--muted);
-		font-size: 0.7rem;
+		font-size: 0.85rem;
 	}
 
 	/* ── Toast copie ── */
