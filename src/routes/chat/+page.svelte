@@ -7,6 +7,7 @@
 		fetchLessons, type ChatMessage, type GeminiSuggestion, type LessonEntry, type LessonItem
 	} from '$lib/api';
 	import { getAudioCache, setAudioCache } from '$lib/audioCache';
+	import { getCachedMessages, getCachedXp, setCachedXp } from '$lib/localCache';
 	import FlashcardGame from '$lib/FlashcardGame.svelte';
 	import { getLevel, getAvatar, xpProgressPct } from '$lib/flashcard-levels';
 
@@ -87,9 +88,17 @@
 	}
 
 	async function loadDate() {
-		// Chargement complet (navigation) : remplace toujours
-		loadingMessages = true;
-		messages = [];
+		// Afficher le cache immédiatement si disponible
+		const cached = getCachedMessages(vY, vM, vD) as ChatMessage[] | null;
+		if (cached && cached.length > 0) {
+			messages = cached;
+			await tick();
+			scrollToBottom();
+		} else {
+			messages = [];
+		}
+		// Puis rafraîchir depuis le réseau
+		loadingMessages = !cached?.length;
 		try {
 			const fresh = await fetchMessages(vY, vM, vD);
 			messages = fresh;
@@ -123,12 +132,15 @@
 	});
 
 	async function loadChatXp() {
-		const token = await auth.getToken();
+		// Servir le cache immédiatement
+		const cachedXp = getCachedXp();
+		if (cachedXp !== null) chatXp = cachedXp;
+		const token = auth.getToken();
 		if (!token) return;
 		try {
 			const res = await fetch('/api/flashcards/progress', { headers: { Authorization: `Bearer ${token}` } });
-			if (res.ok) { const p = await res.json(); chatXp = p.xp ?? 0; }
-		} catch { /* silencieux */ }
+			if (res.ok) { const p = await res.json(); chatXp = p.xp ?? 0; setCachedXp(chatXp); }
+		} catch { /* silencieux — le cache sert déjà */ }
 	}
 
 	onMount(() => {

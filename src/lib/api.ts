@@ -1,4 +1,12 @@
 import { auth } from './auth';
+import {
+	getCachedMessages, setCachedMessages,
+	getCachedList, setCachedList, invalidateCachedList,
+	getCachedNote, setCachedNote,
+	getCachedMeta, setCachedMeta,
+	getCachedReactions, setCachedReactions,
+	getCachedLessons, setCachedLessons,
+} from './localCache';
 
 const BASE = '';
 
@@ -37,10 +45,18 @@ const listCache = new Map<string, ListResult>();
 
 export async function listObjects(prefix: string): Promise<ListResult> {
 	if (listCache.has(prefix)) return listCache.get(prefix)!;
-	const res = await apiFetch(`/api/coffre/list?prefix=${encodeURIComponent(prefix)}`);
-	const data: ListResult = await res.json();
-	listCache.set(prefix, data);
-	return data;
+	try {
+		const res = await apiFetch(`/api/coffre/list?prefix=${encodeURIComponent(prefix)}`);
+		const data: ListResult = await res.json();
+		listCache.set(prefix, data);
+		setCachedList(prefix, data);
+		return data;
+	} catch {
+		// Offline / erreur réseau → servir depuis le cache localStorage
+		const cached = getCachedList(prefix) as ListResult | null;
+		if (cached) { listCache.set(prefix, cached); return cached; }
+		return { prefixes: [], items: [] };
+	}
 }
 
 /** Invalide toutes les entrées du cache dont le préfixe commence par `prefix` */
@@ -50,6 +66,7 @@ export function invalidateListCache(prefix: string): void {
 			listCache.delete(key);
 		}
 	}
+	invalidateCachedList(prefix);
 }
 
 export async function signUpload(path: string, contentType: string): Promise<string> {
@@ -88,9 +105,11 @@ export async function uploadFile(
 export async function fetchNote(y: string, m: string, d: string): Promise<string> {
 	try {
 		const res = await apiFetch(`/api/coffre/note?y=${y}&m=${m}&d=${d}`);
-		return res.text();
+		const text = await res.text();
+		setCachedNote(y, m, d, text);
+		return text;
 	} catch {
-		return '';
+		return getCachedNote(y, m, d) ?? '';
 	}
 }
 
@@ -105,9 +124,11 @@ export async function saveNote(y: string, m: string, d: string, text: string): P
 export async function fetchMeta(y: string, m: string, d: string): Promise<Record<string, string>> {
 	try {
 		const res = await apiFetch(`/api/coffre/meta?y=${y}&m=${m}&d=${d}`);
-		return res.json();
+		const data: Record<string, string> = await res.json();
+		setCachedMeta(y, m, d, data);
+		return data;
 	} catch {
-		return {};
+		return getCachedMeta(y, m, d) ?? {};
 	}
 }
 
@@ -131,9 +152,11 @@ export async function fetchReactions(
 ): Promise<Record<string, string[]>> {
 	try {
 		const res = await apiFetch(`/api/coffre/reactions?y=${y}&m=${m}&d=${d}`);
-		return res.json();
+		const data: Record<string, string[]> = await res.json();
+		setCachedReactions(y, m, d, data);
+		return data;
 	} catch {
-		return {};
+		return getCachedReactions(y, m, d) ?? {};
 	}
 }
 
@@ -200,9 +223,12 @@ export interface GeminiSuggestion {
 export async function fetchMessages(y: string, m: string, d: string): Promise<ChatMessage[]> {
 	try {
 		const res = await apiFetch(`/api/chat/messages?y=${y}&m=${m}&d=${d}`);
-		return res.json();
+		const msgs: ChatMessage[] = await res.json();
+		setCachedMessages(y, m, d, msgs);
+		return msgs;
 	} catch {
-		return [];
+		const cached = getCachedMessages(y, m, d) as ChatMessage[] | null;
+		return cached ?? [];
 	}
 }
 
@@ -234,9 +260,11 @@ export interface LessonEntry {
 export async function fetchLessons(): Promise<LessonEntry[]> {
 	try {
 		const res = await apiFetch('/api/chat/lessons');
-		return res.json();
+		const data: LessonEntry[] = await res.json();
+		setCachedLessons(data);
+		return data;
 	} catch {
-		return [];
+		return (getCachedLessons() as LessonEntry[] | null) ?? [];
 	}
 }
 

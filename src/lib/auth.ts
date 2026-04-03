@@ -1,5 +1,6 @@
 import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
+import { setCachedUser, getCachedUser, clearCachedUser, clearAllCache } from './localCache';
 
 export interface User {
 	name: string;
@@ -86,13 +87,15 @@ function initGsi(callback: (response: GoogleCredentialResponse) => void): void {
 function handleCredential(response: GoogleCredentialResponse): void {
 	const jwt = response.credential;
 	const payload = parseJwt(jwt);
-	userStore.set({
+	const user = {
 		name: payload['name'] as string,
 		email: payload['email'] as string,
 		picture: payload['picture'] as string
-	});
+	};
+	userStore.set(user);
 	tokenStore.set(jwt);
 	sessionStorage.setItem('chetlys_token', jwt);
+	setCachedUser(user);
 	startExpiryWatch();
 }
 
@@ -124,12 +127,14 @@ export const auth = {
 			const payload = parseJwt(saved);
 			const exp = (payload['exp'] as number) * 1000;
 			if (exp > Date.now()) {
-				userStore.set({
+				const user = {
 					name: payload['name'] as string,
 					email: payload['email'] as string,
 					picture: payload['picture'] as string
-				});
+				};
+				userStore.set(user);
 				tokenStore.set(saved);
+				setCachedUser(user);
 				startExpiryWatch();
 				authReadyStore.set(true);
 				return;
@@ -137,7 +142,14 @@ export const auth = {
 				sessionStorage.removeItem('chetlys_token');
 			}
 		}
-		// Try silent auto-select
+		// Token expiré / absent mais user connu en cache → restaurer le profil
+		// pour afficher les données cachées immédiatement (sans token, les API
+		// réseau échoueront et le cache sera servi)
+		const cached = getCachedUser();
+		if (cached) {
+			userStore.set({ name: cached.name, email: cached.email, picture: cached.picture });
+		}
+		// Try silent auto-select (récupère un vrai token si possible)
 		await loadGsiScript();
 		initGsi(handleCredential);
 		window.google!.accounts.id.prompt();
@@ -174,6 +186,8 @@ export const auth = {
 		userStore.set(null);
 		tokenStore.set(null);
 		sessionStorage.removeItem('chetlys_token');
+		clearCachedUser();
+		clearAllCache();
 		stopExpiryWatch();
 	},
 
@@ -183,6 +197,8 @@ export const auth = {
 		tokenStore.set(null);
 		sessionStorage.removeItem('chetlys_token');
 		stopExpiryWatch();
+		// On garde le cache localStorage — le user pourra revoir les données cachées
+		// après re-login silencieux (auto_select)
 	},
 
 	getToken(): string | null {
