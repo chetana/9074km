@@ -41,31 +41,21 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
 	return res;
 }
 
-const listCache = new Map<string, ListResult>();
-
 export async function listObjects(prefix: string): Promise<ListResult> {
-	if (listCache.has(prefix)) return listCache.get(prefix)!;
 	try {
 		const res = await apiFetch(`/api/coffre/list?prefix=${encodeURIComponent(prefix)}`);
 		const data: ListResult = await res.json();
-		listCache.set(prefix, data);
 		setCachedList(prefix, data);
 		return data;
 	} catch {
 		// Offline / erreur réseau → servir depuis le cache localStorage
 		const cached = getCachedList(prefix) as ListResult | null;
-		if (cached) { listCache.set(prefix, cached); return cached; }
-		return { prefixes: [], items: [] };
+		return cached ?? { prefixes: [], items: [] };
 	}
 }
 
 /** Invalide toutes les entrées du cache dont le préfixe commence par `prefix` */
 export function invalidateListCache(prefix: string): void {
-	for (const key of listCache.keys()) {
-		if (key.startsWith(prefix) || prefix.startsWith(key)) {
-			listCache.delete(key);
-		}
-	}
 	invalidateCachedList(prefix);
 }
 
@@ -96,7 +86,7 @@ export async function uploadFile(
 ): Promise<void> {
 	const res = await fetch(signedUrl, {
 		method: 'PUT',
-		body: bytes,
+		body: bytes as any,
 		headers: { 'Content-Type': contentType }
 	});
 	if (!res.ok) throw new Error(`Upload failed: ${res.status}`);

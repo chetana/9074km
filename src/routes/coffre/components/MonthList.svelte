@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { listObjects } from '$lib/api';
+	import { listObjects, getCachedList } from '$lib/api';
 	import { MONTHS_FR, MONTHS_KH } from '$lib/i18n';
+	import { createSWR } from '$lib/swr.svelte';
 
 	interface Props {
 		year: string;
@@ -12,53 +12,57 @@
 
 	interface MonthEntry { mm: string; label: string; dayCount: number | null }
 
-	let items = $state<MonthEntry[] | null>(null);
-	let error = $state<string | null>(null);
-
 	function monthLabel(mm: string) {
 		const idx = parseInt(mm, 10) - 1;
 		return `${mm} — ${MONTHS_FR[idx]} · ${MONTHS_KH[idx]}`;
 	}
 
-	async function load() {
-		error = null;
-		items = null;
-		try {
-			const result = await listObjects(`${year}/`);
-			const months = result.prefixes
-				.map((p) => p.replace(`${year}/`, '').replace('/', ''))
-				.filter((p) => /^\d{2}$/.test(p))
-				.sort((a, b) => Number(b) - Number(a));
+	// SWR pour la liste des mois de cette année
+	const swr = createSWR(
+		`months_${year}`,
+		() => getCachedList(`${year}/`),
+		() => listObjects(`${year}/`),
+		{ prefixes: [], items: [] }
+	);
 
-			// Afficher immédiatement les lignes sans les counts
-			items = months.map((mm) => ({ mm, label: monthLabel(mm), dayCount: null }));
+	// Derived state pour les mois
+	let months = $derived(
+		swr.data.prefixes
+			.map((p) => p.replace(`${year}/`, '').replace('/', ''))
+			.filter((p) => /^\d{2}$/.test(p))
+			.sort((a, b) => Number(b) - Number(a))
+	);
 
-			// Charger les counts en lazy
-			months.forEach(async (mm, i) => {
-				try {
-					const r = await listObjects(`${year}/${mm}/`);
-					items = items!.map((item, j) =>
-						j === i ? { ...item, dayCount: r.prefixes.length } : item
-					);
-				} catch { /* count reste null */ }
-			});
-		} catch (e) {
-			error = String(e);
-		}
-	}
+	let items = $state<MonthEntry[]>([]);
+	let error = $derived(swr.error ? String(swr.error) : null);
 
-	onMount(load);
+	// Sync items quand months change
+	$effect(() => {
+		items = months.map(mm => {
+			const existing = items.find(it => it.mm === mm);
+			return { mm, label: monthLabel(mm), dayCount: existing?.dayCount ?? null };
+		});
+
+		// Charger les counts en lazy
+		months.forEach(async (mm, i) => {
+			if (items[i]?.dayCount !== null) return;
+			try {
+				const r = await listObjects(`${year}/${mm}/`);
+				if (items[i]) items[i].dayCount = r.prefixes.length;
+			} catch { /* count reste null */ }
+		});
+	});
 </script>
 
 <div class="list">
-	{#if items === null && !error}
+	{#if swr.loading && items.length === 0}
 		{#each [1,2,3] as _}
 			<div class="skeleton"></div>
 		{/each}
 	{:else if error}
 		<div class="error">
 			<p>Erreur de chargement</p>
-			<button onclick={load}>Réessayer</button>
+			<button onclick={() => swr.refresh()}>Réessayer</button>
 		</div>
 	{:else if items && items.length === 0}
 		<div class="empty">Aucun mois disponible</div>

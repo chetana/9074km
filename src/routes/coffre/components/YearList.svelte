@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { listObjects } from '$lib/api';
+	import { listObjects, getCachedList } from '$lib/api';
+	import { createSWR } from '$lib/swr.svelte';
 
 	interface Props {
 		onSelect: (year: string) => void;
@@ -10,58 +10,53 @@
 
 	interface YearEntry { year: string; monthCount: number | null }
 
-	let items = $state<YearEntry[] | null>(null);
-	let error = $state<string | null>(null);
+	// SWR pour la liste racine (les années)
+	const swr = createSWR(
+		'root_years',
+		() => getCachedList(''),
+		() => listObjects(''),
+		{ prefixes: [], items: [] }
+	);
 
-	async function load() {
-		error = null;
-		items = null;
-		try {
-			const result = await listObjects('');
-			const years = result.prefixes
-				.map((p) => p.replace('/', ''))
-				.filter((p) => /^\d{4}$/.test(p))
-				.sort((a, b) => Number(b) - Number(a));
+	// Derived state for the years list
+	let years = $derived(
+		swr.data.prefixes
+			.map((p) => p.replace('/', ''))
+			.filter((p) => /^\d{4}$/.test(p))
+			.sort((a, b) => Number(b) - Number(a))
+	);
 
-			// Afficher immédiatement les lignes sans les counts
-			items = years.map((year) => ({ year, monthCount: null }));
+	// On utilise un state local pour enrichir avec les counts (monthCount)
+	let items = $state<YearEntry[]>([]);
+	let error = $derived(swr.error ? String(swr.error) : null);
 
-			// Charger les counts en lazy
-			years.forEach(async (y, i) => {
-				try {
-					const r = await listObjects(`${y}/`);
-					items = items!.map((item, j) =>
-						j === i ? { ...item, monthCount: r.prefixes.length } : item
-					);
-				} catch { /* count reste null */ }
-			});
-
-			// Précharger les mois + jours de l'année la plus récente en arrière-plan
-			if (years[0]) {
-				listObjects(`${years[0]}/`).then((r) => {
-					r.prefixes.forEach((p) => {
-						const mm = p.replace(`${years[0]}/`, '').replace('/', '');
-						listObjects(`${years[0]}/${mm}/`).catch(() => {});
-					});
-				}).catch(() => {});
-			}
-		} catch (e) {
-			error = String(e);
-		}
-	}
-
-	onMount(load);
+	// Synchronise items quand years change
+	$effect(() => {
+		items = years.map(y => {
+			const existing = items.find(it => it.year === y);
+			return { year: y, monthCount: existing?.monthCount ?? null };
+		});
+		
+		// Charger les counts en lazy (si pas déjà là)
+		years.forEach(async (y, i) => {
+			if (items[i]?.monthCount !== null) return;
+			try {
+				const r = await listObjects(`${y}/`);
+				if (items[i]) items[i].monthCount = r.prefixes.length;
+			} catch { /* count reste null */ }
+		});
+	});
 </script>
 
 <div class="list">
-	{#if items === null && !error}
+	{#if swr.loading && items.length === 0}
 		{#each [1,2,3] as _}
 			<div class="skeleton"></div>
 		{/each}
 	{:else if error}
 		<div class="error">
 			<p>Erreur de chargement</p>
-			<button onclick={load}>Réessayer</button>
+			<button onclick={() => swr.refresh()}>Réessayer</button>
 		</div>
 	{:else if items && items.length === 0}
 		<div class="empty">Aucune photo pour l'instant 🌸</div>

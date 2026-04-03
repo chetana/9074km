@@ -1,7 +1,6 @@
-<script lang="ts">
-	import { onMount } from 'svelte';
-	import { listObjects, isMediaFile } from '$lib/api';
+	import { listObjects, isMediaFile, getCachedList } from '$lib/api';
 	import { DAYS_FR, DAYS_KH, MONTHS_FR } from '$lib/i18n';
+	import { createSWR } from '$lib/swr.svelte';
 
 	interface Props {
 		year: string;
@@ -13,9 +12,6 @@
 
 	interface DayEntry { dd: string; label: string; fileCount: number | null }
 
-	let items = $state<DayEntry[] | null>(null);
-	let error = $state<string | null>(null);
-
 	function dayLabel(dd: string): string {
 		const d = new Date(`${year}-${month}-${dd}T12:00:00`);
 		const dow = (d.getDay() + 6) % 7;
@@ -23,46 +19,54 @@
 		return `${DAYS_FR[dow]} · ${DAYS_KH[dow]} — ${dd} ${monthName}`;
 	}
 
-	async function load() {
-		error = null;
-		items = null;
-		try {
-			const result = await listObjects(`${year}/${month}/`);
-			const days = result.prefixes
-				.map((p) => p.replace(`${year}/${month}/`, '').replace('/', ''))
-				.filter((p) => /^\d{2}$/.test(p))
-				.sort((a, b) => Number(b) - Number(a));
+	// SWR pour la liste des jours de ce mois
+	const swr = createSWR(
+		`days_${year}_${month}`,
+		() => getCachedList(`${year}/${month}/`),
+		() => listObjects(`${year}/${month}/`),
+		{ prefixes: [], items: [] }
+	);
 
-			// Afficher immédiatement les lignes sans les counts
-			items = days.map((dd) => ({ dd, label: dayLabel(dd), fileCount: null }));
+	// Derived state pour les jours
+	let days = $derived(
+		swr.data.prefixes
+			.map((p) => p.replace(`${year}/${month}/`, '').replace('/', ''))
+			.filter((p) => /^\d{2}$/.test(p))
+			.sort((a, b) => Number(b) - Number(a))
+	);
 
-			// Charger les counts en lazy
-			days.forEach(async (dd, i) => {
-				try {
-					const r = await listObjects(`${year}/${month}/${dd}/`);
-					const count = r.items.filter((item) => isMediaFile(item.name)).length;
-					items = items!.map((item, j) =>
-						j === i ? { ...item, fileCount: count } : item
-					);
-				} catch { /* count reste null */ }
-			});
-		} catch (e) {
-			error = String(e);
-		}
-	}
+	let items = $state<DayEntry[]>([]);
+	let error = $derived(swr.error ? String(swr.error) : null);
 
-	onMount(load);
+	// Sync items quand days change
+	$effect(() => {
+		items = days.map(dd => {
+			const existing = items.find(it => it.dd === dd);
+			return { dd, label: dayLabel(dd), fileCount: existing?.fileCount ?? null };
+		});
+
+		// Charger les counts en lazy
+		const currentItems = items;
+		days.forEach(async (dd, i) => {
+			if (currentItems[i]?.fileCount !== null) return;
+			try {
+				const r = await listObjects(`${year}/${month}/${dd}/`);
+				const count = r.items.filter((item) => isMediaFile(item.name)).length;
+				if (currentItems[i]) currentItems[i].fileCount = count;
+			} catch { /* count reste null */ }
+		});
+	});
 </script>
 
 <div class="list">
-	{#if items === null && !error}
+	{#if swr.loading && items.length === 0}
 		{#each [1,2,3,4] as _}
 			<div class="skeleton"></div>
 		{/each}
 	{:else if error}
 		<div class="error">
 			<p>Erreur de chargement</p>
-			<button onclick={load}>Réessayer</button>
+			<button onclick={() => swr.refresh()}>Réessayer</button>
 		</div>
 	{:else if items && items.length === 0}
 		<div class="empty">Aucun jour disponible</div>

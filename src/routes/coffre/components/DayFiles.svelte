@@ -15,8 +15,13 @@
 		isMediaFile,
 		invalidateListCache,
 		previewUrl as buildShareUrl,
+		getCachedList,
+		getCachedNote,
+		getCachedMeta,
+		getCachedReactions,
 		type CoffreItem
 	} from '$lib/api';
+	import { createSWR } from '$lib/swr.svelte';
 	import { compressImage } from '$lib/compressor';
 	import { generateVideoThumbnail } from '$lib/thumbnailer';
 	import { Semaphore } from '$lib/semaphore';
@@ -42,12 +47,50 @@
 	let { year, month, day, initialFile, onDayChange, onDateChange, onCountChange }: Props = $props();
 
 	// --- State ---
-	let items = $state<CoffreItem[] | null>(null);
-	let days = $state<string[]>([]);
-	let dayCounts = $state<Record<string, number>>({});
+	// --- SWR Hooks ---
+	const prefix = $derived(`${year}/${month}/${day}/`);
+
+	const swrItems = createSWR(
+		`items_${prefix}`,
+		() => getCachedList(prefix),
+		() => listObjects(prefix),
+		{ prefixes: [], items: [] }
+	);
+
+	const swrNote = createSWR(
+		`note_${year}_${month}_${day}`,
+		() => getCachedNote(year, month, day),
+		() => fetchNote(year, month, day),
+		''
+	);
+
+	const swrMeta = createSWR(
+		`meta_${year}_${month}_${day}`,
+		() => getCachedMeta(year, month, day),
+		() => fetchMeta(year, month, day),
+		{}
+	);
+
+	const swrReactions = createSWR(
+		`react_${year}_${month}_${day}`,
+		() => getCachedReactions(year, month, day),
+		() => fetchReactions(year, month, day),
+		{}
+	);
+
+	// --- Local writable state (initialisé via SWR) ---
 	let note = $state('');
 	let meta = $state<Record<string, string>>({});
 	let reactions = $state<Record<string, string[]>>({});
+
+	// Sync local state when SWR updates (important for editing)
+	$effect(() => { note = swrNote.data; });
+	$effect(() => { meta = swrMeta.data; });
+	$effect(() => { reactions = swrReactions.data; });
+
+	let items = $derived(swrItems.data.items);
+	let days = $state<string[]>([]);
+	let dayCounts = $state<Record<string, number>>({});
 	let columns = $state(2);
 	let selectionMode = $state(false);
 	let selected = $state(new Set<string>());
@@ -84,26 +127,24 @@
 	});
 
 	// --- Load data ---
-	async function loadAll() {
-		items = null;
-		const [itemsRes, noteRes, metaRes, reactionsRes] = await Promise.all([
-			listObjects(prefix),
-			fetchNote(year, month, day).catch(() => ''),
-			fetchMeta(year, month, day).catch(() => ({})),
-			fetchReactions(year, month, day).catch(() => ({}))
+	// --- Load data ---
+	async function refreshAll() {
+		await Promise.all([
+			swrItems.refresh(),
+			swrNote.refresh(),
+			swrMeta.refresh(),
+			swrReactions.refresh()
 		]);
-		items = itemsRes.items;
-		note = noteRes;
-		meta = metaRes;
-		reactions = reactionsRes;
+	}
 
-		// Handle deep link after first load
-		if (!deepLinkHandled && initialFile) {
+	$effect(() => {
+		// Handle deep link after items are loaded
+		if (!deepLinkHandled && initialFile && items.length > 0) {
 			deepLinkHandled = true;
 			const idx = mediaItems.findIndex((i) => i.name.endsWith(initialFile));
 			if (idx >= 0) viewerIndex = idx;
 		}
-	}
+	});
 
 	async function loadDays() {
 		const res = await listObjects(`${year}/${month}/`);
@@ -132,10 +173,8 @@
 	$effect(() => {
 		const _day = day;
 		if (gridEl) scrollMemory.set(_day, 0); // reset on new day
-		loadAll().then(() => {
-			const saved = scrollMemory.get(_day) ?? 0;
-			if (gridEl) gridEl.scrollTop = saved;
-		});
+		const saved = scrollMemory.get(_day) ?? 0;
+		if (gridEl) gridEl.scrollTop = saved;
 	});
 
 	function onGridScroll() {
@@ -168,7 +207,7 @@
 
 	function onGridTouchEnd(e: TouchEvent) {
 		if (isPulling && pullDist >= PULL_THRESHOLD) {
-			loadAll();
+			refreshAll();
 		}
 		isPulling = false;
 		pullDist = 0;
@@ -329,7 +368,7 @@
 		if (upY !== year || upM !== month || upD !== day) {
 			onDateChange(upY, upM, upD);
 		} else {
-			loadAll();
+			refreshAll();
 		}
 	}
 
@@ -345,7 +384,7 @@
 		await Promise.all(names.map((name) => deleteObject(name)));
 		invalidateListCache(`${year}/${month}/${day}/`);
 		clearSelection();
-		loadAll();
+		refreshAll();
 	}
 
 	// --- Note ---
@@ -453,10 +492,10 @@
 		onscroll={onGridScroll}
 		ontouchstart={(e) => { onGridTouchStart(e); onGridPinchStart(e); }}
 		ontouchmove={(e) => { onGridTouchMove(e); onGridPinchMove(e); }}
-		ontouchend={(e) => { onGridTouchEnd(); onGridPinchEnd(); }}
-		ontouchcancel={(e) => { onGridTouchEnd(); onGridPinchEnd(); }}
+		ontouchend={(e) => { onGridTouchEnd(e); onGridPinchEnd(); }}
+		ontouchcancel={(e) => { onGridTouchEnd(e); onGridPinchEnd(); }}
 	>
-		{#if items === null}
+		{#if swrItems.loading && items.length === 0}
 			<!-- Skeleton -->
 			{#each [1,2,3,4,5,6] as _}
 				<div class="skeleton"></div>

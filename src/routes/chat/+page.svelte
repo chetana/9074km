@@ -8,6 +8,7 @@
 	} from '$lib/api';
 	import { getAudioCache, setAudioCache } from '$lib/audioCache';
 	import { getCachedMessages, getCachedXp, setCachedXp } from '$lib/localCache';
+	import { createSWR } from '$lib/swr.svelte';
 	import FlashcardGame from '$lib/FlashcardGame.svelte';
 	import { getLevel, getAvatar, xpProgressPct } from '$lib/flashcard-levels';
 
@@ -18,7 +19,32 @@
 	const D = String(today.getDate()).padStart(2, '0');
 
 	// ── État ─────────────────────────────────────────────────────────────
-	let messages = $state<ChatMessage[]>([]);
+	// --- SWR Hooks ---
+	const swrMessages = createSWR(
+		() => `chat_${vY}_${vM}_${vD}`,
+		() => getCachedMessages(vY, vM, vD) as ChatMessage[] | null,
+		() => fetchMessages(vY, vM, vD),
+		[] as ChatMessage[]
+	);
+
+	const swrXp = createSWR(
+		() => 'chat_xp',
+		() => getCachedXp(),
+		async () => {
+			const token = auth.getToken();
+			if (!token) return getCachedXp() ?? 0;
+			const res = await fetch('/api/flashcards/progress', { headers: { Authorization: `Bearer ${token}` } });
+			if (res.ok) { const p = await res.json(); setCachedXp(p.xp ?? 0); return p.xp ?? 0; }
+			return getCachedXp() ?? 0;
+		},
+		0
+	);
+
+	// --- Public State ---
+	let messages = $derived.by(() => swrMessages.data);
+	let chatXp = $derived.by(() => swrXp.data);
+	let loadingMessages = $derived(swrMessages.loading && messages.length === 0);
+
 	let inputText = $state('');
 	let sending = $state(false);
 	let suggestion = $state<GeminiSuggestion | null>(null);
@@ -35,10 +61,8 @@
 	let selectedMsg = $state<string | null>(null);
 	let viewOffset = $state(0);       // 0 = aujourd'hui, -1 = hier, etc.
 	let isOnline = $state(true);
-	let loadingMessages = $state(false);
 	let showLessons = $state(false);
 	let showFlashcards = $state(false);
-	let chatXp = $state(0);
 	let speakingMsgId = $state<string | null>(null); // suivi du message en cours de lecture
 	let lessons = $state<LessonEntry[]>([]);
 	let lessonsLoading = $state(false);
@@ -77,44 +101,9 @@
 		viewDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 	);
 
-	// ── Chargement & polling ──────────────────────────────────────────────
-	async function loadMessages() {
-		// Polling léger : ne remplace que si nouveaux messages (aujourd'hui uniquement)
-		const fresh = await fetchMessages(vY, vM, vD);
-		if (fresh.length !== messages.length) {
-			messages = fresh;
-			await tick();
-			scrollToBottom();
-		}
-	}
-
-	async function loadDate() {
-		// Afficher le cache immédiatement si disponible
-		const cached = getCachedMessages(vY, vM, vD) as ChatMessage[] | null;
-		if (cached && cached.length > 0) {
-			messages = cached;
-			await tick();
-			// On scroll tout en bas instantanément pour le cache
-			scrollToBottom('auto');
-			// Petit délai pour compenser le rendu des images si elles sont déjà en mémoire
-			setTimeout(() => scrollToBottom('auto'), 50);
-		} else {
-			messages = [];
-		}
-		// Puis rafraîchir depuis le réseau
-		loadingMessages = !cached?.length;
-		try {
-			const fresh = await fetchMessages(vY, vM, vD);
-			messages = fresh;
-			await tick();
-			scrollToBottom();
-		} finally {
-			loadingMessages = false;
-		}
-	}
-
-	function prevDay() { viewOffset--; void loadDate(); }
-	function nextDay() { if (!isToday) { viewOffset++; void loadDate(); } }
+	// --- Date Navigation ---
+	function prevDay() { viewOffset--; }
+	function nextDay() { if (!isToday) viewOffset++; }
 
 	function scrollToBottom(behavior: ScrollBehavior = 'auto') {
 		if (listEl) {
@@ -124,36 +113,24 @@
 
 	let pollInterval: ReturnType<typeof setInterval>;
 
-	// Déclenche le premier chargement dès que l'auth est prête (évite la race condition
-	// entre auth.init() dans le layout et loadDate() qui appelle auth.getToken())
-	let chatInitialized = false;
+	// Auto-scroll when messages change or date changes
 	$effect(() => {
-		if ($user && !chatInitialized) {
-			chatInitialized = true;
-			void loadDate();
-			void loadChatXp();
-		} else if (!$user) {
-			chatInitialized = false;
-		}
+		const msgCount = messages.length;
+		const dateKey = `${vY}_${vM}_${vD}`;
+		tick().then(() => {
+			scrollToBottom('auto');
+			// Re-scroll après un petit délai pour les images
+			setTimeout(() => scrollToBottom('auto'), 50);
+		});
 	});
 
-	async function loadChatXp() {
-		// Servir le cache immédiatement
-		const cachedXp = getCachedXp();
-		if (cachedXp !== null) chatXp = cachedXp;
-		const token = auth.getToken();
-		if (!token) return;
-		try {
-			const res = await fetch('/api/flashcards/progress', { headers: { Authorization: `Bearer ${token}` } });
-			if (res.ok) { const p = await res.json(); chatXp = p.xp ?? 0; setCachedXp(chatXp); }
-		} catch { /* silencieux — le cache sert déjà */ }
-	}
+
 
 	onMount(() => {
 		isOnline = navigator.onLine;
 		window.addEventListener('online', () => { isOnline = true; });
 		window.addEventListener('offline', () => { isOnline = false; });
-		pollInterval = setInterval(() => { if (isToday) void loadMessages(); }, 8000);
+		pollInterval = setInterval(() => { if (isToday) swrMessages.refresh(); }, 8000);
 	});
 	onDestroy(() => { clearInterval(pollInterval); stopRecording(); });
 
@@ -254,7 +231,7 @@
 			await uploadFile(signedUrl, bytes, contentType);
 			invalidateListCache(Y + '/' + M + '/' + D + '/');
 			const msg = await sendMessage(Y, M, D, firstName, '', { fr: '', en: '', kh: '' }, path);
-			messages = [...messages, msg];
+			swrMessages.data = [...swrMessages.data, msg];
 			await tick();
 			scrollToBottom();
 		} catch {
@@ -274,7 +251,7 @@
 		selectedMsg = null;
 		try {
 			await deleteMessage(Y, M, D, id);
-			messages = messages.filter(m => m.id !== id);
+			swrMessages.data = swrMessages.data.filter(m => m.id !== id);
 		} catch {
 			selectedMsg = id; // restaure si erreur
 		}
@@ -382,7 +359,7 @@
 	}
 
 	async function copySelected() {
-		const msg = messages.find(m => m.id === selectedMsg);
+		const msg = (swrMessages.data ?? []).find(m => m.id === selectedMsg);
 		if (!msg) return;
 		try {
 			await navigator.clipboard.writeText(formatMsgForCopy(msg));
@@ -424,8 +401,8 @@
 		if (samples.length < 16000 * 0.8) return; // < 0.8s → bruit court, ignorer
 		transcribing = true;
 
-		// Optimistic UI : Ajoute une bulle temporaire
-		const tempId = 'temp-' + Date.now();
+		// --- OPTIMISTIC UI : Ajout immédiat d'une bulle temporaire ---
+		const tempId = `temp-${Date.now()}`;
 		const tempMsg: ChatMessage = {
 			id: tempId,
 			author: firstName,
@@ -434,7 +411,7 @@
 			ts: new Date().toISOString(),
 			source: 'audio'
 		};
-		messages = [...messages, tempMsg];
+		swrMessages.data = [...(swrMessages.data ?? []), tempMsg];
 		await tick();
 		scrollToBottom();
 
@@ -443,14 +420,14 @@
 			const base64 = arrayBufferToBase64(await wav.arrayBuffer());
 			const result = await transcribeAudio(base64, 'audio/wav');
 			if (!result.text.trim()) {
-				messages = messages.filter(m => m.id !== tempId);
+				swrMessages.data = swrMessages.data.filter(m => m.id !== tempId);
 				return;
 			}
 			const msg = await sendMessage(Y, M, D, firstName, result.text, { fr: result.fr, en: result.en, kh: result.kh }, undefined, 'audio');
 			// Remplace la bulle temporaire
-			messages = messages.map(m => m.id === tempId ? msg : m);
+			swrMessages.data = swrMessages.data.map(m => m.id === tempId ? msg : m);
 		} catch {
-			messages = messages.filter(m => m.id !== tempId);
+			swrMessages.data = swrMessages.data.filter(m => m.id !== tempId);
 			showError(userLang === 'kh' ? '❌ ការចំលងសម្លេងបានបរាជ័យ' : '❌ Échec de la transcription');
 		} finally {
 			transcribing = false;
@@ -513,7 +490,7 @@
 			kh: suggestion?.kh || '',
 			ts: new Date().toISOString()
 		};
-		messages = [...messages, tempMsg];
+		swrMessages.data = [...swrMessages.data, tempMsg];
 		await tick();
 		scrollToBottom();
 
@@ -535,11 +512,11 @@
 		try {
 			const msg = await sendMessage(Y, M, D, firstName, text, translations);
 			// Remplace la bulle temporaire par le message final (avec ID réel et corrections)
-			messages = messages.map(m => m.id === tempId ? msg : m);
+			swrMessages.data = swrMessages.data.map(m => m.id === tempId ? msg : m);
 			void autoCopy(msg);
 		} catch {
 			// Supprime la bulle temporaire et restaure l'input
-			messages = messages.filter(m => m.id !== tempId);
+			swrMessages.data = swrMessages.data.filter(m => m.id !== tempId);
 			inputText = text;
 			showError(userLang === 'kh' ? '❌ បរាជ័យក្នុងការផ្ញើសារ' : '❌ Échec de l\'envoi');
 		} finally {
