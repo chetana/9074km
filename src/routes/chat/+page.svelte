@@ -260,10 +260,6 @@
 
 	async function selectMsg(id: string) {
 		selectedMsg = selectedMsg === id ? null : id;
-		if (selectedMsg) {
-			await tick();
-			scrollToBottom();
-		}
 	}
 
 	async function deleteSelected() {
@@ -661,28 +657,28 @@
 						<span class="bubble-time">🇫🇷 {fmtTime(msg.ts)} · 🇰🇭 {fmtTimeKH(msg.ts)}</span>
 					</div>
 				</div>
-			{/each}
-
-			<!-- ── Actions (copier / supprimer / écouter) — inline dans la liste ── -->
-			{#if selectedMsg}
-				{@const selMsg = messages.find(m => m.id === selectedMsg)}
-				<div class="action-bar">
-					<button class="action-btn copy" onclick={copySelected}>
-						{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}
-					</button>
-					<div class="action-row-icons">
-						<button class="action-icon listen" onclick={() => speakSelected('fr')} aria-label="Écouter FR">🔊🇫🇷</button>
-						<button class="action-icon listen" onclick={() => speakSelected('en')} aria-label="Écouter EN">🔊🇬🇧</button>
-						<button class="action-icon listen" onclick={() => speakSelected('kh')} aria-label="Écouter KH">🔊🇰🇭</button>
-						{#if selMsg?.author === firstName}
-							<span class="action-sep"></span>
-							<button class="action-icon delete" onclick={deleteSelected} aria-label="Supprimer">🗑</button>
-						{/if}
-						<span class="action-sep"></span>
-						<button class="action-icon close" onclick={() => selectedMsg = null} aria-label="Fermer">✕</button>
+				<!-- ── Action bar inline juste sous la bulle sélectionnée ── -->
+				{#if selectedMsg === msg.id}
+					<div class="action-bar-inline" class:mine={isMine}>
+						<div class="action-bar-inner">
+							<button class="action-btn copy" onclick={copySelected}>
+								{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}
+							</button>
+							<div class="action-row-icons">
+								<button class="action-icon listen" onclick={() => speakSelected('fr')} aria-label="Écouter FR">🔊🇫🇷</button>
+								<button class="action-icon listen" onclick={() => speakSelected('en')} aria-label="Écouter EN">🔊🇬🇧</button>
+								<button class="action-icon listen" onclick={() => speakSelected('kh')} aria-label="Écouter KH">🔊🇰🇭</button>
+								{#if msg.author === firstName}
+									<span class="action-sep"></span>
+									<button class="action-icon delete" onclick={deleteSelected} aria-label="Supprimer">🗑</button>
+								{/if}
+								<span class="action-sep"></span>
+								<button class="action-icon close" onclick={() => selectedMsg = null} aria-label="Fermer">✕</button>
+							</div>
+						</div>
 					</div>
-				</div>
-			{/if}
+				{/if}
+			{/each}
 		</div>
 
 		<!-- ── Toast copie ── -->
@@ -1399,25 +1395,32 @@
 		outline-offset: 2px;
 	}
 
-	.action-bar {
+	.action-bar-inline {
+		display: grid;
+		grid-template-rows: 0fr;
+		opacity: 0;
+		animation: expand-bar 0.25s ease forwards;
+		padding: 0 var(--space-4);
+	}
+	.action-bar-inline.mine {
+		padding: 0 var(--space-4) 0 auto;
+	}
+	.action-bar-inner {
+		overflow: hidden;
 		background: color-mix(in srgb, var(--card) 95%, transparent);
 		backdrop-filter: blur(8px);
 		-webkit-backdrop-filter: blur(8px);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-xl);
 		padding: var(--space-2) var(--space-3);
-		animation: slide-up 0.2s ease;
-		position: sticky;
-		bottom: 0;
-		flex-shrink: 0;
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
 	}
 
-	@keyframes slide-up {
-		from { opacity: 0; transform: translateY(6px); }
-		to   { opacity: 1; transform: translateY(0); }
+	@keyframes expand-bar {
+		from { grid-template-rows: 0fr; opacity: 0; }
+		to   { grid-template-rows: 1fr; opacity: 1; }
 	}
 
 	/* Ligne 1 : Copier pleine largeur */
