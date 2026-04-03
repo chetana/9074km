@@ -624,60 +624,61 @@
 
 			{#each messages as msg (msg.id)}
 				{@const isMine = msg.author === firstName}
+				{@const isSelected = selectedMsg === msg.id}
 				{@const legacy = (msg as unknown as { translation?: string }).translation}
 				{@const aLang = (msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (isChet(msg.author) ? 'fr' : 'kh')}
-				<div class="bubble-row" class:mine={isMine} class:selected={selectedMsg === msg.id} onclick={() => selectMsg(msg.id)} role="button" tabindex="0">
-					{#if !isMine}
-						<span class="author-label">{msg.author}</span>
+				<div class="bubble-wrapper" class:mine={isMine} class:selected={isSelected}>
+					{#if isSelected && isMine}
+						<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
+							<button class="act-btn" onclick={() => speakSelected('fr')} aria-label="FR">🔊🇫🇷</button>
+							<button class="act-btn" onclick={() => speakSelected('en')} aria-label="EN">🔊🇬🇧</button>
+							<button class="act-btn" onclick={() => speakSelected('kh')} aria-label="KH">🔊🇰🇭</button>
+							<button class="act-btn" onclick={copySelected} aria-label="Copier">📋</button>
+							<button class="act-btn delete" onclick={deleteSelected} aria-label="Supprimer">🗑</button>
+							<button class="act-btn close" onclick={() => selectedMsg = null} aria-label="Fermer">✕</button>
+						</div>
 					{/if}
-					<div class="bubble" class:mine={isMine}>
-						{#if msg.source === 'audio'}<span class="source-badge">🎤</span>{/if}
-						{#if msg.image}
-							{#if imageUrls[msg.image]}
-								<img class="bubble-img" src={imageUrls[msg.image]} alt="" loading="lazy" />
-							{:else}
-								<div class="bubble-img-loading">⏳</div>
-							{/if}
+					<div class="bubble-row" class:mine={isMine} onclick={() => selectMsg(msg.id)} role="button" tabindex="0">
+						{#if !isMine}
+							<span class="author-label">{msg.author}</span>
 						{/if}
-						{#if msg.fr || msg.en || msg.kh}
-							<div class="bubble-translations">
-								<p class="bubble-translation"><span class="transl-flag">{aLang === 'fr' ? '🇫🇷' : aLang === 'en' ? '🇬🇧' : '🇰🇭'}</span>{msg.text}</p>
-								{#if aLang !== 'fr' && msg.fr}<p class="bubble-translation"><span class="transl-flag">🇫🇷</span>{msg.fr}</p>{/if}
-								{#if aLang !== 'en' && msg.en}<p class="bubble-translation"><span class="transl-flag">🇬🇧</span>{msg.en}</p>{/if}
-								{#if aLang !== 'kh' && msg.kh}<p class="bubble-translation"><span class="transl-flag">🇰🇭</span>{msg.kh}</p>{/if}
-							</div>
-						{:else}
-							<p class="bubble-text">{msg.text}</p>
-							{#if legacy}
-								<div class="bubble-translations">
-													<p class="bubble-translation">{legacy}</p>
-								</div>
-							{/if}
-						{/if}
-						<span class="bubble-time">🇫🇷 {fmtTime(msg.ts)} · 🇰🇭 {fmtTimeKH(msg.ts)}</span>
-					</div>
-				</div>
-				<!-- ── Action bar inline juste sous la bulle sélectionnée ── -->
-				{#if selectedMsg === msg.id}
-					<div class="action-bar-inline" class:mine={isMine}>
-						<div class="action-bar-inner">
-							<button class="action-btn copy" onclick={copySelected}>
-								{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}
-							</button>
-							<div class="action-row-icons">
-								<button class="action-icon listen" onclick={() => speakSelected('fr')} aria-label="Écouter FR">🔊🇫🇷</button>
-								<button class="action-icon listen" onclick={() => speakSelected('en')} aria-label="Écouter EN">🔊🇬🇧</button>
-								<button class="action-icon listen" onclick={() => speakSelected('kh')} aria-label="Écouter KH">🔊🇰🇭</button>
-								{#if msg.author === firstName}
-									<span class="action-sep"></span>
-									<button class="action-icon delete" onclick={deleteSelected} aria-label="Supprimer">🗑</button>
+						<div class="bubble" class:mine={isMine}>
+							{#if msg.source === 'audio'}<span class="source-badge">🎤</span>{/if}
+							{#if msg.image}
+								{#if imageUrls[msg.image]}
+									<img class="bubble-img" src={imageUrls[msg.image]} alt="" loading="lazy" />
+								{:else}
+									<div class="bubble-img-loading">⏳</div>
 								{/if}
-								<span class="action-sep"></span>
-								<button class="action-icon close" onclick={() => selectedMsg = null} aria-label="Fermer">✕</button>
-							</div>
+							{/if}
+							{#if msg.fr || msg.en || msg.kh}
+								<div class="bubble-translations">
+									<p class="bubble-translation"><span class="transl-flag">{aLang === 'fr' ? '🇫🇷' : aLang === 'en' ? '🇬🇧' : '🇰🇭'}</span>{msg.text}</p>
+									{#if aLang !== 'fr' && msg.fr}<p class="bubble-translation"><span class="transl-flag">🇫🇷</span>{msg.fr}</p>{/if}
+									{#if aLang !== 'en' && msg.en}<p class="bubble-translation"><span class="transl-flag">🇬🇧</span>{msg.en}</p>{/if}
+									{#if aLang !== 'kh' && msg.kh}<p class="bubble-translation"><span class="transl-flag">🇰🇭</span>{msg.kh}</p>{/if}
+								</div>
+							{:else}
+								<p class="bubble-text">{msg.text}</p>
+								{#if legacy}
+									<div class="bubble-translations">
+														<p class="bubble-translation">{legacy}</p>
+									</div>
+								{/if}
+							{/if}
+							<span class="bubble-time">🇫🇷 {fmtTime(msg.ts)} · 🇰🇭 {fmtTimeKH(msg.ts)}</span>
 						</div>
 					</div>
-				{/if}
+					{#if isSelected && !isMine}
+						<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
+							<button class="act-btn" onclick={() => speakSelected('fr')} aria-label="FR">🔊🇫🇷</button>
+							<button class="act-btn" onclick={() => speakSelected('en')} aria-label="EN">🔊🇬🇧</button>
+							<button class="act-btn" onclick={() => speakSelected('kh')} aria-label="KH">🔊🇰🇭</button>
+							<button class="act-btn" onclick={copySelected} aria-label="Copier">📋</button>
+							<button class="act-btn close" onclick={() => selectedMsg = null} aria-label="Fermer">✕</button>
+						</div>
+					{/if}
+				</div>
 			{/each}
 		</div>
 
@@ -1055,7 +1056,6 @@
 
 	.bubble-row.mine {
 		animation: msg-in-right 0.32s cubic-bezier(0.34, 1.4, 0.64, 1);
-		align-self: flex-end;
 		align-items: flex-end;
 	}
 
@@ -1385,106 +1385,83 @@
 		box-shadow: none;
 	}
 
-	/* ── Actions (copier / supprimer / écouter) ── */
-	.bubble-row {
-		cursor: pointer;
+	/* ── Wrapper horizontal : bulle + actions côte-à-côte ── */
+	.bubble-wrapper {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		width: 100%;
+	}
+	.bubble-wrapper.mine {
+		flex-direction: row;
+		justify-content: flex-end;
+	}
+	.bubble-wrapper:not(.mine) {
+		flex-direction: row;
+		justify-content: flex-start;
 	}
 
-	.bubble-row.selected > .bubble {
+	/* Bulle glisse quand sélectionnée */
+	.bubble-wrapper > .bubble-row {
+		transition: transform 0.25s cubic-bezier(0.34, 1.2, 0.64, 1);
+		cursor: pointer;
+	}
+	.bubble-wrapper.selected.mine > .bubble-row {
+		transform: translateX(6px);
+	}
+	.bubble-wrapper.selected:not(.mine) > .bubble-row {
+		transform: translateX(-6px);
+	}
+
+	.bubble-row.selected > .bubble,
+	.bubble-wrapper.selected .bubble {
 		outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
 		outline-offset: 2px;
 	}
 
-	.action-bar-inline {
-		display: grid;
-		grid-template-rows: 0fr;
-		opacity: 0;
-		animation: expand-bar 0.25s ease forwards;
-		padding: 0 var(--space-4);
-	}
-	.action-bar-inline.mine {
-		padding: 0 var(--space-4) 0 auto;
-	}
-	.action-bar-inner {
-		overflow: hidden;
-		background: color-mix(in srgb, var(--card) 95%, transparent);
-		backdrop-filter: blur(8px);
-		-webkit-backdrop-filter: blur(8px);
-		border: 1px solid var(--border);
-		border-radius: var(--radius-xl);
-		padding: var(--space-2) var(--space-3);
+	/* Actions inline à côté de la bulle */
+	.inline-actions {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-2);
-	}
-
-	@keyframes expand-bar {
-		from { grid-template-rows: 0fr; opacity: 0; }
-		to   { grid-template-rows: 1fr; opacity: 1; }
-	}
-
-	/* Ligne 1 : Copier pleine largeur */
-	.action-btn.copy {
-		width: 100%;
-		font-size: var(--fs-sm);
-		font-weight: 600;
-		border-radius: var(--radius-full);
-		padding: var(--space-2) var(--space-4);
-		background: color-mix(in srgb, var(--accent) 15%, var(--card));
-		color: var(--accent);
-		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-		transition: transform 0.1s;
-	}
-
-	.action-btn.copy:active {
-		transform: scale(0.97);
-	}
-
-	/* Ligne 2 : icônes compactes */
-	.action-row-icons {
-		display: flex;
 		align-items: center;
-		justify-content: center;
-		gap: var(--space-2);
-	}
-
-	.action-sep {
-		width: 1px;
-		height: 1.2rem;
-		background: var(--border);
+		gap: 3px;
+		animation: fade-in-actions 0.2s ease forwards;
 		flex-shrink: 0;
 	}
 
-	.action-icon {
-		width: 2.25rem;
-		height: 2.25rem;
+	@keyframes fade-in-actions {
+		from { opacity: 0; transform: scale(0.85); }
+		to   { opacity: 1; transform: scale(1); }
+	}
+
+	.act-btn {
+		width: 2rem;
+		height: 2rem;
 		border-radius: var(--radius-full);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 0.95rem;
+		font-size: 0.8rem;
 		flex-shrink: 0;
+		background: color-mix(in srgb, var(--card) 90%, transparent);
+		backdrop-filter: blur(6px);
+		-webkit-backdrop-filter: blur(6px);
+		border: 1px solid var(--border);
 		transition: transform 0.1s, background 0.15s;
+		cursor: pointer;
 	}
 
-	.action-icon:active {
-		transform: scale(0.9);
+	.act-btn:active {
+		transform: scale(0.85);
 	}
 
-	.action-icon.listen {
-		background: color-mix(in srgb, #42a5f5 10%, var(--card));
-		color: #42a5f5;
+	.act-btn.delete {
+		background: color-mix(in srgb, #e53935 12%, var(--card));
 	}
 
-	.action-icon.delete {
-		background: color-mix(in srgb, #e53935 10%, var(--card));
-		color: #e53935;
-	}
-
-	.action-icon.close {
-		background: color-mix(in srgb, var(--muted) 10%, transparent);
+	.act-btn.close {
 		color: var(--muted);
-		font-size: var(--fs-sm);
+		font-size: 0.7rem;
 	}
 
 	/* ── Toast copie ── */
