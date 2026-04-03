@@ -417,16 +417,34 @@
 		if (!firstName) return;
 		if (samples.length < 16000 * 0.8) return; // < 0.8s → bruit court, ignorer
 		transcribing = true;
+
+		// Optimistic UI : Ajoute une bulle temporaire
+		const tempId = 'temp-' + Date.now();
+		const tempMsg: ChatMessage = {
+			id: tempId,
+			author: firstName,
+			text: '...',
+			fr: '', en: '', kh: '',
+			ts: new Date().toISOString(),
+			source: 'audio'
+		};
+		messages = [...messages, tempMsg];
+		await tick();
+		scrollToBottom();
+
 		try {
 			const wav = float32ToWav(samples);
 			const base64 = arrayBufferToBase64(await wav.arrayBuffer());
 			const result = await transcribeAudio(base64, 'audio/wav');
-			if (!result.text.trim()) return;
+			if (!result.text.trim()) {
+				messages = messages.filter(m => m.id !== tempId);
+				return;
+			}
 			const msg = await sendMessage(Y, M, D, firstName, result.text, { fr: result.fr, en: result.en, kh: result.kh }, undefined, 'audio');
-			messages = [...messages, msg];
-			await tick();
-			scrollToBottom();
+			// Remplace la bulle temporaire
+			messages = messages.map(m => m.id === tempId ? msg : m);
 		} catch {
+			messages = messages.filter(m => m.id !== tempId);
 			showError(userLang === 'kh' ? '❌ ការចំលងសម្លេងបានបរាជ័យ' : '❌ Échec de la transcription');
 		} finally {
 			transcribing = false;
@@ -478,6 +496,21 @@
 		const text = inputText.trim();
 		if (!text || sending || !firstName) return;
 
+		// Optimistic UI : Ajoute une bulle temporaire
+		const tempId = 'temp-' + Date.now();
+		const tempMsg: ChatMessage = {
+			id: tempId,
+			author: firstName,
+			text,
+			fr: suggestion?.fr || '',
+			en: suggestion?.en || '',
+			kh: suggestion?.kh || '',
+			ts: new Date().toISOString()
+		};
+		messages = [...messages, tempMsg];
+		await tick();
+		scrollToBottom();
+
 		// Utilise les traductions de la suggestion si dispo, sinon le backend traduira
 		const translations = {
 			fr: suggestion?.fr ?? '',
@@ -495,12 +528,13 @@
 
 		try {
 			const msg = await sendMessage(Y, M, D, firstName, text, translations);
-			messages = [...messages, msg];
-			await tick();
-			scrollToBottom();
+			// Remplace la bulle temporaire par le message final (avec ID réel et corrections)
+			messages = messages.map(m => m.id === tempId ? msg : m);
 			void autoCopy(msg);
 		} catch {
-			inputText = text; // restaure si erreur
+			// Supprime la bulle temporaire et restaure l'input
+			messages = messages.filter(m => m.id !== tempId);
+			inputText = text;
 			showError(userLang === 'kh' ? '❌ បរាជ័យក្នុងការផ្ញើសារ' : '❌ Échec de l\'envoi');
 		} finally {
 			sending = false;
@@ -645,7 +679,8 @@
 				{@const isSelected = selectedMsg === msg.id}
 				{@const legacy = (msg as unknown as { translation?: string }).translation}
 				{@const aLang = (msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (isChet(msg.author) ? 'fr' : 'kh')}
-				<div class="bubble-wrapper" class:mine={isMine} class:selected={isSelected}>
+				{@const isPending = msg.id.startsWith('temp-')}
+				<div class="bubble-wrapper" class:mine={isMine} class:selected={isSelected} class:is-pending={isPending}>
 					{#if isSelected && isMine}
 						<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
 							<button class="act-btn copy" onclick={copySelected} aria-label="Copier">{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}</button>
@@ -665,6 +700,12 @@
 							<span class="author-label">{msg.author}</span>
 						{/if}
 						<div class="bubble" class:mine={isMine}>
+							{#if isPending}
+								<div class="magic-loader">
+									<span class="magic-sparkle">✨</span>
+									<span>{userLang === 'kh' ? 'កំពុងកែប្រែ...' : 'Traduction...'}</span>
+								</div>
+							{/if}
 							{#if msg.source === 'audio'}<span class="source-badge">🎤</span>{/if}
 							{#if msg.image}
 								{#if imageUrls[msg.image]}
@@ -1129,6 +1170,38 @@
 		box-shadow:
 			0 2px 12px color-mix(in srgb, var(--accent) 14%, transparent),
 			0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+		transition: opacity 0.3s, transform 0.3s;
+	}
+
+	.bubble-wrapper.is-pending {
+		opacity: 0.7;
+		filter: grayscale(0.2);
+		animation: pulse-bubble 1.5s infinite ease-in-out;
+		pointer-events: none;
+	}
+
+	@keyframes pulse-bubble {
+		0%, 100% { transform: scale(1); }
+		50% { transform: scale(0.98); opacity: 0.5; }
+	}
+
+	.magic-loader {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: var(--fs-xs);
+		color: var(--accent);
+		font-weight: 600;
+		margin-bottom: 4px;
+	}
+
+	.magic-sparkle {
+		animation: rotate-sparkle 1s infinite linear;
+	}
+
+	@keyframes rotate-sparkle {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
 	}
 
 	.bubble-text {
