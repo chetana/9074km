@@ -13,7 +13,8 @@ export default defineConfig({
 			registerType: 'autoUpdate',
 			manifest: false,
 			workbox: {
-				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}']
+				globPatterns: ['**/*.{js,css,ico,png,svg,webp}'],
+				navigateFallback: null,
 			}
 		}),
 		viteStaticCopy({
