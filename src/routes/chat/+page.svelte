@@ -130,7 +130,7 @@
 		isOnline = navigator.onLine;
 		window.addEventListener('online', () => { isOnline = true; });
 		window.addEventListener('offline', () => { isOnline = false; });
-		pollInterval = setInterval(() => { if (isToday) swrMessages.refresh(); }, 8000);
+		pollInterval = setInterval(() => { if (isToday && !sending) swrMessages.refresh(); }, 8000);
 	});
 	onDestroy(() => { clearInterval(pollInterval); stopRecording(); });
 
@@ -511,8 +511,13 @@
 
 		try {
 			const msg = await sendMessage(Y, M, D, firstName, text, translations);
-			// Remplace la bulle temporaire par le message final (avec ID réel et corrections)
-			swrMessages.data = swrMessages.data.map(m => m.id === tempId ? msg : m);
+			// Remplace la bulle temporaire — si le polling l'a supprimée, on l'ajoute
+			const hasTemp = swrMessages.data.some(m => m.id === tempId);
+			if (hasTemp) {
+				swrMessages.data = swrMessages.data.map(m => m.id === tempId ? msg : m);
+			} else if (!swrMessages.data.some(m => m.id === msg.id)) {
+				swrMessages.data = [...swrMessages.data, msg];
+			}
 			void autoCopy(msg);
 		} catch {
 			// Supprime la bulle temporaire et restaure l'input
@@ -854,11 +859,16 @@
 			></textarea>
 			<button
 				class="send-btn"
+				class:is-sending={sending}
 				onclick={send}
 				disabled={!inputText.trim() || sending}
 				aria-label="Envoyer"
 			>
-				{sending ? '…' : '➤'}
+				{#if sending}
+					<span class="send-sparkle">✦</span>
+				{:else}
+					<span class="send-arrow">➤</span>
+				{/if}
 			</button>
 		</div>
 	{/if}
@@ -1467,6 +1477,36 @@
 	.send-btn:disabled {
 		opacity: 0.35;
 		box-shadow: none;
+	}
+
+	.send-btn.is-sending {
+		opacity: 1;
+		animation: send-pulse 1.2s ease-in-out infinite;
+	}
+
+	@keyframes send-pulse {
+		0%, 100% { box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 35%, transparent); }
+		50% { box-shadow: 0 4px 24px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); }
+	}
+
+	.send-sparkle {
+		display: inline-block;
+		animation: sparkle-spin 0.8s linear infinite;
+		font-size: var(--fs-lg);
+	}
+
+	@keyframes sparkle-spin {
+		from { transform: rotate(0deg); }
+		to   { transform: rotate(360deg); }
+	}
+
+	.send-arrow {
+		display: inline-block;
+		transition: transform 0.15s;
+	}
+
+	.send-btn:not(:disabled):hover .send-arrow {
+		transform: translateX(2px);
 	}
 
 	/* ── Wrapper horizontal : bulle + actions côte-à-côte ── */
