@@ -4,9 +4,14 @@
  *
  * Stratégie : afficher le cache immédiatement, rafraîchir en arrière-plan,
  * puis mettre à jour le cache avec les données fraîches.
+ *
+ * Intégrité : un numéro de version est stocké. Si la version change (deploy)
+ * ou si les données sont corrompues, tout le cache est purgé automatiquement.
  */
 
 const PREFIX = 'lys_cache_';
+const VERSION_KEY = `${PREFIX}version`;
+const CACHE_VERSION = 2; // ← incrémenter à chaque changement de schéma
 const USER_KEY = `${PREFIX}user_v1`;
 const MESSAGES_PREFIX = `${PREFIX}msg_`;
 const COFFRE_LIST_PREFIX = `${PREFIX}clist_`;
@@ -17,6 +22,68 @@ const LESSONS_KEY = `${PREFIX}lessons_v1`;
 const XP_KEY = `${PREFIX}xp_v1`;
 
 function safe() { return typeof localStorage !== 'undefined'; }
+
+// ── Intégrité & auto-purge ───────────────────────────────────────────────
+
+function purgeAll(): void {
+  if (!safe()) return;
+  const toRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(PREFIX)) toRemove.push(k);
+  }
+  toRemove.forEach(k => localStorage.removeItem(k));
+  // Aussi nettoyer l'ancien audio cache et le sessionStorage token
+  // pour garantir un état propre
+  localStorage.removeItem('lys_audio_cache_v1');
+}
+
+/** Vérifie l'intégrité du cache au démarrage. Purge si version incorrecte ou données corrompues. */
+export function checkCacheIntegrity(): void {
+  if (!safe()) return;
+  try {
+    // 1. Vérifier la version
+    const raw = localStorage.getItem(VERSION_KEY);
+    const storedVersion = raw ? Number(raw) : 0;
+    if (storedVersion !== CACHE_VERSION) {
+      console.warn(`[cache] Version mismatch (${storedVersion} → ${CACHE_VERSION}), purging cache`);
+      purgeAll();
+      localStorage.setItem(VERSION_KEY, String(CACHE_VERSION));
+      return;
+    }
+
+    // 2. Valider les entrées critiques (user, messages, lists)
+    const userRaw = localStorage.getItem(USER_KEY);
+    if (userRaw) {
+      const user = JSON.parse(userRaw);
+      if (!user || typeof user.name !== 'string' || typeof user.email !== 'string') {
+        throw new Error('Invalid cached user');
+      }
+    }
+
+    // 3. Vérifier que les clés lys_cache_* sont toutes du JSON valide
+    let corruptCount = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(PREFIX) || k === VERSION_KEY) continue;
+      try {
+        const v = localStorage.getItem(k);
+        if (v) JSON.parse(v);
+      } catch {
+        corruptCount++;
+        localStorage.removeItem(k);
+      }
+    }
+    if (corruptCount > 0) {
+      console.warn(`[cache] Removed ${corruptCount} corrupt entries`);
+    }
+  } catch {
+    // Toute erreur inattendue → purge complète
+    console.warn('[cache] Integrity check failed, purging all cache');
+    purgeAll();
+    localStorage.setItem(VERSION_KEY, String(CACHE_VERSION));
+  }
+}
 
 function get<T>(key: string): T | null {
   if (!safe()) return null;

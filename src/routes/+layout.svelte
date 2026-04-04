@@ -5,9 +5,11 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { auth } from '$lib/auth';
+	import { checkCacheIntegrity } from '$lib/localCache';
 
 
 	onMount(() => {
+		checkCacheIntegrity();
 		auth.init();
 		clockInterval = setInterval(() => (now = new Date()), 1000);
 	});
