@@ -898,7 +898,7 @@
 		flex-shrink: 0;
 	}
 
-	/* ── Chat header (glassmorphism) ── */
+	/* ── Chat header ── */
 	.chat-header {
 		display: flex;
 		align-items: center;
@@ -907,15 +907,8 @@
 		flex-shrink: 0;
 		position: relative;
 		z-index: 2;
-		backdrop-filter: blur(20px) saturate(1.4);
-		-webkit-backdrop-filter: blur(20px) saturate(1.4);
-		background:
-			linear-gradient(180deg,
-				color-mix(in srgb, var(--accent) 8%, var(--bg)) 0%,
-				transparent 100%),
-			color-mix(in srgb, var(--card) 70%, transparent);
-		border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-		box-shadow: 0 1px 12px rgba(0, 0, 0, 0.12);
+		background: color-mix(in srgb, var(--bg) 96%, var(--accent));
+		border-bottom: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 
 	.avatar-btn {
@@ -953,9 +946,9 @@
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
-		background: color-mix(in srgb, var(--accent) 10%, var(--card));
-		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
-		border-radius: 2rem;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
 		padding: 0.2rem 0.35rem;
 	}
 
@@ -972,19 +965,15 @@
 	.date-btn {
 		width: 1.9rem;
 		height: 1.9rem;
-		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--accent) 8%, var(--card));
-		border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+		border-radius: var(--radius-sm);
+		background: var(--raised);
+		border: 1px solid var(--border);
 		font-size: 1rem;
 		color: var(--accent);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: opacity 0.15s, transform 0.12s, background 0.15s;
-	}
-
-	.date-btn:not(:disabled):hover {
-		background: color-mix(in srgb, var(--accent) 16%, var(--card));
+		transition: opacity 0.15s, transform 0.12s;
 	}
 
 	.date-btn:not(:disabled):active {
@@ -992,10 +981,7 @@
 	}
 
 	.date-btn:disabled {
-		opacity: 0.35;
-		color: var(--muted);
-		background: transparent;
-		border-color: transparent;
+		opacity: 0.25;
 	}
 
 	/* ── Auth gate ── */
@@ -1130,14 +1116,13 @@
 	.bubble {
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: var(--radius-2xl);
-		border-bottom-left-radius: 4px;   /* queue bulle gauche */
+		border-radius: var(--radius-xl);
+		border-bottom-left-radius: 4px;
 		padding: var(--space-3) var(--space-4);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
 		position: relative;
-		box-shadow: 0 2px 8px rgba(0,0,0,0.22);
 	}
 
 	.source-badge {
@@ -1157,13 +1142,10 @@
 	}
 
 	.bubble.mine {
-		background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-		border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-		border-bottom-left-radius: var(--radius-2xl);
-		border-bottom-right-radius: 4px;   /* queue bulle droite */
-		box-shadow:
-			0 2px 12px color-mix(in srgb, var(--accent) 14%, transparent),
-			0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+		background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+		border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+		border-bottom-left-radius: var(--radius-xl);
+		border-bottom-right-radius: 4px;
 		transition: opacity 0.3s, transform 0.3s;
 	}
 
@@ -1258,20 +1240,17 @@
 	/* ── Suggestion Gemini ── */
 	.suggestion {
 		margin: 0 var(--space-4) var(--space-2);
-		background: color-mix(in srgb, var(--accent) 6%, var(--card));
-		border: none;
+		background: var(--surface);
+		border: 1px solid var(--border);
 		border-left: 3px solid var(--accent);
-		border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 		padding: var(--space-3) var(--space-4);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
-		box-shadow:
-			0 2px 12px color-mix(in srgb, var(--accent) 10%, transparent),
-			0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
 		position: relative;
 		z-index: 1;
-		animation: suggest-in 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+		animation: suggest-in 0.25s ease;
 	}
 
 	@keyframes suggest-in {
@@ -1325,9 +1304,8 @@
 	}
 
 	.suggestion-btn.accept {
-		background: linear-gradient(135deg, var(--accent), var(--accent-warm));
+		background: var(--accent);
 		color: var(--on-accent);
-		box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 
 	.suggestion-btn.dismiss {
@@ -1354,10 +1332,8 @@
 		overflow-x: auto;
 		gap: var(--space-1);
 		padding: var(--space-2) var(--space-3);
-		background: color-mix(in srgb, var(--card) 90%, transparent);
-		backdrop-filter: blur(12px);
-		-webkit-backdrop-filter: blur(12px);
-		border-top: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
+		background: var(--surface);
+		border-top: 1px solid var(--border);
 		flex-shrink: 0;
 		scrollbar-width: none;
 	}
@@ -1379,30 +1355,9 @@
 	.emoji-btn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 	.emoji-btn:active { transform: scale(0.82); }
 
-	.emoji-toggle {
-		width: 2.75rem;
-		height: 2.75rem;
-		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--accent) 8%, var(--card));
-		border: 1px solid var(--border);
-		font-size: var(--fs-xl);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		transition: opacity 0.15s, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, box-shadow 0.2s;
-	}
-
-	.emoji-toggle:hover {
-		background: color-mix(in srgb, var(--accent) 15%, var(--card));
-		border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-		box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 18%, transparent);
-	}
 	.emoji-toggle:active { transform: scale(0.9); }
 	.emoji-toggle.active {
-		background: color-mix(in srgb, var(--accent) 20%, var(--card));
-		border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-		box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 22%, transparent);
+		border-color: var(--accent);
 	}
 
 	/* ── Input ── */
@@ -1411,10 +1366,8 @@
 		align-items: flex-end;
 		gap: var(--space-2);
 		padding: var(--space-2) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-		background: color-mix(in srgb, var(--card) 85%, transparent);
-		backdrop-filter: blur(12px);
-		-webkit-backdrop-filter: blur(12px);
-		border-top: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+		background: color-mix(in srgb, var(--bg) 96%, var(--accent));
+		border-top: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
 		flex-shrink: 0;
 		position: relative;
 		z-index: 1;
@@ -1446,32 +1399,26 @@
 	}
 
 	.send-btn {
-		width: 2.75rem;   /* légèrement plus grand que les autres */
+		width: 2.75rem;
 		height: 2.75rem;
 		border-radius: var(--radius-full);
-		background: linear-gradient(135deg, var(--accent), var(--accent-warm));
+		background: var(--accent);
 		color: var(--on-accent);
 		font-size: var(--fs-lg);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		transition: opacity 0.15s, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
-		box-shadow:
-			0 4px 16px color-mix(in srgb, var(--accent) 35%, transparent),
-			0 1px 4px color-mix(in srgb, var(--accent) 20%, transparent);
+		transition: opacity 0.15s, transform 0.15s;
+		box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent);
 	}
 
 	.send-btn:not(:disabled):hover {
 		transform: scale(1.07);
-		box-shadow:
-			0 6px 24px color-mix(in srgb, var(--accent) 50%, transparent),
-			0 2px 8px color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 
 	.send-btn:not(:disabled):active {
 		transform: scale(0.89);
-		box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 20%, transparent);
 	}
 
 	.send-btn:disabled {
@@ -1566,17 +1513,15 @@
 	.act-btn {
 		width: 2.6rem;
 		height: 2.6rem;
-		border-radius: var(--radius-full);
+		border-radius: var(--radius-sm);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		font-size: 1rem;
 		flex-shrink: 0;
-		background: color-mix(in srgb, var(--card) 90%, transparent);
-		backdrop-filter: blur(6px);
-		-webkit-backdrop-filter: blur(6px);
+		background: var(--surface);
 		border: 1px solid var(--border);
-		transition: transform 0.1s, background 0.15s;
+		transition: transform 0.1s;
 		cursor: pointer;
 	}
 
@@ -1613,15 +1558,14 @@
 		bottom: 6rem;
 		left: 50%;
 		transform: translateX(-50%);
-		background: linear-gradient(135deg, var(--accent), var(--accent-warm));
+		background: var(--accent);
 		color: var(--on-accent);
 		font-size: var(--fs-sm);
 		font-weight: 600;
 		padding: var(--space-2) var(--space-5);
-		border-radius: var(--radius-full);
+		border-radius: var(--radius-sm);
 		pointer-events: none;
 		animation: fade-toast 2s ease forwards;
-		box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 30%, transparent);
 		z-index: 10;
 	}
 
@@ -1658,27 +1602,17 @@
 	.img-btn,
 	.mic-btn,
 	.emoji-toggle {
-		width: 2.625rem;    /* 42px — cohérent */
+		width: 2.625rem;
 		height: 2.625rem;
-		border-radius: var(--radius-full);
+		border-radius: var(--radius-sm);
 		background: var(--raised);
-		border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+		border: 1px solid var(--border);
 		font-size: 1.15rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		transition: opacity 0.15s, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, box-shadow 0.2s;
-	}
-
-	.img-btn {
-		/* garde les props communes, surchargées ici si besoin */
-	}
-
-	.img-btn:not(:disabled):hover {
-		background: color-mix(in srgb, var(--accent) 15%, var(--raised));
-		border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-		box-shadow: 0 0 12px var(--accent-glow);
+		transition: opacity 0.15s, transform 0.15s;
 	}
 
 	.img-btn:not(:disabled):active {
@@ -1783,29 +1717,19 @@
 		font-size: var(--fs-sm);
 	}
 
-	/* ── Bouton flashcard niveau (game HUD) ── */
+	/* ── Bouton flashcard niveau ── */
 	.fc-badge-btn {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		gap: 1px;
 		padding: 0.22rem 0.4rem 0.18rem;
-		border-radius: 0.6rem;
-		background:
-			linear-gradient(135deg,
-				color-mix(in srgb, var(--accent) 18%, var(--card)) 0%,
-				color-mix(in srgb, var(--accent-warm, #D4956A) 12%, var(--card)) 100%);
-		border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-		box-shadow:
-			0 0 6px color-mix(in srgb, var(--accent) 20%, transparent),
-			inset 0 1px 0 rgba(255,255,255,0.08);
-		transition: transform 0.12s, box-shadow 0.2s;
+		border-radius: var(--radius-sm);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		transition: transform 0.12s;
 		position: relative;
 		overflow: visible;
-	}
-	.fc-badge-btn:hover {
-		box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
-		transform: translateY(-1px);
 	}
 	.fc-badge-btn:active { transform: scale(0.92); }
 

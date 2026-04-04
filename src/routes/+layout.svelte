@@ -206,12 +206,12 @@
 
 	/* Version badge */
 	.dock-version {
-		font-size: 0.55rem;
+		font-size: 0.65rem;
 		font-family: 'Courier New', monospace;
-		color: var(--muted);
-		opacity: 0.35;
-		letter-spacing: 0.06em;
-		padding-bottom: 2px;
+		color: color-mix(in srgb, var(--accent) 50%, var(--muted));
+		opacity: 0.7;
+		letter-spacing: 0.08em;
+		padding-bottom: 3px;
 		user-select: none;
 	}
 </style>
