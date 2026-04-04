@@ -75,12 +75,15 @@ function loadGsiScript(): Promise<void> {
 	});
 }
 
+let gsiInitialized = false;
+
 function initGsi(callback: (response: GoogleCredentialResponse) => void): void {
+	if (gsiInitialized) return;
+	gsiInitialized = true;
 	window.google!.accounts.id.initialize({
 		client_id: CLIENT_ID,
 		callback,
 		auto_select: true,
-		use_fedcm_for_prompt: true,
 	});
 }
 
