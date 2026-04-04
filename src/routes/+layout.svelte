@@ -6,6 +6,7 @@
 	import { fade } from 'svelte/transition';
 	import { auth } from '$lib/auth';
 	import { checkCacheIntegrity } from '$lib/localCache';
+	import { APP_VERSION } from '$lib/version';
 
 
 	onMount(() => {
@@ -75,6 +76,7 @@
 				</button>
 			{/each}
 		</nav>
+		<span class="app-version">v{APP_VERSION}</span>
 	</div>
 </div>
 
@@ -230,5 +232,17 @@
 		opacity: 1;
 		font-weight: 700;
 		letter-spacing: 0.1px;
+	}
+
+	.app-version {
+		position: absolute;
+		bottom: max(2px, env(safe-area-inset-bottom, 0px));
+		right: var(--space-3);
+		font-size: 0.55rem;
+		color: var(--muted);
+		opacity: 0.3;
+		letter-spacing: 0.03em;
+		pointer-events: none;
+		user-select: none;
 	}
 </style>
