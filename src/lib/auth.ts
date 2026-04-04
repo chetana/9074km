@@ -145,9 +145,12 @@ export const auth = {
 				sessionStorage.removeItem('chetlys_token');
 			}
 		}
-		// Pas de token valide → ne PAS restaurer userStore depuis le cache.
-		// Le cache sert pour les données (messages, coffre), pas pour l'auth.
-		// Si on set userStore sans token, les API calls échoueront silencieusement.
+		// Token absent/expiré — restaurer le profil depuis le cache pour afficher
+		// les données cachées. Le SWR re-fetchera quand le token arrivera via GSI.
+		const cached = getCachedUser();
+		if (cached) {
+			userStore.set({ name: cached.name, email: cached.email, picture: cached.picture });
+		}
 		// Try silent auto-select (récupère un vrai token si possible)
 		await loadGsiScript();
 		initGsi(handleCredential);

@@ -47,15 +47,11 @@ export async function listObjects(prefix: string): Promise<ListResult> {
 		const data: ListResult = await res.json();
 		setCachedList(prefix, data);
 		return data;
-	} catch (err) {
-		// Pas de token → servir le cache sans erreur (le SWR retente quand le token arrive)
+	} catch {
+		// Pas de token ou erreur réseau → servir le cache.
+		// Le SWR re-fetchera automatiquement quand le token arrivera (clé inclut le token).
 		const cached = localGetCachedList(prefix) as ListResult | null;
-		if (cached) return cached;
-		// Pas de cache → propager l'erreur pour que le SWR affiche le bouton retry
-		if (err instanceof Error && (err.message === 'Not authenticated' || err.message === 'Session expired')) {
-			throw err;
-		}
-		return { prefixes: [], items: [] };
+		return cached ?? { prefixes: [], items: [] };
 	}
 }
 
