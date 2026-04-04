@@ -47,32 +47,31 @@
 	let { year, month, day, initialFile, onDayChange, onDateChange, onCountChange }: Props = $props();
 
 	// --- State ---
-	// --- SWR Hooks ---
 	const prefix = $derived(`${year}/${month}/${day}/`);
 
 	const swrItems = createSWR(
-		`items_${prefix}`,
-		() => getCachedList(prefix),
-		() => listObjects(prefix),
+		() => `items_${prefix}`,
+		(k) => getCachedList(k.replace('items_', '')),
+		(k) => listObjects(k.replace('items_', '')),
 		{ prefixes: [], items: [] }
 	);
 
 	const swrNote = createSWR(
-		`note_${year}_${month}_${day}`,
+		() => `note_${year}_${month}_${day}`,
 		() => getCachedNote(year, month, day),
 		() => fetchNote(year, month, day),
 		''
 	);
 
 	const swrMeta = createSWR(
-		`meta_${year}_${month}_${day}`,
+		() => `meta_${year}_${month}_${day}`,
 		() => getCachedMeta(year, month, day),
 		() => fetchMeta(year, month, day),
 		{}
 	);
 
 	const swrReactions = createSWR(
-		`react_${year}_${month}_${day}`,
+		() => `react_${year}_${month}_${day}`,
 		() => getCachedReactions(year, month, day),
 		() => fetchReactions(year, month, day),
 		{}
@@ -120,7 +119,6 @@
 
 	// --- Derived ---
 	const mediaItems = $derived((items ?? []).filter((i) => isMediaFile(i.name)));
-	const prefix = $derived(`${year}/${month}/${day}/`);
 
 	$effect(() => {
 		onCountChange?.(items === null ? null : mediaItems.length);

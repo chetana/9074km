@@ -340,9 +340,9 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-3);
-		background: var(--card);
+		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: var(--radius-2xl);
+		border-radius: var(--radius-sm);
 		padding: var(--space-3) var(--space-4);
 		font-size: var(--fs-md);
 		color: var(--text);
@@ -354,7 +354,7 @@
 		border-color: var(--accent);
 	}
 
-	/* Header (glassmorphism) */
+	/* Header */
 	.header {
 		display: flex;
 		align-items: center;
@@ -363,15 +363,8 @@
 		flex-shrink: 0;
 		position: relative;
 		z-index: 2;
-		backdrop-filter: blur(20px) saturate(1.4);
-		-webkit-backdrop-filter: blur(20px) saturate(1.4);
-		background:
-			linear-gradient(180deg,
-				color-mix(in srgb, var(--accent) 8%, var(--bg)) 0%,
-				transparent 100%),
-			color-mix(in srgb, var(--card) 70%, transparent);
-		border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-		box-shadow: 0 1px 12px rgba(0, 0, 0, 0.12);
+		background: color-mix(in srgb, var(--bg) 96%, var(--accent));
+		border-bottom: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 
 	.header-actions {
@@ -383,13 +376,9 @@
 	.icon-btn {
 		font-size: var(--fs-xl);
 		padding: var(--space-1);
-		border-radius: var(--radius-full);
+		border-radius: var(--radius-sm);
 		background: none;
-		transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.18s;
-	}
-
-	.icon-btn:hover {
-		background: color-mix(in srgb, var(--accent) 10%, transparent);
+		transition: transform 0.15s;
 	}
 
 	.icon-btn:active {

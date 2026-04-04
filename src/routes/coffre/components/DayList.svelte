@@ -118,20 +118,17 @@
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-left: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-sm);
 		padding: var(--space-3) var(--space-4);
 		text-align: left;
-		transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition), background var(--transition);
+		transition: border-color var(--transition), transform var(--transition);
 		width: 100%;
-		box-shadow: var(--shadow-sm);
 	}
 
 	.card:hover {
-		background: color-mix(in srgb, var(--accent) 5%, var(--surface));
-		border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+		border-color: var(--accent);
 		border-left-color: var(--accent);
 		transform: translateX(3px);
-		box-shadow: var(--shadow-md);
 	}
 
 	.info {

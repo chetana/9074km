@@ -132,38 +132,28 @@
 		overflow: hidden;
 		cursor: pointer;
 		border: 2px solid transparent;
-		transition: border-color 0.15s, transform 0.18s cubic-bezier(0.34, 1.3, 0.64, 1), box-shadow 0.18s ease;
+		transition: border-color 0.15s, transform 0.15s;
 	}
 
-	/* Gradient de lisibilité permanent (bas de la vignette) */
+	/* Gradient de lisibilité (bas de la vignette) */
 	.tile::after {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: linear-gradient(
-			to top,
-			rgba(0,0,0,0.45) 0%,
-			rgba(0,0,0,0.15) 35%,
-			transparent 60%
-		);
+		background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 50%);
 		pointer-events: none;
 		border-radius: inherit;
-		opacity: 0.6;
-		transition: opacity 0.2s;
 	}
 
 	.tile:hover {
-		transform: scale(1.04);
-		box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
-	}
-
-	.tile:hover::after {
-		opacity: 0.8;
+		transform: scale(1.02);
+		border-color: var(--accent);
 	}
 
 	.tile.selected {
 		border-color: var(--accent);
-		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+		outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+		outline-offset: 1px;
 	}
 
 	.tile img {
@@ -227,8 +217,6 @@
 		left: var(--space-1);
 		font-size: var(--fs-xs);
 		background: rgba(0, 0, 0, 0.65);
-		backdrop-filter: blur(6px);
-		-webkit-backdrop-filter: blur(6px);
 		color: rgba(255,255,255,0.9);
 		padding: 2px 7px;
 		border-radius: var(--radius-full);
@@ -245,8 +233,6 @@
 		right: var(--space-1);
 		font-size: 0.9rem;
 		background: rgba(0, 0, 0, 0.55);
-		backdrop-filter: blur(6px);
-		-webkit-backdrop-filter: blur(6px);
 		padding: 2px 6px;
 		border-radius: var(--radius-full);
 		letter-spacing: 1px;

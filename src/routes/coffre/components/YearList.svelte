@@ -101,20 +101,18 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-3);
-		background: var(--card);
+		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-sm);
 		padding: var(--space-4);
 		text-align: left;
-		transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+		transition: border-color var(--transition), transform var(--transition);
 		width: 100%;
-		box-shadow: var(--shadow-sm);
 	}
 
 	.card:hover {
-		border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-		transform: translateY(-2px);
-		box-shadow: var(--shadow-md), var(--shadow-accent);
+		border-color: var(--accent);
+		transform: translateX(3px);
 	}
 
 	.year {

@@ -100,7 +100,7 @@
 		border-radius: var(--radius-full);
 		background: var(--accent);
 		color: var(--on-accent);
-		box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 40%, transparent);
+		box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent);
 		display: flex;
 		align-items: center;
 		justify-content: center;
