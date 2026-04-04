@@ -18,6 +18,7 @@
 
 	const parisStatus = $derived(getStatus(paris.getHours()));
 	const ppStatus = $derived(getStatus(pp.getHours()));
+	const hourDiff = $derived(Math.round((pp.getTime() - paris.getTime()) / 3_600_000));
 
 	function fmtTime(d: Date) {
 		return format(d, 'HH:mm:ss');
@@ -70,7 +71,7 @@
 			<span class="map-sep">·</span>
 			<span class="map-heart">♡</span>
 			<span class="map-sep">·</span>
-			<span class="map-offset">+6h</span>
+			<span class="map-offset">+{hourDiff}h</span>
 		</div>
 	</div>
 
