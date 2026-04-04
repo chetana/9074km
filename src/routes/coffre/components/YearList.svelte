@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { listObjects, getCachedList } from '$lib/api';
+	import { tokenStore } from '$lib/auth';
 	import { createSWR } from '$lib/swr.svelte';
 
 	interface Props {
@@ -7,12 +8,14 @@
 	}
 
 	let { onSelect }: Props = $props();
+	const token = tokenStore;
 
 	interface YearEntry { year: string; monthCount: number | null }
 
 	// SWR pour la liste racine (les années)
+	// Le token dans la clé force un re-fetch quand l'auth arrive
 	const swr = createSWR(
-		'root_years',
+		() => `root_years_${$token ? '1' : '0'}`,
 		() => getCachedList(''),
 		() => listObjects(''),
 		{ prefixes: [], items: [] }
@@ -26,23 +29,32 @@
 			.sort((a, b) => Number(b) - Number(a))
 	);
 
-	// On utilise un state local pour enrichir avec les counts (monthCount)
-	let items = $state<YearEntry[]>([]);
+	// Diagnostic logs
+	$effect(() => {
+		console.log(`[YearList] SWR State - loading: ${swr.loading}, data.prefixes: ${swr.data.prefixes.length}`);
+	});
+
+	// État pour stocker les comptes de mois (lazy)
+	let countsMap = $state<Record<string, number>>({});
+
 	let error = $derived(swr.error ? String(swr.error) : null);
 
-	// Synchronise items quand years change
+	// La liste des items est ENTIÈREMENT dérivée (réactif pur)
+	let items = $derived(
+		years.map((y) => ({
+			year: y,
+			monthCount: countsMap[y] ?? null
+		}))
+	);
+
+	// Effet pour charger les counts (indépendant du rendu initial)
 	$effect(() => {
-		items = years.map(y => {
-			const existing = items.find(it => it.year === y);
-			return { year: y, monthCount: existing?.monthCount ?? null };
-		});
-		
-		// Charger les counts en lazy (si pas déjà là)
-		years.forEach(async (y, i) => {
-			if (items[i]?.monthCount !== null) return;
+		const currentYears = years;
+		currentYears.forEach(async (y) => {
+			if (countsMap[y] !== undefined) return;
 			try {
 				const r = await listObjects(`${y}/`);
-				if (items[i]) items[i].monthCount = r.prefixes.length;
+				countsMap[y] = r.prefixes.length;
 			} catch { /* count reste null */ }
 		});
 	});

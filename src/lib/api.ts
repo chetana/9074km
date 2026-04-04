@@ -1,10 +1,10 @@
 import { auth } from './auth';
 import {
 	getCachedMessages, setCachedMessages,
-	getCachedList, setCachedList, invalidateCachedList,
-	getCachedNote, setCachedNote,
-	getCachedMeta, setCachedMeta,
-	getCachedReactions, setCachedReactions,
+	getCachedList as localGetCachedList, setCachedList, invalidateCachedList as localInvalidateListCache,
+	getCachedNote as localGetCachedNote, setCachedNote,
+	getCachedMeta as localGetCachedMeta, setCachedMeta,
+	getCachedReactions as localGetCachedReactions, setCachedReactions,
 	getCachedLessons, setCachedLessons,
 } from './localCache';
 
@@ -47,16 +47,35 @@ export async function listObjects(prefix: string): Promise<ListResult> {
 		const data: ListResult = await res.json();
 		setCachedList(prefix, data);
 		return data;
-	} catch {
-		// Offline / erreur réseau → servir depuis le cache localStorage
-		const cached = getCachedList(prefix) as ListResult | null;
-		return cached ?? { prefixes: [], items: [] };
+	} catch (err) {
+		// Pas de token → servir le cache sans erreur (le SWR retente quand le token arrive)
+		const cached = localGetCachedList(prefix) as ListResult | null;
+		if (cached) return cached;
+		// Pas de cache → propager l'erreur pour que le SWR affiche le bouton retry
+		if (err instanceof Error && (err.message === 'Not authenticated' || err.message === 'Session expired')) {
+			throw err;
+		}
+		return { prefixes: [], items: [] };
 	}
 }
 
 /** Invalide toutes les entrées du cache dont le préfixe commence par `prefix` */
+// ── Utils simple ──
+export function getCachedList(prefix: string) {
+	return localGetCachedList(prefix);
+}
+export function getCachedNote(y: string, m: string, d: string) {
+	return localGetCachedNote(y, m, d);
+}
+export function getCachedMeta(y: string, m: string, d: string) {
+	return localGetCachedMeta(y, m, d);
+}
+export function getCachedReactions(y: string, m: string, d: string) {
+	return localGetCachedReactions(y, m, d);
+}
+
 export function invalidateListCache(prefix: string): void {
-	invalidateCachedList(prefix);
+	localInvalidateListCache(prefix);
 }
 
 export async function signUpload(path: string, contentType: string): Promise<string> {

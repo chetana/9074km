@@ -1,4 +1,6 @@
+<script lang="ts">
 	import { listObjects, isMediaFile, getCachedList } from '$lib/api';
+	import { tokenStore } from '$lib/auth';
 	import { DAYS_FR, DAYS_KH, MONTHS_FR } from '$lib/i18n';
 	import { createSWR } from '$lib/swr.svelte';
 
@@ -9,6 +11,7 @@
 	}
 
 	let { year, month, onSelect }: Props = $props();
+	const token = tokenStore;
 
 	interface DayEntry { dd: string; label: string; fileCount: number | null }
 
@@ -20,8 +23,9 @@
 	}
 
 	// SWR pour la liste des jours de ce mois
+	// Le token dans la clé force un re-fetch quand l'auth arrive
 	const swr = createSWR(
-		`days_${year}_${month}`,
+		() => `days_${year}_${month}_${$token ? '1' : '0'}`,
 		() => getCachedList(`${year}/${month}/`),
 		() => listObjects(`${year}/${month}/`),
 		{ prefixes: [], items: [] }
@@ -35,24 +39,34 @@
 			.sort((a, b) => Number(b) - Number(a))
 	);
 
-	let items = $state<DayEntry[]>([]);
+	// Diagnostic logs
+	$effect(() => {
+		console.log(`[DayList] SWR State - loading: ${swr.loading}, data.items: ${swr.data.items.length}`);
+	});
+
+	// État pour stocker les comptes de fichiers (lazy)
+	let countsMap = $state<Record<string, number>>({});
+
 	let error = $derived(swr.error ? String(swr.error) : null);
 
-	// Sync items quand days change
-	$effect(() => {
-		items = days.map(dd => {
-			const existing = items.find(it => it.dd === dd);
-			return { dd, label: dayLabel(dd), fileCount: existing?.fileCount ?? null };
-		});
+	// La liste des items est ENTIÈREMENT dérivée (réactif pur)
+	let items = $derived(
+		days.map((dd) => ({
+			dd,
+			label: dayLabel(dd),
+			fileCount: countsMap[dd] ?? null
+		}))
+	);
 
-		// Charger les counts en lazy
-		const currentItems = items;
-		days.forEach(async (dd, i) => {
-			if (currentItems[i]?.fileCount !== null) return;
+	// Effet pour charger les counts (indépendant du rendu initial)
+	$effect(() => {
+		const currentDays = days;
+		currentDays.forEach(async (dd) => {
+			if (countsMap[dd] !== undefined) return;
 			try {
 				const r = await listObjects(`${year}/${month}/${dd}/`);
 				const count = r.items.filter((item) => isMediaFile(item.name)).length;
-				if (currentItems[i]) currentItems[i].fileCount = count;
+				countsMap[dd] = count;
 			} catch { /* count reste null */ }
 		});
 	});

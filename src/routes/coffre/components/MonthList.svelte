@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { listObjects, getCachedList } from '$lib/api';
+	import { tokenStore } from '$lib/auth';
 	import { MONTHS_FR, MONTHS_KH } from '$lib/i18n';
 	import { createSWR } from '$lib/swr.svelte';
 
@@ -9,6 +10,7 @@
 	}
 
 	let { year, onSelect }: Props = $props();
+	const token = tokenStore;
 
 	interface MonthEntry { mm: string; label: string; dayCount: number | null }
 
@@ -19,7 +21,7 @@
 
 	// SWR pour la liste des mois de cette année
 	const swr = createSWR(
-		`months_${year}`,
+		() => `months_${year}_${$token ? '1' : '0'}`,
 		() => getCachedList(`${year}/`),
 		() => listObjects(`${year}/`),
 		{ prefixes: [], items: [] }
@@ -33,22 +35,33 @@
 			.sort((a, b) => Number(b) - Number(a))
 	);
 
-	let items = $state<MonthEntry[]>([]);
+	// Diagnostic logs
+	$effect(() => {
+		console.log(`[MonthList] SWR State - loading: ${swr.loading}, data.prefixes: ${swr.data.prefixes.length}`);
+	});
+
+	// État pour stocker les comptes de jours (lazy)
+	let countsMap = $state<Record<string, number>>({});
+
 	let error = $derived(swr.error ? String(swr.error) : null);
 
-	// Sync items quand months change
-	$effect(() => {
-		items = months.map(mm => {
-			const existing = items.find(it => it.mm === mm);
-			return { mm, label: monthLabel(mm), dayCount: existing?.dayCount ?? null };
-		});
+	// La liste des items est ENTIÈREMENT dérivée (réactif pur)
+	let items = $derived(
+		months.map((m) => ({
+			m,
+			label: monthLabel(m),
+			dayCount: countsMap[m] ?? null
+		}))
+	);
 
-		// Charger les counts en lazy
-		months.forEach(async (mm, i) => {
-			if (items[i]?.dayCount !== null) return;
+	// Effet pour charger les counts (indépendant du rendu initial)
+	$effect(() => {
+		const currentMonths = months;
+		currentMonths.forEach(async (m) => {
+			if (countsMap[m] !== undefined) return;
 			try {
-				const r = await listObjects(`${year}/${mm}/`);
-				if (items[i]) items[i].dayCount = r.prefixes.length;
+				const r = await listObjects(`${year}/${m}/`);
+				countsMap[m] = r.prefixes.length;
 			} catch { /* count reste null */ }
 		});
 	});
