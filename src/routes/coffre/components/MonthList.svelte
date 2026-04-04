@@ -48,7 +48,7 @@
 	// La liste des items est ENTIÈREMENT dérivée (réactif pur)
 	let items = $derived(
 		months.map((m) => ({
-			m,
+			mm: m,
 			label: monthLabel(m),
 			dayCount: countsMap[m] ?? null
 		}))
