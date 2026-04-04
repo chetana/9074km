@@ -60,23 +60,22 @@
 		{/key}
 	</main>
 
-	<div class="nav-wrapper">
-		<nav class="bottom-nav">
+	<div class="nav-dock">
+		<nav class="dock-bar">
 			{#each tabs as tab, i}
 				{@const active = $page.url.pathname.startsWith(tab.path)}
-				{@const offset = i - (activeIndex < 0 ? 2 : activeIndex)}
 				<button
-					class="tab"
+					class="dock-tab"
 					class:active
-					style="--offset: {offset}"
 					onclick={() => goto(tab.path)}
 				>
-					<span class="icon">{tab.icon}</span>
-					<span class="label">{tab.label} · {tab.kh}</span>
+					<span class="dock-icon">{tab.icon}</span>
+					<span class="dock-label">{tab.label}</span>
+					{#if active}<span class="dock-cursor">▸</span>{/if}
 				</button>
 			{/each}
 		</nav>
-		<span class="app-version">v{APP_VERSION}</span>
+		<span class="dock-version">v{APP_VERSION}</span>
 	</div>
 </div>
 
@@ -106,143 +105,113 @@
 		background: transparent;
 	}
 
-	/* ── Floating dock wrapper — texture glaçon ── */
-	.nav-wrapper {
-		position: relative;
+	/* ── Game-style dock ── */
+	.nav-dock {
 		flex-shrink: 0;
 		display: flex;
-		justify-content: center;
-		padding: 0.35rem var(--space-4) calc(0.45rem + env(safe-area-inset-bottom, 0px));
-		/* Frosted ice glass */
-		backdrop-filter: blur(22px) saturate(1.5) brightness(1.06);
-		-webkit-backdrop-filter: blur(22px) saturate(1.5) brightness(1.06);
-		/* Facettes de glace — dégradés croisés */
-		background:
-			linear-gradient(128deg,
-				rgba(255,255,255,0.10) 0%, transparent 32%,
-				rgba(200,240,255,0.07) 52%, transparent 72%,
-				rgba(255,255,255,0.05) 100%),
-			repeating-linear-gradient(112deg,
-				transparent, transparent 11px,
-				rgba(180,235,255,0.055) 11px, rgba(180,235,255,0.055) 12px),
-			repeating-linear-gradient(22deg,
-				transparent, transparent 16px,
-				rgba(160,220,255,0.04) 16px, rgba(160,220,255,0.04) 17px),
-			linear-gradient(to bottom,
-				transparent 0%,
-				color-mix(in srgb, var(--accent) 10%, var(--bg)) 100%);
-		border-top: 1px solid rgba(200, 240, 255, 0.14);
+		flex-direction: column;
+		align-items: center;
+		gap: 0;
+		padding: 0 var(--space-3) env(safe-area-inset-bottom, 0px);
+		background: color-mix(in srgb, var(--bg) 96%, var(--accent));
+		border-top: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 
-	/* Grain — texture de surface glaçon */
-	.nav-wrapper::before {
+	.dock-bar {
+		display: flex;
+		width: 100%;
+		max-width: 28rem;
+	}
+
+	.dock-tab {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 2px;
+		padding: 0.6rem 0 0.25rem;
+		position: relative;
+		color: var(--muted);
+		transition: color 0.2s;
+	}
+
+	.dock-tab.active {
+		color: var(--accent);
+	}
+
+	/* Barre lumineuse au-dessus du tab actif */
+	.dock-tab.active::before {
 		content: '';
 		position: absolute;
-		inset: 0;
-		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.055'/%3E%3C/svg%3E");
-		pointer-events: none;
-		z-index: 0;
+		top: -2px;
+		left: 20%;
+		right: 20%;
+		height: 2px;
+		background: var(--accent);
+		border-radius: 0 0 2px 2px;
+		box-shadow: 0 0 8px var(--accent), 0 0 20px color-mix(in srgb, var(--accent) 40%, transparent);
+		animation: glow-pulse 2s ease-in-out infinite;
 	}
 
-	/* ── Floating pill nav ── */
-	.bottom-nav {
-		display: flex;
-		gap: var(--space-1);
-		padding: 0.45rem 0.5rem;
-		background: color-mix(in srgb, var(--surface) 92%, transparent);
-		backdrop-filter: blur(28px);
-		-webkit-backdrop-filter: blur(28px);
-		border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-		border-radius: 2rem;
-		box-shadow:
-			0 12px 40px rgba(0, 0, 0, 0.45),
-			0 4px 12px rgba(0, 0, 0, 0.3),
-			inset 0 1px 0 rgba(255, 255, 255, 0.08),
-			0 0 0 1px rgba(0, 0, 0, 0.15);
-		perspective: 560px;
+	@keyframes glow-pulse {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.6; }
 	}
 
-	/* ── Tabs 3D ── */
-	.tab {
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		justify-content: center;
-		gap: 0.35rem;
-		padding: 0.5rem 1rem;    /* +padding vertical → meilleur tap target */
-		min-height: 2.75rem;     /* 44px tap target */
-		border-radius: 1.5rem;
-		color: var(--muted);
-		min-width: 0;
-		transform:
-			rotateY(calc(var(--offset, 0) * -20deg))
-			translateZ(-5px);
-		transition:
-			transform 0.44s cubic-bezier(0.34, 1.2, 0.64, 1),
-			color 0.3s,
-			background 0.3s,
-			box-shadow 0.3s;
-	}
-
-	.tab.active {
-		color: var(--accent);
-		background: color-mix(in srgb, var(--accent) 14%, var(--raised));
-		transform: rotateY(0deg) translateZ(22px) scale(1.03);
-		box-shadow: 0 2px 10px var(--accent-glow);
-	}
-
-	.tab:not(.active):hover {
-		color: var(--text-secondary);
-		background: color-mix(in srgb, var(--accent) 7%, transparent);
-	}
-
-	.tab:active {
-		transform:
-			rotateY(calc(var(--offset, 0) * -20deg))
-			translateZ(-5px)
-			scale(0.91);
-	}
-
-	.tab.active:active {
-		transform: rotateY(0) translateZ(22px) scale(0.95);
-	}
-
-	/* ── Icône & label ── */
-	.icon {
-		font-size: 1.15rem;
+	.dock-icon {
+		font-size: 1.3rem;
 		line-height: 1;
-		transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+		transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 	}
 
-	.tab.active .icon {
-		transform: scale(1.12);
-		filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 50%, transparent));
+	.dock-tab.active .dock-icon {
+		transform: translateY(-2px) scale(1.1);
+		filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--accent) 50%, transparent));
 	}
 
-	.label {
-		font-size: 0.72rem;   /* légèrement plus lisible */
+	.dock-tab:active .dock-icon {
+		transform: scale(0.9);
+	}
+
+	.dock-label {
+		font-size: 0.6rem;
 		font-weight: 500;
-		letter-spacing: 0.2px;
-		white-space: nowrap;
-		opacity: 0.45;
-		transition: opacity 0.25s, font-weight 0.2s;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		opacity: 0.4;
+		transition: opacity 0.2s, font-weight 0.2s;
 	}
 
-	.tab.active .label {
+	.dock-tab.active .dock-label {
 		opacity: 1;
 		font-weight: 700;
-		letter-spacing: 0.1px;
 	}
 
-	.app-version {
+	/* Curseur de sélection style RPG */
+	.dock-cursor {
 		position: absolute;
-		bottom: max(2px, env(safe-area-inset-bottom, 0px));
-		right: var(--space-3);
+		left: 4px;
+		top: 50%;
+		transform: translateY(-50%);
+		font-size: 0.6rem;
+		color: var(--accent);
+		animation: cursor-blink 1s step-end infinite;
+		filter: drop-shadow(0 0 3px var(--accent));
+	}
+
+	@keyframes cursor-blink {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0; }
+	}
+
+	/* Version badge */
+	.dock-version {
 		font-size: 0.55rem;
+		font-family: 'Courier New', monospace;
 		color: var(--muted);
-		opacity: 0.3;
-		letter-spacing: 0.03em;
-		pointer-events: none;
+		opacity: 0.35;
+		letter-spacing: 0.06em;
+		padding-bottom: 2px;
 		user-select: none;
 	}
 </style>
