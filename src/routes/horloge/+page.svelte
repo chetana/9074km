@@ -239,9 +239,9 @@
 	/* ── Mini-carte ── */
 	.map-card {
 		position: relative;
-		background: color-mix(in srgb, var(--card) 30%, transparent);
-		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
-		border-radius: var(--radius-2xl);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
 		overflow: hidden;
 		flex-shrink: 0;
 	}
@@ -345,16 +345,15 @@
 	/* ── Cartes ── */
 	.clock-card {
 		position: relative;
-		background: color-mix(in srgb, var(--surface) 60%, transparent);
-		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
-		border-radius: var(--radius-2xl);
-		padding: var(--space-6) var(--space-6) var(--space-6);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		padding: var(--space-6);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
 		overflow: hidden;
 		flex: 1;
-		box-shadow: 0 4px 24px rgba(0,0,0,0.3), 0 1px 0 color-mix(in srgb, var(--accent) 10%, transparent);
 	}
 
 	.landmark {
@@ -376,24 +375,7 @@
 	}
 
 	.card-glow {
-		position: absolute;
-		top: -2.5rem;
-		right: -1.25rem;
-		width: 11.25rem;
-		height: 11.25rem;
-		border-radius: var(--radius-full);
-		pointer-events: none;
-	}
-
-	.glow-paris {
-		background: radial-gradient(circle, color-mix(in srgb, var(--accent) 20%, transparent) 0%, transparent 70%);
-	}
-
-	.glow-pp {
-		background: radial-gradient(circle, color-mix(in srgb, var(--accent) 15%, transparent) 0%, transparent 70%);
-		top: auto;
-		bottom: -2.5rem;
-		right: -1.25rem;
+		display: none;
 	}
 
 	.card-header {
@@ -433,21 +415,19 @@
 	}
 
 	.time {
-		font-size: clamp(3.2rem, 15vw, 5rem);   /* +25% plus grand */
-		font-weight: 200;                          /* ultra-light — plus élégant */
+		font-size: clamp(3.2rem, 15vw, 5rem);
+		font-weight: 200;
 		color: var(--accent);
 		font-variant-numeric: tabular-nums;
 		letter-spacing: -0.01em;
 		line-height: 1;
-		animation: pulse-text 1s ease-in-out infinite alternate;
-		text-shadow:
-			0 0 40px color-mix(in srgb, var(--accent) 45%, transparent),
-			0 0 80px color-mix(in srgb, var(--accent) 20%, transparent);
+		animation: pulse-text 2s ease-in-out infinite;
+		text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
 	}
 
 	@keyframes pulse-text {
-		from { opacity: 1;    text-shadow: 0 0 40px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 80px color-mix(in srgb, var(--accent) 20%, transparent); }
-		to   { opacity: 0.82; text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 40px color-mix(in srgb, var(--accent) 10%, transparent); }
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.7; }
 	}
 
 	.dates {
@@ -474,9 +454,9 @@
 		gap: var(--space-2);
 		margin-top: var(--space-2);
 		padding: 6px 14px;
-		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-		border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+		border-radius: var(--radius-sm);
+		background: var(--raised);
+		border: 1px solid var(--border);
 		width: fit-content;
 	}
 
