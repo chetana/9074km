@@ -1,12 +1,10 @@
+/**
+ * Utilitaire SWR (Stale-While-Revalidate) pour Svelte 5.
+ * Affiche immédiatement le cache, puis rafraîchit en arrière-plan.
+ * Expose aussi `mutate()` pour les mises à jour optimistes.
+ */
 import { untrack } from 'svelte';
 
-/**
- * Rune SWR (Stale-While-Revalidate) réactive pour Svelte 5.
- * @param keyFn Fonction retournant la clé unique (réactive)
- * @param getCached Fonction pour récupérer la donnée du localCache pour une clé
- * @param fetcher Fonction asynchrone pour récupérer la donnée fraîche pour une clé
- * @param initialValue Valeur par défaut si rien n'est en cache
- */
 export function createSWR<T>(
 	keyFn: () => string,
 	getCached: (key: string) => T | null,
@@ -14,47 +12,64 @@ export function createSWR<T>(
 	initialValue: T
 ) {
 	let data = $state<T>(initialValue);
-	let loading = $state(true);
-	let error = $state<Error | null>(null);
+	let loading = $state(true); // Commence en chargement pour éviter le flash "empty"
+	let error = $state<any>(null);
+
+	// Garde pour ignorer les réponses obsolètes
+	let activeKey = '';
 
 	async function refresh() {
-		const currentKey = untrack(keyFn);
+		const key = untrack(keyFn);
+		activeKey = key;
+
+		loading = true;
+		error = null;
+
 		try {
-			const fresh = await fetcher(currentKey);
-			// On ne met à jour que si la clé est toujours la même (évite race condition)
-			if (currentKey === untrack(keyFn)) {
-				// Deep compare simple pour éviter des triggers inutiles
-				if (JSON.stringify(fresh) !== JSON.stringify(data)) {
-					data = fresh;
-				}
+			const result = await fetcher(key);
+			// Ignorer si une autre clé est devenue active entre-temps
+			if (activeKey === key) {
+				data = result;
 				error = null;
 			}
-		} catch (e) {
-			if (currentKey === untrack(keyFn)) {
-				error = e as Error;
+		} catch (err: any) {
+			if (activeKey === key) {
+				error = err;
 			}
 		} finally {
-			if (currentKey === untrack(keyFn)) {
+			if (activeKey === key) {
 				loading = false;
 			}
 		}
 	}
 
-	// Réagir aux changements de clé
+	// Réagir aux changements de clé — initialiser avec le cache et lancer le fetch
 	$effect(() => {
-		const key = keyFn();
-		const cached = getCached(key);
-		data = cached ?? initialValue;
-		loading = true;
-		error = null;
-		refresh();
+		const key = keyFn(); // lecture réactive
+
+		untrack(() => {
+			// Précharger depuis le cache immédiatement
+			const cached = getCached(key);
+			if (cached !== null) {
+				data = cached;
+			} else {
+				data = initialValue;
+			}
+			// Toujours rafraîchir en arrière-plan
+			refresh();
+		});
 	});
 
 	return {
 		get data() { return data; },
-		set data(v: T) { data = v; }, // Permet des mises à jour optimistes via le composant
+		/** Mutation optimiste directe (ex: ajout ou suppression d'un message) */
+		set data(value: T) { data = value; },
 		get loading() { return loading; },
 		get error() { return error; },
-		refresh
+		refresh,
+		/** mutate(fn) : applique une transformation sur les données locales (optimistic) */
+		mutate(fn: (current: T) => T) {
+			data = fn(data);
+		}
 	};
 }

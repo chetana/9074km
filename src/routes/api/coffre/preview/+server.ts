@@ -8,7 +8,7 @@ export const GET: RequestHandler = async ({ url, request }) => {
   const f = url.searchParams.get('f') ?? ''
   if (!y || !m || !d || !f) throw error(400, 'y, m, d, f are required')
 
-  const origin = new URL(request.url).origin
+  const origin = 'https://lys.chetana.dev'
   const path = `${y}/${m}/${d}/${f}`
   const appUrl = `${origin}/coffre?y=${y}&m=${m}&d=${d}&f=${encodeURIComponent(f)}`
   const appUrlHtml = appUrl.replace(/&/g, '&amp;')
@@ -32,6 +32,10 @@ export const GET: RequestHandler = async ({ url, request }) => {
   <meta property="og:title" content="${title}">
   <meta property="og:description" content="Un souvenir partagé · ការចងចាំរួម">
   <meta property="og:image" content="${ogImageUrlHtml}">
+  <meta property="og:image:secure_url" content="${ogImageUrlHtml}">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta property="og:url" content="${appUrlHtml}">
   <style>

@@ -21,22 +21,44 @@ export interface ListResult {
 	items: CoffreItem[];
 }
 
-async function authHeaders(): Promise<Record<string, string>> {
-	const token = auth.getToken();
-	if (!token) throw new Error('Not authenticated');
+function makeAuthHeaders(token: string): Record<string, string> {
 	return { Authorization: `Bearer ${token}` };
 }
 
 async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
-	const headers = await authHeaders();
-	const res = await fetch(`${BASE}${path}`, {
-		...options,
-		headers: { ...headers, ...(options.headers as Record<string, string>) }
-	});
+	// Récupère le token, ou tente un refresh silencieux si absent/expiré
+	let token = auth.getToken();
+	if (!token) {
+		try {
+			token = await auth.refreshToken();
+		} catch {
+			throw new Error('Not authenticated');
+		}
+	}
+
+	const doFetch = (t: string) =>
+		fetch(`${BASE}${path}`, {
+			...options,
+			headers: { ...makeAuthHeaders(t), ...(options.headers as Record<string, string>) }
+		});
+
+	let res = await doFetch(token);
+
+	// Sur 401 : token expiré côté serveur → refresh + un seul retry
 	if (res.status === 401) {
 		auth.signOutSilent();
-		throw new Error('Session expired');
+		try {
+			const newToken = await auth.refreshToken();
+			res = await doFetch(newToken);
+		} catch {
+			throw new Error('Session expired');
+		}
+		if (res.status === 401) {
+			auth.signOutSilent();
+			throw new Error('Session expired');
+		}
 	}
+
 	if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
 	return res;
 }

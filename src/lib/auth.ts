@@ -211,5 +211,41 @@ export const auth = {
 		const user = get(userStore);
 		if (!user) return '';
 		return user.name.split(' ')[0];
+	},
+
+	/**
+	 * Tente de récupérer un token valide en re-promptant Google.
+	 * Résout avec le token dès qu'il arrive dans tokenStore (via handleCredential).
+	 * Rejette après `timeoutMs` ms si Google ne répond pas (prompt supprimé, desktop, etc.).
+	 */
+	async refreshToken(timeoutMs = 8000): Promise<string> {
+		// Token déjà valide → on le retourne directement
+		const existing = get(tokenStore);
+		if (existing) {
+			const payload = parseJwt(existing);
+			if ((payload['exp'] as number) * 1000 > Date.now()) return existing;
+		}
+
+		await loadGsiScript();
+		initGsi(handleCredential);
+
+		return new Promise<string>((resolve, reject) => {
+			const unsub = tokenStore.subscribe((token) => {
+				if (token) {
+					const payload = parseJwt(token);
+					if ((payload['exp'] as number) * 1000 > Date.now()) {
+						unsub();
+						resolve(token);
+					}
+				}
+			});
+
+			window.google!.accounts.id.prompt();
+
+			setTimeout(() => {
+				unsub();
+				reject(new Error('Auth timeout — reconnexion impossible'));
+			}, timeoutMs);
+		});
 	}
 };
