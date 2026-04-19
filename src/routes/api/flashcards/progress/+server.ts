@@ -19,22 +19,24 @@ export const OPTIONS: RequestHandler = async ({ request }) => {
   return new Response(null, { status: 204, headers: cardGameCors(request.headers.get('origin')) })
 }
 
-export const GET: RequestHandler = async ({ request }) => {
-  const user = await requireAuth(request)
+export const GET: RequestHandler = async (event) => {
+  const { request } = event
+  const user = await requireAuth(event)
   const name = user.name?.split(' ')[0] ?? 'unknown'
   const bucket = getGcsBucket()
-  const cors = cardGameCors(request.headers.get('origin'))
+  const headers = { ...cardGameCors(request.headers.get('origin')), 'Cache-Control': 'no-store, must-revalidate' }
   try {
     const [contents] = await bucket.file(progressPath(name)).download()
-    return json(JSON.parse(contents.toString('utf-8')), { headers: cors })
+    return json(JSON.parse(contents.toString('utf-8')), { headers })
   } catch (e: any) {
-    if (e?.code === 404) return json({ name, xp: 0, sessions: [] } satisfies FlashProgress, { headers: cors })
+    if (e?.code === 404) return json({ name, xp: 0, sessions: [] } satisfies FlashProgress, { headers })
     throw error(502, 'Failed to read progress')
   }
 }
 
-export const POST: RequestHandler = async ({ request }) => {
-  const user = await requireAuth(request)
+export const POST: RequestHandler = async (event) => {
+  const { request } = event
+  const user = await requireAuth(event)
   const name = user.name?.split(' ')[0] ?? 'unknown'
   const body = await request.json() as { correct: number; approx: number; wrong: number; xp_gained: number }
 

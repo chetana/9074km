@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { listObjects, isMediaFile, getCachedList } from '$lib/api';
-	import { tokenStore } from '$lib/auth';
+	import { userStore } from '$lib/auth';
 	import { DAYS_FR, DAYS_KH, MONTHS_FR } from '$lib/i18n';
 	import { createSWR } from '$lib/swr.svelte';
+	import DayFlower from './DayFlower.svelte';
 
 	interface Props {
 		year: string;
@@ -11,9 +12,7 @@
 	}
 
 	let { year, month, onSelect }: Props = $props();
-	const token = tokenStore;
-
-	interface DayEntry { dd: string; label: string; fileCount: number | null }
+	const token = userStore;
 
 	function dayLabel(dd: string): string {
 		const d = new Date(`${year}-${month}-${dd}T12:00:00`);
@@ -22,8 +21,20 @@
 		return `${DAYS_FR[dow]} · ${DAYS_KH[dow]} — ${dd} ${monthName}`;
 	}
 
+	function isWeekendDay(dd: string): boolean {
+		const d = new Date(`${year}-${month}-${dd}T12:00:00`);
+		const dow = d.getDay();
+		return dow === 0 || dow === 6;
+	}
+
+	function isTodayDay(dd: string): boolean {
+		const now = new Date();
+		return now.getFullYear() === parseInt(year, 10) &&
+			now.getMonth() + 1 === parseInt(month, 10) &&
+			now.getDate() === parseInt(dd, 10);
+	}
+
 	// SWR pour la liste des jours de ce mois
-	// Le token dans la clé force un re-fetch quand l'auth arrive
 	const swr = createSWR(
 		() => `days_${year}_${month}_${$token ? '1' : '0'}`,
 		() => getCachedList(`${year}/${month}/`),
@@ -31,37 +42,44 @@
 		{ prefixes: [], items: [] }
 	);
 
-	// Derived state pour les jours
-	let days = $derived(
-		swr.data.prefixes
-			.map((p) => p.replace(`${year}/${month}/`, '').replace('/', ''))
-			.filter((p) => /^\d{2}$/.test(p))
-			.sort((a, b) => Number(b) - Number(a))
+	// Jours avec préfixe GCS (= potentiellement des fichiers)
+	const daysWithPrefix = $derived(
+		new Set(
+			swr.data.prefixes
+				.map((p) => p.replace(`${year}/${month}/`, '').replace('/', ''))
+				.filter((p) => /^\d{2}$/.test(p))
+		)
 	);
 
-	// Diagnostic logs
-	$effect(() => {
-		console.log(`[DayList] SWR State - loading: ${swr.loading}, data.items: ${swr.data.items.length}`);
+	const daysInMonth = $derived.by(() => {
+		const y = parseInt(year, 10);
+		const m = parseInt(month, 10);
+		return new Date(y, m, 0).getDate();
 	});
 
-	// État pour stocker les comptes de fichiers (lazy)
-	let countsMap = $state<Record<string, number>>({});
+	// Tous les jours du mois (1 → daysInMonth) : les vides seront des buds
+	const days = $derived(
+		Array.from({ length: daysInMonth }, (_, i) => String(i + 1).padStart(2, '0'))
+	);
 
+	let countsMap = $state<Record<string, number>>({});
 	let error = $derived(swr.error ? String(swr.error) : null);
 
-	// La liste des items est ENTIÈREMENT dérivée (réactif pur)
 	let items = $derived(
 		days.map((dd) => ({
 			dd,
 			label: dayLabel(dd),
-			fileCount: countsMap[dd] ?? null
+			// Si pas de préfixe GCS pour ce jour → 0 fichiers (bud), sinon on attend le count
+			fileCount: daysWithPrefix.has(dd) ? (countsMap[dd] ?? null) : 0,
+			isToday: isTodayDay(dd),
+			isWeekend: isWeekendDay(dd),
 		}))
 	);
 
-	// Effet pour charger les counts (indépendant du rendu initial)
 	$effect(() => {
-		const currentDays = days;
-		currentDays.forEach(async (dd) => {
+		// Ne charge les counts que pour les jours qui ont un préfixe
+		const toFetch = days.filter((dd) => daysWithPrefix.has(dd));
+		toFetch.forEach(async (dd) => {
 			if (countsMap[dd] !== undefined) return;
 			try {
 				const r = await listObjects(`${year}/${month}/${dd}/`);
@@ -70,123 +88,114 @@
 			} catch { /* count reste null */ }
 		});
 	});
+
+	const monthLabelFull = $derived(
+		`${MONTHS_FR[parseInt(month, 10) - 1]} ${year}`
+	);
 </script>
 
-<div class="list">
+<div class="garden">
+	<header class="garden-header">
+		<h2>{monthLabelFull}</h2>
+		<p class="subtitle">
+			{#if items.length > 0}
+				{items.filter(i => (i.fileCount ?? 0) > 0).length} jours fleuris · {items.length} au total
+			{:else}
+				Un mois vide pour l'instant
+			{/if}
+		</p>
+	</header>
+
 	{#if swr.loading && items.length === 0}
-		{#each [1,2,3,4] as _}
-			<div class="skeleton"></div>
-		{/each}
+		<div class="grid">
+			{#each [1,2,3,4,5,6,7,8] as i}
+				<div class="skeleton-flower" style="--i:{i}"></div>
+			{/each}
+		</div>
 	{:else if error}
 		<div class="error">
 			<p>Erreur de chargement</p>
 			<button onclick={() => swr.refresh()}>Réessayer</button>
 		</div>
 	{:else if items && items.length === 0}
-		<div class="empty">Aucun jour disponible</div>
+		<div class="empty">
+			<span class="empty-icon">🌱</span>
+			<p>Aucun jour dans ce mois</p>
+		</div>
 	{:else}
-		{#each items ?? [] as item, i}
-			<button class="card" style="--i:{i}" onclick={() => onSelect(item.dd)}>
-				<div class="info">
-					<span class="label">{item.label}</span>
-					<span class="count">
-						{#if item.fileCount === null}
-							<span class="loading">…</span>
-						{:else}
-							{item.fileCount} fichiers · {item.fileCount} ឯកសារ
-						{/if}
-					</span>
-				</div>
-				<span class="arrow">›</span>
-			</button>
-		{/each}
+		<div class="grid">
+			{#each items as item, i}
+				<DayFlower
+					dd={item.dd}
+					label={item.label}
+					fileCount={item.fileCount}
+					isToday={item.isToday}
+					isWeekend={item.isWeekend}
+					index={i}
+					onSelect={() => onSelect(item.dd)}
+				/>
+			{/each}
+		</div>
 	{/if}
 </div>
 
 <style>
-	.list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
+	.garden {
 		padding: var(--space-4);
-	}
-
-	.card {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-left: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
-		border-radius: var(--radius-sm);
-		padding: var(--space-3) var(--space-4);
-		text-align: left;
-		transition: border-color var(--transition), transform var(--transition);
-		width: 100%;
-	}
-
-	.card:hover {
-		border-color: var(--accent);
-		border-left-color: var(--accent);
-		transform: translateX(3px);
-	}
-
-	.info {
-		flex: 1;
 		display: flex;
 		flex-direction: column;
-		gap: 3px;
+		gap: var(--space-4);
 	}
 
-	.label {
-		font-size: var(--fs-md);
-		color: var(--text);
-		font-weight: 500;
-	}
-
-	.count {
-		display: inline-flex;
-		align-items: center;
-		font-size: var(--fs-xs);
-		color: var(--muted);
-		background: color-mix(in srgb, var(--accent) 8%, transparent);
-		border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
-		border-radius: var(--radius-full);
-		padding: 1px 8px;
-		width: fit-content;
-	}
-
-	.loading {
-		opacity: 0.4;
-	}
-
-	.arrow {
-		font-size: var(--fs-xl);
-		color: color-mix(in srgb, var(--accent) 40%, var(--muted));
-		transition: transform 0.2s;
-	}
-
-	.card:hover .arrow {
-		transform: translateX(2px);
-	}
-
-	@keyframes card-in {
-		from { opacity: 0; transform: translateY(10px) scale(0.98); }
-		to   { opacity: 1; transform: none; }
-	}
-
-	.card {
-		animation: card-in 0.28s cubic-bezier(0.34, 1.4, 0.64, 1) both;
-		animation-delay: calc(var(--i, 0) * 55ms);
-	}
-
-	.card:active {
-		transform: scale(0.97);
-	}
-
-	.skeleton {
-		height: 4.25rem;
+	.garden-header {
+		text-align: center;
+		padding: var(--space-3) var(--space-4);
+		background: color-mix(in srgb, var(--surface) 85%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
 		border-radius: var(--radius-md);
+		box-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 8%, transparent);
+	}
+
+	.garden-header h2 {
+		font-size: var(--fs-2xl);
+		font-weight: 600;
+		color: var(--accent-warm);
+		letter-spacing: -0.01em;
+		text-transform: capitalize;
+		text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+	}
+
+	.subtitle {
+		font-size: var(--fs-sm);
+		color: var(--text);
+		margin-top: var(--space-1);
+		opacity: 0.7;
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+		gap: var(--space-3);
+		justify-items: center;
+		padding: var(--space-2);
+	}
+
+	.skeleton-flower {
+		width: 5.5rem;
+		height: 5.5rem;
+		border-radius: 50%;
+		background: radial-gradient(
+			circle,
+			color-mix(in srgb, var(--accent) 15%, transparent) 0%,
+			transparent 70%
+		);
+		animation: skel-pulse 1.4s ease-in-out infinite;
+		animation-delay: calc(var(--i, 0) * 80ms);
+	}
+
+	@keyframes skel-pulse {
+		0%, 100% { opacity: 0.3; transform: scale(0.9); }
+		50% { opacity: 0.7; transform: scale(1); }
 	}
 
 	.error {
@@ -210,5 +219,13 @@
 		text-align: center;
 		padding: var(--space-12);
 		color: var(--muted);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		align-items: center;
+	}
+
+	.empty-icon {
+		font-size: 3rem;
 	}
 </style>

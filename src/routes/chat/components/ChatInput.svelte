@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Smile, Camera, Mic, Send } from 'lucide-svelte';
 	interface Props {
 		inputText: string;
 		sending: boolean;
@@ -34,8 +35,8 @@
 {/if}
 
 <div class="input-bar">
-	<button class="action-btn" class:active={showEmojis} onclick={onToggleEmojis} aria-label="Emojis">😊</button>
-	<button class="action-btn" onclick={onPickImage} disabled={sending || recording || transcribing} aria-label="Image">📷</button>
+	<button class="action-btn" class:active={showEmojis} onclick={onToggleEmojis} aria-label="Emojis"><Smile size={20} /></button>
+	<button class="action-btn" onclick={onPickImage} disabled={sending || recording || transcribing} aria-label="Image"><Camera size={20} /></button>
 	<button
 		class="action-btn"
 		class:recording={recording && !speaking}
@@ -47,7 +48,7 @@
 		{#if recording || speaking}
 			<span class="wav-bars" class:wav-active={speaking}><span></span><span></span><span></span><span></span><span></span></span>
 		{:else}
-			{transcribing ? '…' : vadLoading ? '⏳' : '🎤'}
+			{#if transcribing}…{:else if vadLoading}⏳{:else}<Mic size={20} />{/if}
 		{/if}
 	</button>
 	<textarea
@@ -69,7 +70,7 @@
 		{#if sending}
 			<span class="send-sparkle">✦</span>
 		{:else}
-			<span class="send-arrow">➤</span>
+			<span class="send-arrow"><Send size={18} /></span>
 		{/if}
 	</button>
 </div>

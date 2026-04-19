@@ -1,4 +1,5 @@
 import { createSign } from 'crypto'
+import { env } from '$env/dynamic/private'
 
 function parseServiceAccountJson(raw: string): Record<string, string> {
   // gcloud --env-vars-file YAML uses single-quoted strings where \n is literal backslash+n.
@@ -17,7 +18,7 @@ function parseServiceAccountJson(raw: string): Record<string, string> {
 }
 
 export async function getAccessToken(): Promise<string> {
-  const raw = process.env.GCS_SERVICE_ACCOUNT_JSON!.trim()
+  const raw = env.GCS_SERVICE_ACCOUNT_JSON!.trim()
   const creds = parseServiceAccountJson(raw)
 
   const now = Math.floor(Date.now() / 1000)
@@ -54,8 +55,8 @@ function geminiEndpoint(project: string, model: string, location: string): strin
 
 async function geminiRequest(parts: object[], maxTokens = 300): Promise<string> {
   const token = await getAccessToken()
-  const project = process.env.VERTEX_PROJECT_ID ?? 'cykt-399216'
-  const location = process.env.VERTEX_LOCATION ?? 'us-central1'
+  const project = env.VERTEX_PROJECT_ID ?? 'cykt-399216'
+  const location = env.VERTEX_LOCATION ?? 'us-central1'
 
   let lastError: Error | null = null
   for (const model of GEMINI_MODELS) {
@@ -164,8 +165,8 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 
 export async function geminiTts(text: string, lang: 'fr' | 'kh'): Promise<string> {
   const token = await getAccessToken()
-  const project = process.env.VERTEX_PROJECT_ID ?? 'cykt-399216'
-  const location = process.env.VERTEX_LOCATION ?? 'us-central1'
+  const project = env.VERTEX_PROJECT_ID ?? 'cykt-399216'
+  const location = env.VERTEX_LOCATION ?? 'us-central1'
   const model = 'gemini-2.5-flash-preview-tts'
   const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`
 

@@ -10,6 +10,7 @@
 	import { getCachedMessages, getCachedXp, setCachedXp } from '$lib/localCache';
 	import { createSWR } from '$lib/swr.svelte';
 	import FlashcardGame from '$lib/FlashcardGame.svelte';
+	import Flag from '$lib/Flag.svelte';
 	import { getLevel, getAvatar, xpProgressPct } from '$lib/flashcard-levels';
 	import ChatBubble from './components/ChatBubble.svelte';
 	import ChatInput from './components/ChatInput.svelte';
@@ -35,9 +36,7 @@
 		() => 'chat_xp',
 		() => getCachedXp(),
 		async () => {
-			const token = auth.getToken();
-			if (!token) return getCachedXp() ?? 0;
-			const res = await fetch('/api/flashcards/progress', { headers: { Authorization: `Bearer ${token}` } });
+			const res = await fetch('/api/flashcards/progress', { credentials: 'include' });
 			if (res.ok) { const p = await res.json(); setCachedXp(p.xp ?? 0); return p.xp ?? 0; }
 			return getCachedXp() ?? 0;
 		},
@@ -74,11 +73,6 @@
 
 	const user = userStore;
 	const authReady = authReadyStore;
-
-	// Action Svelte : rend le bouton Google natif (fiable, pas soumis aux suppressions FedCM)
-	function googleSignInBtn(node: HTMLElement) {
-		auth.renderSignInButton(node);
-	}
 
 	// Vérifie si un prénom correspond à Chet (Chet, Chetana, Chétana, etc.)
 	function isChet(name: string): boolean {
@@ -312,11 +306,10 @@
 		// Gemini TTS via serveur
 		speakingMsgId = currentId;
 		try {
-			const token = auth.getToken();
-			if (!token) throw new Error('not authenticated');
 			const res = await fetch('/api/chat/speak', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ text, lang }),
 			});
 			if (!res.ok) throw new Error('TTS failed');
@@ -620,7 +613,7 @@
 				<p class="auth-festival">សួស្តីឆ្នាំថ្មី ✨</p>
 			{/if}
 			<p class="auth-msg">{ui.authMsg}</p>
-			<div use:googleSignInBtn></div>
+			<button class="auth-btn" onclick={() => auth.signIn()}>Se connecter</button>
 		</div>
 	{:else}
 		<!-- ── Bannière offline ── -->
@@ -714,11 +707,10 @@
 							<p class="lessons-empty">{ui.lessonsEmpty}</p>
 						{:else}
 							{#each lessons as l (l.id)}
-								{@const lFlag = l.lang === 'fr' ? '🇫🇷' : l.lang === 'en' ? '🇬🇧' : '🇰🇭'}
 								<div class="lesson-card">
 									<div class="lesson-meta">
 										<span class="lesson-author">{l.author}</span>
-										<span class="lesson-flag">{lFlag}</span>
+										<span class="lesson-flag"><Flag lang={l.lang as 'fr' | 'en' | 'kh'} size="sm" /></span>
 										<span class="lesson-date">{new Date(l.ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
 									</div>
 									<p class="lesson-original"><s>{l.original}</s> → {l.corrected}</p>

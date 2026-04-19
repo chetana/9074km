@@ -3,8 +3,9 @@ import type { RequestHandler } from './$types'
 import { requireAuth } from '$lib/server/auth'
 import { getGcsBucket } from '$lib/server/gcs'
 
-export const GET: RequestHandler = async ({ request, url }) => {
-  await requireAuth(request)
+export const GET: RequestHandler = async (event) => {
+  const { request, url } = event
+  await requireAuth(event)
   const prefix = url.searchParams.get('prefix') ?? ''
   const bucket = getGcsBucket()
 

@@ -25,12 +25,14 @@
 	},
 	"dependencies": {
 		"@google-cloud/storage": "^7.16.0",
+		"@logto/sveltekit": "^0.3.23",
 		"@neondatabase/serverless": "^0.10.4",
 		"@ricky0123/vad-web": "^0.0.30",
 		"date-fns": "^4.1.0",
 		"date-fns-tz": "^3.2.0",
 		"drizzle-orm": "^0.38.3",
-		"google-auth-library": "^9.15.1",
+		"flag-icons": "^7.5.0",
+		"lucide-svelte": "^1.0.1",
 		"sharp": "^0.33.5",
 		"swiper": "^12.1.2"
 	}

@@ -3,8 +3,9 @@ import type { RequestHandler } from './$types'
 import { requireAuth } from '$lib/server/auth'
 import { getGcsBucket } from '$lib/server/gcs'
 
-export const GET: RequestHandler = async ({ request, url }) => {
-  await requireAuth(request)
+export const GET: RequestHandler = async (event) => {
+  const { request, url } = event
+  await requireAuth(event)
   const y = url.searchParams.get('y') ?? '', m = url.searchParams.get('m') ?? '', d = url.searchParams.get('d') ?? ''
   if (!y || !m || !d) throw error(400, 'y, m, d are required')
 
@@ -17,8 +18,9 @@ export const GET: RequestHandler = async ({ request, url }) => {
   }
 }
 
-export const POST: RequestHandler = async ({ request, url }) => {
-  await requireAuth(request)
+export const POST: RequestHandler = async (event) => {
+  const { request, url } = event
+  await requireAuth(event)
   const y = url.searchParams.get('y') ?? '', m = url.searchParams.get('m') ?? '', d = url.searchParams.get('d') ?? ''
   if (!y || !m || !d) throw error(400, 'y, m, d are required')
 

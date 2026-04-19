@@ -3,8 +3,9 @@ import type { RequestHandler } from './$types'
 import { requireAuth } from '$lib/server/auth'
 import { geminiSuggest } from '$lib/server/vertex'
 
-export const POST: RequestHandler = async ({ request }) => {
-  const user = await requireAuth(request)
+export const POST: RequestHandler = async (event) => {
+  const { request } = event
+  const user = await requireAuth(event)
   const body = await request.json() as { text: string }
   if (!body?.text) throw error(400, 'text is required')
   if (body.text.trim().length < 2) throw error(400, 'text too short')

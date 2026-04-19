@@ -53,14 +53,15 @@
 
 	button {
 		font-size: var(--fs-base);
-		font-weight: 500;
-		color: var(--accent);
+		font-weight: 600;
+		color: var(--accent-warm);
 		white-space: nowrap;
 		padding: var(--space-1) var(--space-2);
 		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--accent) 12%, transparent);
-		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+		background: color-mix(in srgb, var(--accent) 20%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
 		transition: background 0.15s, border-color 0.15s;
+		text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
 	}
 
 	button:hover {
@@ -79,9 +80,10 @@
 
 	.current {
 		font-size: var(--fs-md);
-		color: var(--text);
-		font-weight: 600;
+		color: var(--accent-warm);
+		font-weight: 700;
 		white-space: nowrap;
+		text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
 	}
 
 	.count {

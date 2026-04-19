@@ -9,8 +9,11 @@ interface ChatMessage {
   lang?: string; ts: string; image?: string; source?: 'audio'
 }
 
-export const GET: RequestHandler = async ({ request, url }) => {
-  await requireAuth(request)
+const NO_STORE = { 'Cache-Control': 'no-store, must-revalidate' }
+
+export const GET: RequestHandler = async (event) => {
+  const { request, url } = event
+  await requireAuth(event)
   const y = url.searchParams.get('y') ?? ''
   const m = url.searchParams.get('m') ?? ''
   const d = url.searchParams.get('d') ?? ''
@@ -19,15 +22,16 @@ export const GET: RequestHandler = async ({ request, url }) => {
   const bucket = getGcsBucket()
   try {
     const [contents] = await bucket.file(`chat/${y}/${m}/${d}.json`).download()
-    return json(JSON.parse(contents.toString('utf-8')))
+    return json(JSON.parse(contents.toString('utf-8')), { headers: NO_STORE })
   } catch (e: any) {
-    if (e?.code === 404) return json([])
+    if (e?.code === 404) return json([], { headers: NO_STORE })
     throw error(502, 'Failed to read messages')
   }
 }
 
-export const POST: RequestHandler = async ({ request, url }) => {
-  await requireAuth(request)
+export const POST: RequestHandler = async (event) => {
+  const { request, url } = event
+  await requireAuth(event)
   const y = url.searchParams.get('y') ?? ''
   const m = url.searchParams.get('m') ?? ''
   const d = url.searchParams.get('d') ?? ''
@@ -94,8 +98,9 @@ export const POST: RequestHandler = async ({ request, url }) => {
   return json(newMessage)
 }
 
-export const DELETE: RequestHandler = async ({ request, url }) => {
-  const user = await requireAuth(request)
+export const DELETE: RequestHandler = async (event) => {
+  const { request, url } = event
+  const user = await requireAuth(event)
   const y = url.searchParams.get('y') ?? ''
   const m = url.searchParams.get('m') ?? ''
   const d = url.searchParams.get('d') ?? ''

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Flag from '$lib/Flag.svelte';
 	import type { GeminiSuggestion } from '$lib/api';
 
 	interface Props {
@@ -22,9 +23,9 @@
 	<div class="suggestion">
 		<p class="suggestion-question">{suggestion.question}</p>
 		<p class="suggestion-corrected">"{suggestion.corrected}"</p>
-		{#if suggestion.fr}<p class="suggestion-translation"><span class="transl-flag">🇫🇷</span>{suggestion.fr}</p>{/if}
-		{#if suggestion.en}<p class="suggestion-translation"><span class="transl-flag">🇬🇧</span>{suggestion.en}</p>{/if}
-		{#if suggestion.kh}<p class="suggestion-translation"><span class="transl-flag">🇰🇭</span>{suggestion.kh}</p>{/if}
+		{#if suggestion.fr}<p class="suggestion-translation"><span class="transl-flag"><Flag lang="fr" size="sm" /></span>{suggestion.fr}</p>{/if}
+		{#if suggestion.en}<p class="suggestion-translation"><span class="transl-flag"><Flag lang="en" size="sm" /></span>{suggestion.en}</p>{/if}
+		{#if suggestion.kh}<p class="suggestion-translation"><span class="transl-flag"><Flag lang="kh" size="sm" /></span>{suggestion.kh}</p>{/if}
 		{#if suggestion.lessons?.length}
 			{#each suggestion.lessons as l}
 				<p class="suggestion-lesson"><s>{l.original}</s> → <strong>{l.corrected}</strong> — {l.explanation}</p>

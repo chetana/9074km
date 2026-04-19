@@ -1,9 +1,19 @@
+import type { LogtoClient, UserInfoResponse } from '@logto/sveltekit';
+
 // See https://svelte.dev/docs/kit/types#app.d.ts
-// for information about these interfaces
 declare global {
 	namespace App {
+		interface Locals {
+			logtoClient: LogtoClient;
+			user?: UserInfoResponse;
+			dbUser?: {
+				id: number;
+				email: string;
+				name: string;
+				picture: string;
+			};
+		}
 		// interface Error {}
-		// interface Locals {}
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}

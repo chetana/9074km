@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { listObjects, getCachedList } from '$lib/api';
-	import { tokenStore } from '$lib/auth';
+	import { userStore } from '$lib/auth';
 	import { createSWR } from '$lib/swr.svelte';
 
 	interface Props {
@@ -8,7 +8,7 @@
 	}
 
 	let { onSelect }: Props = $props();
-	const token = tokenStore;
+	const token = userStore;
 
 	interface YearEntry { year: string; monthCount: number | null }
 

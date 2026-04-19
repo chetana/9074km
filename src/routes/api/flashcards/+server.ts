@@ -37,7 +37,8 @@ export const OPTIONS: RequestHandler = async ({ request }) => {
   return new Response(null, { status: 204, headers: cardGameCors(request.headers.get('origin')) })
 }
 
-export const GET: RequestHandler = async ({ request }) => {
-  await requireAuth(request)
+export const GET: RequestHandler = async (event) => {
+  const { request } = event
+  await requireAuth(event)
   return json(CARDS, { headers: cardGameCors(request.headers.get('origin')) })
 }

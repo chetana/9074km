@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { tokenStore } from '$lib/auth';
 	import { LEVELS, getLevel, getAvatar as _getAvatar, getLevelTitle as _getLevelTitle, xpForNextLevel, xpProgressPct } from '$lib/flashcard-levels';
+	import Flag from '$lib/Flag.svelte';
 
 	interface Card { id: string; fr: string; kh: string; en?: string; phonetic_kh?: string; phonetic_fr?: string }
 	interface Progress { name: string; xp: number; sessions: { date: string; correct: number; approx: number; wrong: number; xp_gained: number }[] }
@@ -43,17 +43,15 @@
 	const backText      = $derived(card ? (userLang === 'fr' ? card.fr        : card.kh)          : '');
 	const frontPhonetic = $derived(card ? (userLang === 'fr' ? card.phonetic_kh : card.phonetic_fr) : '');
 	const backPhonetic  = $derived(card ? (userLang === 'fr' ? card.phonetic_fr : card.phonetic_kh) : '');
-	const frontFlag     = $derived(userLang === 'fr' ? '🇰🇭' : '🇫🇷');
-	const backFlag      = $derived(userLang === 'fr' ? '🇫🇷' : '🇰🇭');
+	const frontFlag     = $derived<'fr' | 'kh'>(userLang === 'fr' ? 'kh' : 'fr');
+	const backFlag      = $derived<'fr' | 'kh'>(userLang === 'fr' ? 'fr' : 'kh');
 
 	// ── Mount ──────────────────────────────────────────────────────────────
 	onMount(async () => {
-		const token = $tokenStore;
-		const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 		try {
 			const [cardsRes, progRes] = await Promise.all([
-				fetch('/api/flashcards', { headers }),
-				fetch('/api/flashcards/progress', { headers }),
+				fetch('/api/flashcards', { credentials: 'include' }),
+				fetch('/api/flashcards/progress', { credentials: 'include' }),
 			]);
 			cards    = shuffle(await cardsRes.json() as Card[]);
 			progress = await progRes.json() as Progress;
@@ -102,10 +100,10 @@
 		phase = 'done';
 		saving = true;
 		try {
-			const token = $tokenStore;
-			const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 			const res = await fetch('/api/flashcards/progress', {
-				method: 'POST', headers,
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ correct: score.correct, approx: score.approx, wrong: score.wrong, xp_gained: xpGained }),
 			});
 			const updated = await res.json() as Progress;
@@ -184,7 +182,7 @@
 			<div class="fg-card {exitClass}" class:flipped onclick={flip}>
 				<!-- Front -->
 				<div class="fg-front">
-					<span class="fg-flag">{frontFlag}</span>
+					<span class="fg-flag"><Flag lang={frontFlag} size="lg" /></span>
 					<p class="fg-word">{frontText}</p>
 					{#if frontPhonetic}
 						<p class="fg-phonetic">{frontPhonetic}</p>
@@ -195,7 +193,7 @@
 				</div>
 				<!-- Back -->
 				<div class="fg-back">
-					<span class="fg-flag">{backFlag}</span>
+					<span class="fg-flag"><Flag lang={backFlag} size="lg" /></span>
 					<p class="fg-word">{backText}</p>
 					{#if backPhonetic}
 						<p class="fg-phonetic">{backPhonetic}</p>

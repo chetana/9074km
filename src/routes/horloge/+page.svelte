@@ -3,6 +3,7 @@
 	import { toZonedTime, format } from 'date-fns-tz';
 	import { fr } from 'date-fns/locale';
 	import { getStatus, getDaysTogether, TZ_PARIS, TZ_PP, DISTANCE_KM } from '$lib/i18n';
+	import Flag from '$lib/Flag.svelte';
 
 	let now = $state(new Date());
 	let interval: ReturnType<typeof setInterval>;
@@ -76,8 +77,21 @@
 	</div>
 
 	<!-- Carte Paris -->
-	<div class="clock-card">
+	<div class="clock-card card-paris">
 		<div class="card-glow glow-paris"></div>
+		<!-- Jardin Paris : pétales sakura flottantes -->
+		<svg class="garden-floor garden-paris" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true">
+			<g class="petals">
+				{#each [ [30,22,0], [70,35,1], [110,18,2], [150,40,3], [190,25,4], [230,32,5], [270,20,6], [310,38,7], [350,26,8], [380,14,9] ] as [cx, cy, i]}
+					<ellipse cx={cx} cy={cy} rx="6" ry="3.5" class="petal" style="--i:{i}" />
+				{/each}
+			</g>
+			<g class="grass">
+				{#each Array.from({length: 20}, (_, i) => i * 20 + 8) as x, i}
+					<line x1={x} y1="58" x2={x + 2} y2={42 + (i % 3) * 4} class="blade" style="--i:{i}" />
+				{/each}
+			</g>
+		</svg>
 		<!-- Tour Eiffel — couleurs drapeau français -->
 		<svg class="landmark landmark-eiffel" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 			<defs>
@@ -107,8 +121,14 @@
 			<path fill="var(--card)" d="M 28,200 Q 50,148 72,200 Z" opacity="0.85"/>
 		</svg>
 		<div class="card-header">
-			<div class="flag-box fr">FR</div>
-			<div class="person-name">Chet</div>
+			<div class="name-row">
+				<Flag lang="fr" size="md" />
+				<span class="bridge" aria-hidden="true">♡</span>
+				<span class="person-name">Chet</span>
+				<span class="bridge" aria-hidden="true">♡</span>
+				<Flag lang="kh" size="md" />
+			</div>
+			<div class="name-sub">apprend le khmer · រៀនខ្មែរ</div>
 		</div>
 		<div class="time">{fmtTime(paris)}</div>
 		<div class="dates">
@@ -122,8 +142,21 @@
 	</div>
 
 	<!-- Carte Phnom Penh -->
-	<div class="clock-card">
+	<div class="clock-card card-pp">
 		<div class="card-glow glow-pp"></div>
+		<!-- Jardin Phnom Penh : pétales lotus flottantes -->
+		<svg class="garden-floor garden-pp" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true">
+			<g class="petals">
+				{#each [ [25,26,0], [75,32,1], [125,20,2], [175,36,3], [215,24,4], [255,30,5], [295,22,6], [335,34,7], [370,18,8] ] as [cx, cy, i]}
+					<ellipse cx={cx} cy={cy} rx="7" ry="4" class="petal" style="--i:{i}" />
+				{/each}
+			</g>
+			<g class="grass">
+				{#each Array.from({length: 18}, (_, i) => i * 22 + 10) as x, i}
+					<line x1={x} y1="58" x2={x - 1} y2={44 + (i % 3) * 3} class="blade" style="--i:{i}" />
+				{/each}
+			</g>
+		</svg>
 		<!-- Angkor Wat — silhouette drapeau cambodgien, tours prasat en bulbe lotus étagé -->
 		<svg class="landmark landmark-angkor" viewBox="0 0 300 140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 			<defs>
@@ -207,8 +240,14 @@
 			<polygon fill="url(#kh-flag)" points="148,4 150,0 152,4"/>
 		</svg>
 		<div class="card-header">
-			<div class="flag-box kh">KH</div>
-			<div class="person-name">Lys</div>
+			<div class="name-row">
+				<Flag lang="kh" size="md" />
+				<span class="bridge" aria-hidden="true">♡</span>
+				<span class="person-name">Lys</span>
+				<span class="bridge" aria-hidden="true">♡</span>
+				<Flag lang="fr" size="md" />
+			</div>
+			<div class="name-sub">apprend le français · រៀនបារាំង</div>
 		</div>
 		<div class="time">{fmtTime(pp)}</div>
 		<div class="dates">
@@ -349,12 +388,78 @@
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
-		padding: var(--space-6);
+		padding: var(--space-6) var(--space-6) calc(var(--space-6) + 3.5rem);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
 		overflow: hidden;
 		flex: 1;
+	}
+
+	/* ── Jardin ── */
+	.garden-floor {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		width: 100%;
+		height: 3.5rem;
+		pointer-events: none;
+		z-index: 1;
+	}
+
+	.garden-paris .petal {
+		fill: #F4A0B8;
+		opacity: 0.55;
+		animation: float-petal 4s ease-in-out infinite;
+		animation-delay: calc(var(--i, 0) * 200ms);
+		transform-origin: center;
+		transform-box: fill-box;
+	}
+
+	.garden-pp .petal {
+		fill: #E8B87A;
+		opacity: 0.55;
+		animation: float-petal 4.5s ease-in-out infinite;
+		animation-delay: calc(var(--i, 0) * 220ms);
+		transform-origin: center;
+		transform-box: fill-box;
+	}
+
+	@keyframes float-petal {
+		0%, 100% { transform: translateY(0) rotate(0deg); }
+		50%      { transform: translateY(-3px) rotate(12deg); }
+	}
+
+	.garden-paris .blade {
+		stroke: #5DBB84;
+		stroke-width: 1.3;
+		opacity: 0.45;
+		stroke-linecap: round;
+		animation: sway 3s ease-in-out infinite;
+		animation-delay: calc(var(--i, 0) * 120ms);
+		transform-origin: bottom;
+		transform-box: fill-box;
+	}
+
+	.garden-pp .blade {
+		stroke: #8BA863;
+		stroke-width: 1.3;
+		opacity: 0.45;
+		stroke-linecap: round;
+		animation: sway 3.5s ease-in-out infinite;
+		animation-delay: calc(var(--i, 0) * 140ms);
+		transform-origin: bottom;
+		transform-box: fill-box;
+	}
+
+	@keyframes sway {
+		0%, 100% { transform: skewX(0deg); }
+		50%      { transform: skewX(-8deg); }
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.petal, .blade { animation: none; }
 	}
 
 	.landmark {
@@ -381,31 +486,16 @@
 
 	.card-header {
 		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.25rem;
+		padding-bottom: var(--space-1);
+	}
+
+	.name-row {
+		display: flex;
 		align-items: center;
 		gap: var(--space-3);
-	}
-
-	.flag-box {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		font-size: var(--fs-xs);
-		font-weight: 800;
-		letter-spacing: 1.5px;
-		border-radius: var(--radius-sm);
-		padding: 0.1875rem 0.4375rem;
-	}
-
-	.flag-box.fr {
-		background: #1a2a6c;
-		color: #fff;
-		box-shadow: inset 3px 0 0 #e53935, inset -3px 0 0 #e53935;
-	}
-
-	.flag-box.kh {
-		background: #032ea1;
-		color: #fff;
-		box-shadow: inset 0 3px 0 #e00025, inset 0 -3px 0 #e00025;
 	}
 
 	.person-name {
@@ -413,6 +503,29 @@
 		font-weight: 700;
 		color: var(--text);
 		letter-spacing: 0.5px;
+	}
+
+	.bridge {
+		color: var(--accent);
+		font-size: 0.85rem;
+		opacity: 0.65;
+		animation: bridge-pulse 2.4s ease-in-out infinite;
+	}
+
+	.bridge:nth-child(4) {
+		animation-delay: 1.2s;
+	}
+
+	@keyframes bridge-pulse {
+		0%, 100% { opacity: 0.4; transform: scale(0.9); }
+		50%      { opacity: 0.9; transform: scale(1.15); }
+	}
+
+	.name-sub {
+		font-size: var(--fs-xs);
+		color: var(--muted);
+		letter-spacing: 0.02em;
+		font-style: italic;
 	}
 
 	.time {

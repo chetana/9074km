@@ -7,11 +7,22 @@
 	import { auth } from '$lib/auth';
 	import { checkCacheIntegrity } from '$lib/localCache';
 	import { APP_VERSION } from '$lib/version';
+	import Sky from '$lib/Sky.svelte';
+	import HorlogeIcon from '$lib/icons/HorlogeIcon.svelte';
+	import ChatIcon from '$lib/icons/ChatIcon.svelte';
+	import CoffreIcon from '$lib/icons/CoffreIcon.svelte';
+	import type { Component } from 'svelte';
 
+	let { data, children } = $props();
 
 	onMount(() => {
 		checkCacheIntegrity();
-		auth.init();
+		auth.init(data.user);
+		// Auto-redirect silencieux si pas de session (directSignIn Google → 0 clic)
+		if (!data.user) {
+			window.location.href = '/api/auth/sign-in';
+			return;
+		}
 		clockInterval = setInterval(() => (now = new Date()), 1000);
 	});
 	onDestroy(() => clearInterval(clockInterval));
@@ -19,35 +30,22 @@
 	let now = $state(new Date());
 	let clockInterval: ReturnType<typeof setInterval>;
 
-	// Emojis horloge : indices 0-11 = heures pleines 1h-12h, 12-23 = demi-heures 1h30-12h30
-	const CLOCK_FULL  = ['🕐','🕑','🕒','🕓','🕔','🕕','🕖','🕗','🕘','🕙','🕚','🕛'];
-	const CLOCK_HALF  = ['🕜','🕝','🕞','🕟','🕠','🕡','🕢','🕣','🕤','🕥','🕦','🕧'];
-
-	const clockIcon = $derived(() => {
-		const h = now.getHours() % 12; // 0-11
-		const m = now.getMinutes();
-		return m >= 30 ? CLOCK_HALF[h] : CLOCK_FULL[h];
-	});
-
 	// Période Nouvel An Khmer : 1–20 avril (activé manuellement en avance)
 	const isKhmerNewYear = $derived(() => true);
 
-	const tabs = $derived([
-		{ path: '/horloge', icon: clockIcon(), label: 'Horloge', kh: 'នាឡិកា' },
-		{ path: '/chat',    icon: '💬',         label: 'Chat',    kh: 'ជជែក'   },
-		{ path: '/coffre',  icon: '🗃',         label: 'Coffre',  kh: 'ប្រអប់'  },
-	]);
+	type Tab = { path: string; Icon: Component<{ active?: boolean; size?: number }>; label: string; kh: string };
+	const tabs: Tab[] = [
+		{ path: '/horloge', Icon: HorlogeIcon, label: 'Horloge', kh: 'នាឡិកា' },
+		{ path: '/chat',    Icon: ChatIcon,    label: 'Chat',    kh: 'ជជែក'   },
+		{ path: '/coffre',  Icon: CoffreIcon,  label: 'Coffre',  kh: 'ប្រអប់'  },
+	];
 
 	const currentPath = $derived($page.url.pathname);
 	const activeIndex = $derived(tabs.findIndex(t => $page.url.pathname.startsWith(t.path)));
-
-	let { children } = $props();
 </script>
 
 <div class="app" class:khmer-new-year={isKhmerNewYear()}>
-	{#if isKhmerNewYear()}
-		<div class="water-bg" aria-hidden="true"></div>
-	{/if}
+	<Sky />
 	<main>
 		{#key currentPath}
 			<div
@@ -69,7 +67,7 @@
 					class:active
 					onclick={() => goto(tab.path)}
 				>
-					<span class="dock-icon">{tab.icon}</span>
+					<span class="dock-icon"><tab.Icon active={active} size={28} /></span>
 					<span class="dock-label">{tab.label}</span>
 					{#if active}<span class="dock-cursor">▸</span>{/if}
 				</button>
@@ -85,7 +83,9 @@
 		flex-direction: column;
 		height: 100dvh;
 		overflow: hidden;
-		background: var(--bg);
+		background: transparent;
+		position: relative;
+		z-index: 1;
 	}
 
 	main {
@@ -95,6 +95,7 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
+		z-index: 1;
 	}
 
 	.page-wrapper {

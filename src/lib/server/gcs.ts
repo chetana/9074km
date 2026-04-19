@@ -1,8 +1,9 @@
 import { Storage } from '@google-cloud/storage'
 import { createHash, createSign } from 'crypto'
+import { env } from '$env/dynamic/private'
 
 function getCredentials() {
-  const raw = process.env.GCS_SERVICE_ACCOUNT_JSON!.trim()
+  const raw = env.GCS_SERVICE_ACCOUNT_JSON!.trim()
   // gcloud --env-vars-file uses YAML single-quoted strings where \n is literal backslash+n.
   // Strip \n sequences outside of JSON string values (structural whitespace from pretty-printing).
   let fixed = ''
@@ -26,13 +27,13 @@ function getCredentials() {
 
 export function getGcsBucket() {
   const creds = getCredentials()
-  const bucketName = process.env.GCS_BUCKET_NAME!.replace(/\\n/g, '').trim()
+  const bucketName = env.GCS_BUCKET_NAME!.replace(/\\n/g, '').trim()
   return new Storage({ credentials: creds }).bucket(bucketName)
 }
 
 function buildSignedUrl(path: string, method: 'PUT' | 'GET', expiresSeconds: number, contentType?: string): string {
   const creds = getCredentials()
-  const bucket = process.env.GCS_BUCKET_NAME!.replace(/\\n/g, '').trim()
+  const bucket = env.GCS_BUCKET_NAME!.replace(/\\n/g, '').trim()
   const now = new Date()
 
   const pad = (n: number) => n.toString().padStart(2, '0')

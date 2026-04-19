@@ -8,203 +8,48 @@ export interface User {
 	picture: string;
 }
 
-export interface GoogleCredentialResponse {
-	credential: string;
-}
-
-export interface GoogleAccounts {
-	id: {
-		initialize: (config: {
-			client_id: string;
-			callback: (response: GoogleCredentialResponse) => void;
-			auto_select?: boolean;
-			use_fedcm_for_prompt?: boolean;
-		}) => void;
-		prompt: (notification?: (n: { isNotDisplayed: () => boolean; isSkippedMoment: () => boolean }) => void) => void;
-		renderButton: (parent: HTMLElement, options: {
-			type?: string;
-			theme?: string;
-			size?: string;
-			text?: string;
-			shape?: string;
-			width?: number;
-		}) => void;
-		disableAutoSelect: () => void;
-		revoke: (hint: string, done: () => void) => void;
-	};
-}
-
-declare global {
-	interface Window {
-		google?: { accounts: GoogleAccounts };
-		__gsiLoaded?: boolean;
-		__gsiCallback?: (response: GoogleCredentialResponse) => void;
-	}
-}
-
-const CLIENT_ID =
-	'267131866578-m6rua7ccatqno7lp0t0jscsrvsf69u4f.apps.googleusercontent.com';
-
 export const userStore = writable<User | null>(null);
-export const tokenStore = writable<string | null>(null);
 /** true une fois que auth.init() a terminé sa vérification initiale */
 export const authReadyStore = writable<boolean>(false);
 
-function parseJwt(token: string): Record<string, unknown> {
-	try {
-		// Base64url → Base64, puis décodage UTF-8 propre (atob seul casse les accents)
-		const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-		const json = decodeURIComponent(
-			atob(base64).split('').map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
-		);
-		return JSON.parse(json);
-	} catch {
-		return {};
-	}
-}
-
-function loadGsiScript(): Promise<void> {
-	return new Promise((resolve) => {
-		if (window.__gsiLoaded) { resolve(); return; }
-		const script = document.createElement('script');
-		script.src = 'https://accounts.google.com/gsi/client';
-		script.async = true;
-		script.defer = true;
-		script.onload = () => { window.__gsiLoaded = true; resolve(); };
-		document.head.appendChild(script);
-	});
-}
-
-let gsiInitialized = false;
-
-function initGsi(callback: (response: GoogleCredentialResponse) => void): void {
-	if (gsiInitialized) return;
-	gsiInitialized = true;
-	window.google!.accounts.id.initialize({
-		client_id: CLIENT_ID,
-		callback,
-		auto_select: true,
-	});
-}
-
-function handleCredential(response: GoogleCredentialResponse): void {
-	const jwt = response.credential;
-	const payload = parseJwt(jwt);
-	const user = {
-		name: payload['name'] as string,
-		email: payload['email'] as string,
-		picture: payload['picture'] as string
-	};
-	userStore.set(user);
-	tokenStore.set(jwt);
-	sessionStorage.setItem('chetlys_token', jwt);
-	setCachedUser(user);
-	startExpiryWatch();
-}
-
-let expiryTimer: ReturnType<typeof setInterval> | null = null;
-
-function startExpiryWatch(): void {
-	if (expiryTimer) return;
-	expiryTimer = setInterval(() => {
-		const token = get(tokenStore);
-		if (!token) return;
-		const payload = parseJwt(token);
-		const exp = (payload['exp'] as number) * 1000;
-		if (exp <= Date.now()) {
-			auth.signOutSilent();
-		}
-	}, 30_000);
-}
-
-function stopExpiryWatch(): void {
-	if (expiryTimer) { clearInterval(expiryTimer); expiryTimer = null; }
-}
-
+/**
+ * Initialise l'état d'auth depuis les données chargées par `+layout.server.ts`.
+ * - Si un user est présent (session Logto valide), on le stocke.
+ * - Sinon, on restaure depuis le cache pour afficher les données déjà vues,
+ *   puis on redirige silencieusement vers /api/auth/sign-in (directSignIn Google).
+ */
 export const auth = {
-	async init(): Promise<void> {
+	init(serverUser: User | null): void {
 		if (!browser) return;
-		// Restore from session
-		const saved = sessionStorage.getItem('chetlys_token');
-		if (saved) {
-			const payload = parseJwt(saved);
-			const exp = (payload['exp'] as number) * 1000;
-			if (exp > Date.now()) {
-				const user = {
-					name: payload['name'] as string,
-					email: payload['email'] as string,
-					picture: payload['picture'] as string
-				};
-				userStore.set(user);
-				tokenStore.set(saved);
-				setCachedUser(user);
-				startExpiryWatch();
-				authReadyStore.set(true);
-				return;
-			} else {
-				sessionStorage.removeItem('chetlys_token');
-			}
+		if (serverUser) {
+			userStore.set(serverUser);
+			setCachedUser(serverUser);
+			authReadyStore.set(true);
+			return;
 		}
-		// Token absent/expiré — restaurer le profil depuis le cache pour afficher
-		// les données cachées. Le SWR re-fetchera quand le token arrivera via GSI.
 		const cached = getCachedUser();
 		if (cached) {
 			userStore.set({ name: cached.name, email: cached.email, picture: cached.picture });
 		}
-		// Try silent auto-select (récupère un vrai token si possible)
-		await loadGsiScript();
-		initGsi(handleCredential);
-		window.google!.accounts.id.prompt();
 		authReadyStore.set(true);
 	},
 
-	async signIn(): Promise<void> {
+	signIn(): void {
 		if (!browser) return;
-		await loadGsiScript();
-		initGsi(handleCredential);
-		window.google!.accounts.id.prompt();
-	},
-
-	async renderSignInButton(container: HTMLElement): Promise<void> {
-		if (!browser) return;
-		await loadGsiScript();
-		initGsi(handleCredential);
-		window.google!.accounts.id.renderButton(container, {
-			type: 'standard',
-			theme: 'filled_black',
-			size: 'large',
-			text: 'signin_with',
-			shape: 'pill',
-			width: 240,
-		});
+		window.location.href = '/api/auth/sign-in';
 	},
 
 	signOut(): void {
-		const user = get(userStore);
-		if (user && window.google) {
-			window.google.accounts.id.disableAutoSelect();
-			window.google.accounts.id.revoke(user.email, () => {});
-		}
 		userStore.set(null);
-		tokenStore.set(null);
-		sessionStorage.removeItem('chetlys_token');
 		clearCachedUser();
 		clearAllCache();
-		stopExpiryWatch();
+		if (browser) window.location.href = '/api/auth/sign-out';
 	},
 
-	/** Reset auth state without revoking Google (for expired/invalid tokens) */
+	/** Reset l'état local sans rediriger (pour 401 côté API) */
 	signOutSilent(): void {
 		userStore.set(null);
-		tokenStore.set(null);
-		sessionStorage.removeItem('chetlys_token');
-		stopExpiryWatch();
-		// On garde le cache localStorage — le user pourra revoir les données cachées
-		// après re-login silencieux (auto_select)
-	},
-
-	getToken(): string | null {
-		return get(tokenStore);
+		if (browser) window.location.href = '/api/auth/sign-in';
 	},
 
 	getFirstName(): string {
@@ -212,40 +57,4 @@ export const auth = {
 		if (!user) return '';
 		return user.name.split(' ')[0];
 	},
-
-	/**
-	 * Tente de récupérer un token valide en re-promptant Google.
-	 * Résout avec le token dès qu'il arrive dans tokenStore (via handleCredential).
-	 * Rejette après `timeoutMs` ms si Google ne répond pas (prompt supprimé, desktop, etc.).
-	 */
-	async refreshToken(timeoutMs = 8000): Promise<string> {
-		// Token déjà valide → on le retourne directement
-		const existing = get(tokenStore);
-		if (existing) {
-			const payload = parseJwt(existing);
-			if ((payload['exp'] as number) * 1000 > Date.now()) return existing;
-		}
-
-		await loadGsiScript();
-		initGsi(handleCredential);
-
-		return new Promise<string>((resolve, reject) => {
-			const unsub = tokenStore.subscribe((token) => {
-				if (token) {
-					const payload = parseJwt(token);
-					if ((payload['exp'] as number) * 1000 > Date.now()) {
-						unsub();
-						resolve(token);
-					}
-				}
-			});
-
-			window.google!.accounts.id.prompt();
-
-			setTimeout(() => {
-				unsub();
-				reject(new Error('Auth timeout — reconnexion impossible'));
-			}, timeoutMs);
-		});
-	}
 };

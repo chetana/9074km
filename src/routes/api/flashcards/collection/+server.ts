@@ -12,8 +12,9 @@ export const OPTIONS: RequestHandler = async ({ request }) => {
   return new Response(null, { status: 204, headers: cardGameCors(request.headers.get('origin')) })
 }
 
-export const GET: RequestHandler = async ({ request }) => {
-  const me = await requireAuth(request)
+export const GET: RequestHandler = async (event) => {
+  const { request } = event
+  const me = await requireAuth(event)
   const origin = request.headers.get('origin')
   const bucket = getGcsBucket()
   const myEmail = me.email

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Flag from '$lib/Flag.svelte';
+	import { Volume2, Mic as MicIcon } from 'lucide-svelte';
 	import type { ChatMessage } from '$lib/api';
 
 	interface Props {
@@ -34,9 +36,9 @@
 		<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
 			<button class="act-btn copy" onclick={onCopy} aria-label="Copier">{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}</button>
 			<div class="act-row">
-				<button class="act-btn" onclick={() => onSpeak('fr')} aria-label="FR">🔊🇫🇷</button>
-				<button class="act-btn" onclick={() => onSpeak('en')} aria-label="EN">🔊🇬🇧</button>
-				<button class="act-btn" onclick={() => onSpeak('kh')} aria-label="KH">🔊🇰🇭</button>
+				<button class="act-btn" onclick={() => onSpeak('fr')} aria-label="FR"><Volume2 size={14} /><Flag lang="fr" size="sm" /></button>
+				<button class="act-btn" onclick={() => onSpeak('en')} aria-label="EN"><Volume2 size={14} /><Flag lang="en" size="sm" /></button>
+				<button class="act-btn" onclick={() => onSpeak('kh')} aria-label="KH"><Volume2 size={14} /><Flag lang="kh" size="sm" /></button>
 			</div>
 			<div class="act-row">
 				<button class="act-btn delete" onclick={onDelete} aria-label="Supprimer">🗑</button>
@@ -55,7 +57,7 @@
 					<span>{isSpeaking ? (userLang === 'kh' ? 'កំពុងអាន...' : 'Lecture...') : (userLang === 'kh' ? 'កំពុងកែប្រែ...' : 'Traduction...')}</span>
 				</div>
 			{/if}
-			{#if msg.source === 'audio'}<span class="source-badge">🎤</span>{/if}
+			{#if msg.source === 'audio'}<span class="source-badge"><MicIcon size={12} /></span>{/if}
 			{#if msg.image}
 				{#if imageUrl}
 					<img class="bubble-img" src={imageUrl} alt="" loading="lazy" />
@@ -65,10 +67,10 @@
 			{/if}
 			{#if msg.fr || msg.en || msg.kh}
 				<div class="bubble-translations">
-					<p class="bubble-translation"><span class="transl-flag">{aLang === 'fr' ? '🇫🇷' : aLang === 'en' ? '🇬🇧' : '🇰🇭'}</span>{msg.text}</p>
-					{#if aLang !== 'fr' && msg.fr}<p class="bubble-translation"><span class="transl-flag">🇫🇷</span>{msg.fr}</p>{/if}
-					{#if aLang !== 'en' && msg.en}<p class="bubble-translation"><span class="transl-flag">🇬🇧</span>{msg.en}</p>{/if}
-					{#if aLang !== 'kh' && msg.kh}<p class="bubble-translation"><span class="transl-flag">🇰🇭</span>{msg.kh}</p>{/if}
+					<p class="bubble-translation"><span class="transl-flag"><Flag lang={aLang} size="sm" /></span>{msg.text}</p>
+					{#if aLang !== 'fr' && msg.fr}<p class="bubble-translation"><span class="transl-flag"><Flag lang="fr" size="sm" /></span>{msg.fr}</p>{/if}
+					{#if aLang !== 'en' && msg.en}<p class="bubble-translation"><span class="transl-flag"><Flag lang="en" size="sm" /></span>{msg.en}</p>{/if}
+					{#if aLang !== 'kh' && msg.kh}<p class="bubble-translation"><span class="transl-flag"><Flag lang="kh" size="sm" /></span>{msg.kh}</p>{/if}
 				</div>
 			{:else}
 				<p class="bubble-text">{msg.text}</p>
@@ -78,16 +80,16 @@
 					</div>
 				{/if}
 			{/if}
-			<span class="bubble-time">🇫🇷 {fmtTime(msg.ts)} · 🇰🇭 {fmtTimeKH(msg.ts)}</span>
+			<span class="bubble-time"><Flag lang="fr" size="sm" /> {fmtTime(msg.ts)} · <Flag lang="kh" size="sm" /> {fmtTimeKH(msg.ts)}</span>
 		</div>
 	</div>
 	{#if isSelected && !isMine}
 		<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
 			<button class="act-btn copy" onclick={onCopy} aria-label="Copier">{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}</button>
 			<div class="act-row">
-				<button class="act-btn" onclick={() => onSpeak('fr')} aria-label="FR">🔊🇫🇷</button>
-				<button class="act-btn" onclick={() => onSpeak('en')} aria-label="EN">🔊🇬🇧</button>
-				<button class="act-btn" onclick={() => onSpeak('kh')} aria-label="KH">🔊🇰🇭</button>
+				<button class="act-btn" onclick={() => onSpeak('fr')} aria-label="FR"><Volume2 size={14} /><Flag lang="fr" size="sm" /></button>
+				<button class="act-btn" onclick={() => onSpeak('en')} aria-label="EN"><Volume2 size={14} /><Flag lang="en" size="sm" /></button>
+				<button class="act-btn" onclick={() => onSpeak('kh')} aria-label="KH"><Volume2 size={14} /><Flag lang="kh" size="sm" /></button>
 			</div>
 			<div class="act-row">
 				<button class="act-btn close" onclick={onDeselect} aria-label="Fermer">✕</button>

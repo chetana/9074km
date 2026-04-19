@@ -3,8 +3,9 @@ import type { RequestHandler } from './$types'
 import { requireAuth } from '$lib/server/auth'
 import { geminiTts } from '$lib/server/vertex'
 
-export const POST: RequestHandler = async ({ request }) => {
-  await requireAuth(request)
+export const POST: RequestHandler = async (event) => {
+  const { request } = event
+  await requireAuth(event)
   const { text, lang } = await request.json() as { text: string; lang: 'fr' | 'kh' | 'en' }
   if (!text || !lang) throw error(400, 'text and lang required')
   // English → Zephyr (French voice), Khmer → Kore

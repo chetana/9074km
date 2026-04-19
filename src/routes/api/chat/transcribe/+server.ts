@@ -3,8 +3,9 @@ import type { RequestHandler } from './$types'
 import { requireAuth } from '$lib/server/auth'
 import { geminiTranscribeAndTranslate } from '$lib/server/vertex'
 
-export const POST: RequestHandler = async ({ request }) => {
-  const user = await requireAuth(request)
+export const POST: RequestHandler = async (event) => {
+  const { request } = event
+  const user = await requireAuth(event)
   const body = await request.json() as { audio: string; mimeType: string }
   if (!body?.audio || !body?.mimeType) throw error(400, 'audio and mimeType are required')
 
