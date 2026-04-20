@@ -109,8 +109,6 @@
 		}
 	}
 
-	let pollInterval: ReturnType<typeof setInterval>;
-
 	// Auto-scroll when messages change or date changes
 	$effect(() => {
 		const msgCount = messages.length;
@@ -122,15 +120,19 @@
 		});
 	});
 
-
+	// Polling uniquement quand l'auth est établie
+	$effect(() => {
+		if (!$authReady || !$user) return;
+		const id = setInterval(() => { if (isToday && !sending) swrMessages.refresh(); }, 8000);
+		return () => clearInterval(id);
+	});
 
 	onMount(() => {
 		isOnline = navigator.onLine;
 		window.addEventListener('online', () => { isOnline = true; });
 		window.addEventListener('offline', () => { isOnline = false; });
-		pollInterval = setInterval(() => { if (isToday && !sending) swrMessages.refresh(); }, 8000);
 	});
-	onDestroy(() => { clearInterval(pollInterval); stopRecording(); });
+	onDestroy(() => { stopRecording(); });
 
 	// ── Suggestion Gemini (debounce 1s) ───────────────────────────────────
 	let debounceTimer: ReturnType<typeof setTimeout>;
