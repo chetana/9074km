@@ -6,7 +6,7 @@ import { geminiSuggest } from '$lib/server/vertex'
 export const POST: RequestHandler = async (event) => {
   const { request } = event
   const user = await requireAuth(event)
-  const body = await request.json() as { text: string }
+  const body = await request.json() as { text: string; previousMessage?: string }
   if (!body?.text) throw error(400, 'text is required')
   if (body.text.trim().length < 2) throw error(400, 'text too short')
 
@@ -15,7 +15,7 @@ export const POST: RequestHandler = async (event) => {
   const authorLang: 'fr' | 'kh' = /^(chet|chetana)$/i.test(normalized) ? 'fr' : 'kh'
 
   try {
-    const suggestion = await geminiSuggest(body.text, authorLang)
+    const suggestion = await geminiSuggest(body.text, authorLang, body.previousMessage)
     return json(suggestion)
   } catch {
     throw error(502, 'Gemini suggestion failed')

@@ -101,14 +101,23 @@ ${authorLine}`.trim()
 
 export interface Translations { fr: string; en: string; kh: string; lang?: string }
 
-export async function geminiTranslateAll(text: string, author?: string): Promise<Translations> {
+export async function geminiTranslateAll(text: string, author?: string, previousMessage?: string): Promise<Translations> {
+  const ctxLine = previousMessage ? `\nMESSAGE PRÉCÉDENT (contexte) : "${previousMessage}"` : ''
   const prompt = `Tu es un assistant de traduction pour un couple : Chet (français) et Lys (cambodgienne).
 
-${coupleContext(author)}
+${coupleContext(author)}${ctxLine}
 
 Rôle : détecter la langue du message, corriger discrètement les fautes, puis traduire dans les 2 autres langues.
-Règles : privilégier le sens et l'intention, jamais le mot-à-mot. Garder le registre naturel et intime.
-"lang" : code de la langue détectée du message original ("fr", "en" ou "kh").
+
+Règles impératives :
+- Privilégier l'intention et le registre sur la traduction mot-à-mot
+- Registre : intime, oral, tendre — jamais formel ni littéraire
+- "គាត់" = il/elle (3ème personne), JAMAIS "tu" — ne jamais confondre avec un interlocuteur direct
+- Khmer oral et informel : ហ្នឹង (ça/ce/là), ម្កេះ (peu/seulement), ក្រ- (pénurie/difficulté ex: ក្រញ៉ាំ = manger peu), ម្ហី/ម្ហេ (comment) — privilégier le sens pragmatique, pas la forme écrite standard
+- Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier le sujet et l'intention
+- Anglais simple et naturel (Lys apprend — éviter les expressions idiomatiques complexes)
+- Noms propres et titres khmers (Bang + prénom, Oun + prénom) : conserver tels quels sans traduire
+- "lang" : code de la langue détectée du message original ("fr", "en" ou "kh")
 
 Message : "${text}"
 
@@ -125,7 +134,7 @@ export interface GeminiSuggestion {
   corrected: string; fr: string; en: string; kh: string; lang: string; question: string; lessons?: LessonItem[]
 }
 
-export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh'): Promise<GeminiSuggestion> {
+export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh', previousMessage?: string): Promise<GeminiSuggestion> {
   const author = authorLang === 'fr' ? 'Chet' : 'Lys'
   const context = authorLang === 'kh'
     ? `Lys (femme cambodgienne) écrit à Chet (français). Elle écrit probablement en khmer, parfois en français ou anglais appris.`
@@ -139,17 +148,21 @@ export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh'): Prom
   const lessonsRule = authorLang === 'kh'
     ? '- lessons : tableau avec une entrée par faute (explanation en khmer simple) — omis si aucune faute'
     : '- lessons : tableau avec une entrée par faute (explanation en français simple) — omis si aucune faute'
+  const ctxLine = previousMessage ? `\nMESSAGE PRÉCÉDENT (contexte) : "${previousMessage}"` : ''
 
   const prompt = `Tu es un assistant de traduction pour un couple : Chet (français) et Lys (cambodgienne).
 ${context}
 
-${coupleContext(author)}
+${coupleContext(author)}${ctxLine}
 
 Rôle : détecter la langue réelle du message, corriger discrètement les fautes, puis traduire dans les 2 autres langues.
 Règles :
 - Corriger sans dénaturer le sens ni le ton
 - Signaler la correction avec une question naturelle dans la langue de l'auteur
-- Registre intime et tendre
+- Registre intime, oral et tendre — jamais formel
+- "គាត់" = il/elle (3ème personne), JAMAIS "tu" — ne jamais confondre avec un interlocuteur direct
+- Khmer oral et informel : ហ្នឹង (ça/là), ម្កេះ (peu/seulement), ក្រ- (pénurie ex: ក្រញ៉ាំ = manger peu), ម្ហី (comment) — sens pragmatique avant forme écrite
+- Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier l'intention
 - Si aucune faute, ne mets pas de champ "lessons"
 - "lang" : code de la langue détectée ("fr", "en" ou "kh")
 ${lessonsRule}

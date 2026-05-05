@@ -47,8 +47,19 @@ export const POST: RequestHandler = async (event) => {
   const text = body.text ?? ''
   let fr = body.fr ?? '', en = body.en ?? '', kh = body.kh ?? '', lang = body.lang ?? ''
 
+  // Charger les messages existants d'abord pour avoir le contexte du dernier message
+  const bucket = getGcsBucket()
+  let messages: ChatMessage[] = []
+  try {
+    const [contents] = await bucket.file(`chat/${y}/${m}/${d}.json`).download()
+    messages = JSON.parse(contents.toString('utf-8'))
+  } catch (e: any) {
+    if (e?.code !== 404) throw error(502, 'Failed to read messages')
+  }
+
   if (text.trim().length >= 2 && (!fr || !en || !kh)) {
-    const t = await geminiTranslateAll(text, body.author).catch(() => ({ fr: '', en: '', kh: '', lang: '' }))
+    const previousMessage = messages.length > 0 ? messages[messages.length - 1].text : undefined
+    const t = await geminiTranslateAll(text, body.author, previousMessage).catch(() => ({ fr: '', en: '', kh: '', lang: '' }))
     if (!fr) fr = t.fr
     if (!en) en = t.en
     if (!kh) kh = t.kh
@@ -62,15 +73,6 @@ export const POST: RequestHandler = async (event) => {
     ts: new Date().toISOString(),
     ...(body.image ? { image: body.image } : {}),
     ...(body.source ? { source: body.source } : {}),
-  }
-
-  const bucket = getGcsBucket()
-  let messages: ChatMessage[] = []
-  try {
-    const [contents] = await bucket.file(`chat/${y}/${m}/${d}.json`).download()
-    messages = JSON.parse(contents.toString('utf-8'))
-  } catch (e: any) {
-    if (e?.code !== 404) throw error(502, 'Failed to read messages')
   }
 
   messages.push(newMessage)

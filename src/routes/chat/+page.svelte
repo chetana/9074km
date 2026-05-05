@@ -150,7 +150,8 @@
 			if (inputText.trim() !== text) return;
 			suggestionLoading = true;
 			try {
-				suggestion = await suggestMessage(text);
+				const lastMsg = messages.length > 0 ? messages[messages.length - 1].text : undefined;
+				suggestion = await suggestMessage(text, lastMsg);
 				lastSuggestedText = text;
 			} catch {
 				suggestion = null;

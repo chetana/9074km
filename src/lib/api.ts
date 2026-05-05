@@ -282,11 +282,11 @@ export async function deleteMessage(y: string, m: string, d: string, id: string)
 	await apiFetch(`/api/chat/messages?y=${y}&m=${m}&d=${d}&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-export async function suggestMessage(text: string): Promise<GeminiSuggestion> {
+export async function suggestMessage(text: string, previousMessage?: string): Promise<GeminiSuggestion> {
 	const res = await apiFetch('/api/chat/suggest', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ text })
+		body: JSON.stringify({ text, previousMessage })
 	});
 	return res.json();
 }
