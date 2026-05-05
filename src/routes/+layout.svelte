@@ -7,6 +7,7 @@
 	import { auth } from '$lib/auth';
 	import { checkCacheIntegrity } from '$lib/localCache';
 	import { APP_VERSION } from '$lib/version';
+	import { unreadCount } from '$lib/unreadStore';
 	import Sky from '$lib/Sky.svelte';
 	import HorlogeIcon from '$lib/icons/HorlogeIcon.svelte';
 	import ChatIcon from '$lib/icons/ChatIcon.svelte';
@@ -67,7 +68,12 @@
 					class:active
 					onclick={() => goto(tab.path)}
 				>
-					<span class="dock-icon"><tab.Icon active={active} size={28} /></span>
+					<span class="dock-icon" style="position:relative">
+						<tab.Icon active={active} size={28} />
+						{#if tab.path === '/chat' && !active && $unreadCount > 0}
+							<span class="unread-badge">{$unreadCount > 9 ? '9+' : $unreadCount}</span>
+						{/if}
+					</span>
 					<span class="dock-label">{tab.label}</span>
 					{#if active}<span class="dock-cursor">▸</span>{/if}
 				</button>
@@ -186,6 +192,23 @@
 	.dock-tab.active .dock-label {
 		opacity: 1;
 		font-weight: 700;
+	}
+
+	.unread-badge {
+		position: absolute;
+		top: -4px;
+		right: -4px;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 3px;
+		border-radius: 8px;
+		background: var(--accent-warm, #F2A0B0);
+		color: #fff;
+		font-size: 0.6rem;
+		font-weight: 700;
+		line-height: 16px;
+		text-align: center;
+		pointer-events: none;
 	}
 
 	/* Curseur de sélection style RPG */

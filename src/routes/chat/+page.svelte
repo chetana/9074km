@@ -7,6 +7,7 @@
 		fetchLessons, type ChatMessage, type GeminiSuggestion, type LessonEntry, type LessonItem
 	} from '$lib/api';
 	import { getAudioCache, setAudioCache } from '$lib/audioCache';
+	import { unreadCount } from '$lib/unreadStore';
 	import { getCachedMessages, getCachedXp, setCachedXp } from '$lib/localCache';
 	import { createSWR } from '$lib/swr.svelte';
 	import FlashcardGame from '$lib/FlashcardGame.svelte';
@@ -50,6 +51,8 @@
 
 	let inputText = $state('');
 	let sending = $state(false);
+	let typingAuthor = $state<string | null>(null);
+	let typingTimer: ReturnType<typeof setTimeout> | null = null;
 	let suggestion = $state<GeminiSuggestion | null>(null);
 	let suggestionLoading = $state(false);
 	let lastSuggestedText = '';
@@ -66,6 +69,9 @@
 	let isOnline = $state(true);
 	let notifPerm = $state<NotificationPermission>('default');
 	let supportsNotif = $state(false);
+	type ReactionsMap = Record<string, Record<string, string[]>>;
+	let reactions = $state<ReactionsMap>({});
+	const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 	let showLessons = $state(false);
 	let showFlashcards = $state(false);
 	let speakingMsgId = $state<string | null>(null); // suivi du message en cours de lecture
@@ -106,6 +112,17 @@
 	function prevDay() { viewOffset--; }
 	function nextDay() { if (!isToday) viewOffset++; }
 
+	// ── Chargement réactions ──────────────────────────────────────────────
+	$effect(() => {
+		const y = vY, m = vM, d = vD;
+		if (!$authReady || !$user) return;
+		reactions = {};
+		fetch(`/api/chat/reactions?y=${y}&m=${m}&d=${d}`, { credentials: 'include' })
+			.then(r => r.ok ? r.json() : {})
+			.then(data => { reactions = data; })
+			.catch(() => {});
+	});
+
 	function scrollToBottom(behavior: ScrollBehavior = 'auto') {
 		if (listEl) {
 			listEl.scrollTo({ top: listEl.scrollHeight, behavior });
@@ -144,7 +161,13 @@
 			es.onmessage = (e) => {
 				try {
 					const data = JSON.parse(e.data);
-					if (data.type === 'message') {
+					if (data.type === 'reaction') {
+						reactions = { ...reactions, [data.messageId]: { ...(reactions[data.messageId] ?? {}), [data.emoji]: data.authors } };
+					} else if (data.type === 'typing' && data.author !== firstName) {
+						typingAuthor = data.author;
+						if (typingTimer) clearTimeout(typingTimer);
+						typingTimer = setTimeout(() => { typingAuthor = null; }, 3000);
+					} else if (data.type === 'message') {
 						const msg = data.message as ChatMessage;
 						if (swrMessages.data?.some(m => m.id === msg.id)) return;
 						// Si c'est notre propre message et qu'un temp est en attente, le remplacer
@@ -155,6 +178,7 @@
 							swrMessages.data = swrMessages.data!.map(m => m.id === myTemp.id ? msg : m);
 						} else {
 							swrMessages.data = [...(swrMessages.data ?? []), msg];
+							if (document.hidden && msg.author !== firstName) unreadCount.update(n => n + 1);
 						}
 					}
 				} catch {}
@@ -226,16 +250,32 @@
 		window.addEventListener('offline', () => { isOnline = false; });
 		supportsNotif = 'Notification' in window && 'serviceWorker' in navigator;
 		if (supportsNotif) notifPerm = Notification.permission;
+		const resetUnread = () => { unreadCount.set(0); };
+		document.addEventListener('visibilitychange', resetUnread);
+		window.addEventListener('focus', resetUnread);
+		return () => {
+			document.removeEventListener('visibilitychange', resetUnread);
+			window.removeEventListener('focus', resetUnread);
+		};
 	});
 	onDestroy(() => { stopRecording(); });
 
 	// ── Suggestion Gemini (debounce 1s) ───────────────────────────────────
 	let debounceTimer: ReturnType<typeof setTimeout>;
+	let typingThrottle: ReturnType<typeof setTimeout> | null = null;
+
+	function sendTypingEvent() {
+		if (!isToday || !firstName) return;
+		if (typingThrottle) return;
+		typingThrottle = setTimeout(() => { typingThrottle = null; }, 2000);
+		fetch(`/api/chat/typing?y=${Y}&m=${M}&d=${D}`, { method: 'POST', credentials: 'include' }).catch(() => {});
+	}
 
 	function onInput() {
 		suggestion = null;
 		pendingLessons = [];
 		clearTimeout(debounceTimer);
+		sendTypingEvent();
 		const text = inputText.trim();
 		if (text.length < 10 || text === lastSuggestedText) return;
 		// Attend la fin d'un mot (dernier char = espace) ou une vraie pause
@@ -339,6 +379,21 @@
 
 	async function selectMsg(id: string) {
 		selectedMsg = selectedMsg === id ? null : id;
+	}
+
+	async function toggleReaction(messageId: string, emoji: string) {
+		try {
+			const res = await fetch(`/api/chat/reactions?y=${vY}&m=${vM}&d=${vD}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({ messageId, emoji }),
+			});
+			if (res.ok) {
+				const data = await res.json();
+				reactions = { ...reactions, [messageId]: data.reactions };
+			}
+		} catch {}
 	}
 
 	async function deleteSelected() {
@@ -782,23 +837,52 @@
 			{/if}
 
 			{#each messages as msg (msg.id)}
-				<ChatBubble
-					{msg}
-					isMine={msg.author === firstName}
-					isSelected={selectedMsg === msg.id}
-					isPending={msg.id.startsWith('temp-')}
-					isSpeaking={speakingMsgId === msg.id}
-					{userLang}
-					imageUrl={msg.image ? imageUrls[msg.image] : undefined}
-					onSelect={() => selectMsg(msg.id)}
-					onCopy={copySelected}
-					onSpeak={speakSelected}
-					onDelete={deleteSelected}
-					onDeselect={() => selectedMsg = null}
-					{fmtTime}
-					{fmtTimeKH}
-					{isChet}
-				/>
+				<div class="msg-wrap">
+					<ChatBubble
+						{msg}
+						isMine={msg.author === firstName}
+						isSelected={selectedMsg === msg.id}
+						isPending={msg.id.startsWith('temp-')}
+						isSpeaking={speakingMsgId === msg.id}
+						{userLang}
+						imageUrl={msg.image ? imageUrls[msg.image] : undefined}
+						onSelect={() => selectMsg(msg.id)}
+						onCopy={copySelected}
+						onSpeak={speakSelected}
+						onDelete={deleteSelected}
+						onDeselect={() => selectedMsg = null}
+						{fmtTime}
+						{fmtTimeKH}
+						{isChet}
+					/>
+					<!-- Réactions existantes -->
+					{@const msgReactions = reactions[msg.id]}
+					{#if msgReactions && Object.keys(msgReactions).some(e => msgReactions[e].length > 0)}
+						<div class="reaction-row" class:mine={msg.author === firstName}>
+							{#each REACTION_EMOJIS as emoji}
+								{#if msgReactions[emoji]?.length > 0}
+									<button
+										class="reaction-pill"
+										class:reacted={msgReactions[emoji]?.includes(firstName)}
+										onclick={() => toggleReaction(msg.id, emoji)}
+									>{emoji} {msgReactions[emoji].length}</button>
+								{/if}
+							{/each}
+						</div>
+					{/if}
+					<!-- Picker réactions si message sélectionné -->
+					{#if selectedMsg === msg.id && !msg.id.startsWith('temp-')}
+						<div class="reaction-picker" class:mine={msg.author === firstName}>
+							{#each REACTION_EMOJIS as emoji}
+								<button
+									class="reaction-pick-btn"
+									class:reacted={reactions[msg.id]?.[emoji]?.includes(firstName)}
+									onclick={() => { toggleReaction(msg.id, emoji); selectedMsg = null; }}
+								>{emoji}</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
 			{/each}
 		</div>
 
@@ -848,6 +932,14 @@
 		<!-- ── Flashcards ── -->
 		{#if showFlashcards}
 			<FlashcardGame {userLang} userName={firstName} onClose={() => { showFlashcards = false; void loadChatXp(); }} />
+		{/if}
+
+		<!-- ── Typing indicator ── -->
+		{#if typingAuthor}
+			<div class="typing-indicator">
+				<span class="typing-dots"><span></span><span></span><span></span></span>
+				<span class="typing-name">{typingAuthor} écrit…</span>
+			</div>
 		{/if}
 
 		<!-- ── Zone de saisie ── -->
@@ -904,6 +996,76 @@
 	}
 
 	/* ── Chat header ── */
+	.msg-wrap { display: contents; }
+
+	.reaction-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+		padding: 0 0.6rem 0.3rem 0.6rem;
+		justify-content: flex-start;
+	}
+	.reaction-row.mine { justify-content: flex-end; }
+
+	.reaction-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		padding: 2px 7px;
+		border-radius: 12px;
+		border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
+		background: color-mix(in srgb, var(--card) 80%, transparent);
+		font-size: 0.82rem;
+		cursor: pointer;
+		transition: transform 0.12s, border-color 0.15s;
+	}
+	.reaction-pill:hover { transform: scale(1.12); }
+	.reaction-pill.reacted { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+
+	.reaction-picker {
+		display: flex;
+		gap: 4px;
+		padding: 0.2rem 0.6rem 0.4rem;
+		justify-content: flex-start;
+		animation: fadeIn 0.12s ease;
+	}
+	.reaction-picker.mine { justify-content: flex-end; }
+	.reaction-pick-btn {
+		font-size: 1.3rem;
+		padding: 0.15rem 0.25rem;
+		border-radius: 8px;
+		border: none;
+		background: color-mix(in srgb, var(--card) 90%, transparent);
+		cursor: pointer;
+		transition: transform 0.12s, background 0.15s;
+	}
+	.reaction-pick-btn:hover { transform: scale(1.2); }
+	.reaction-pick-btn.reacted { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+	@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+	.typing-indicator {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.25rem 1rem 0.1rem;
+		font-size: 0.78rem;
+		color: var(--muted);
+	}
+	.typing-name { font-style: italic; }
+	.typing-dots { display: flex; gap: 3px; align-items: center; }
+	.typing-dots span {
+		width: 5px; height: 5px;
+		border-radius: 50%;
+		background: var(--accent);
+		animation: typingBounce 1.2s infinite ease-in-out;
+	}
+	.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+	.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+	@keyframes typingBounce {
+		0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+		40% { transform: translateY(-4px); opacity: 1; }
+	}
+
 	.chat-header {
 		display: flex;
 		align-items: center;
