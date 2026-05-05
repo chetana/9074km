@@ -15,6 +15,7 @@ export default defineConfig({
 			workbox: {
 				globPatterns: ['**/*.{js,css,ico,png,svg,webp}'],
 				navigateFallback: null,
+				importScripts: ['/push-sw.js'],
 			}
 		}),
 		viteStaticCopy({

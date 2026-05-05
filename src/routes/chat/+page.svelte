@@ -64,6 +64,7 @@
 	let selectedMsg = $state<string | null>(null);
 	let viewOffset = $state(0);       // 0 = aujourd'hui, -1 = hier, etc.
 	let isOnline = $state(true);
+	let notifPerm = $state<NotificationPermission>('default');
 	let showLessons = $state(false);
 	let showFlashcards = $state(false);
 	let speakingMsgId = $state<string | null>(null); // suivi du message en cours de lecture
@@ -177,10 +178,52 @@
 		};
 	});
 
+	function urlBase64ToUint8Array(base64: string): Uint8Array {
+		const padding = '='.repeat((4 - (base64.length % 4)) % 4);
+		const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+		const raw = atob(b64);
+		return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+	}
+
+	async function subscribeNotifications() {
+		if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+		const perm = await Notification.requestPermission();
+		notifPerm = perm;
+		if (perm !== 'granted') return;
+		try {
+			const reg = await navigator.serviceWorker.ready;
+			const { publicKey } = await fetch('/api/push/vapid-public-key').then(r => r.json());
+			let sub = await reg.pushManager.getSubscription();
+			if (!sub) {
+				sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+			}
+			await fetch('/api/push/subscribe', {
+				method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+				body: JSON.stringify({ ...sub.toJSON(), author: firstName }),
+			});
+		} catch (e) { console.error('push subscribe error', e); }
+	}
+
+	async function unsubscribeNotifications() {
+		try {
+			const reg = await navigator.serviceWorker.ready;
+			const sub = await reg.pushManager.getSubscription();
+			if (sub) {
+				await fetch('/api/push/unsubscribe', {
+					method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+					body: JSON.stringify({ endpoint: sub.endpoint }),
+				});
+				await sub.unsubscribe();
+			}
+		} catch {}
+		notifPerm = 'default';
+	}
+
 	onMount(() => {
 		isOnline = navigator.onLine;
 		window.addEventListener('online', () => { isOnline = true; });
 		window.addEventListener('offline', () => { isOnline = false; });
+		if ('Notification' in window) notifPerm = Notification.permission;
 	});
 	onDestroy(() => { stopRecording(); });
 
@@ -688,13 +731,25 @@
 
 		<!-- ── Header ── -->
 		<header class="chat-header">
-			<button class="avatar-btn" onclick={() => auth.signOut()} title="Déconnexion">
-				{#if $user?.picture}
-					<img src={$user.picture} alt={$user.name} class="header-avatar" />
-				{:else}
-					<span class="avatar-placeholder">👤</span>
+			<div class="header-left">
+				<button class="avatar-btn" onclick={() => auth.signOut()} title="Déconnexion">
+					{#if $user?.picture}
+						<img src={$user.picture} alt={$user.name} class="header-avatar" />
+					{:else}
+						<span class="avatar-placeholder">👤</span>
+					{/if}
+				</button>
+				{#if 'Notification' in window}
+					<button
+						class="bell-btn"
+						class:bell-on={notifPerm === 'granted'}
+						onclick={notifPerm === 'granted' ? unsubscribeNotifications : subscribeNotifications}
+						title={notifPerm === 'granted' ? 'Désactiver les notifications' : 'Activer les notifications'}
+					>
+						{notifPerm === 'granted' ? '🔔' : '🔕'}
+					</button>
 				{/if}
-			</button>
+			</div>
 			<div class="date-center">
 				<button class="date-btn" onclick={prevDay} aria-label="Jour précédent">‹</button>
 				<span class="date-label">{dayLabelStr}</span>
@@ -859,6 +914,13 @@
 		border-bottom: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
 	}
 
+	.header-left {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		flex-shrink: 0;
+	}
+
 	.avatar-btn {
 		width: 2.1rem;
 		height: 2.1rem;
@@ -869,6 +931,20 @@
 		transition: transform 0.15s, border-color 0.2s;
 		flex-shrink: 0;
 	}
+
+	.bell-btn {
+		font-size: 1rem;
+		line-height: 1;
+		padding: 0.2rem;
+		border-radius: var(--radius-full);
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		opacity: 0.55;
+		transition: opacity 0.2s, transform 0.15s;
+	}
+	.bell-btn:hover { opacity: 1; transform: scale(1.15); }
+	.bell-btn.bell-on { opacity: 1; }
 
 	.avatar-btn:hover {
 		border-color: var(--accent);
