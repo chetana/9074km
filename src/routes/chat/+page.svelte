@@ -856,16 +856,15 @@
 						{isChet}
 					/>
 					<!-- Réactions existantes -->
-					{@const msgReactions = reactions[msg.id]}
-					{#if msgReactions && Object.keys(msgReactions).some(e => msgReactions[e].length > 0)}
+					{#if reactions[msg.id] && REACTION_EMOJIS.some(e => (reactions[msg.id][e]?.length ?? 0) > 0)}
 						<div class="reaction-row" class:mine={msg.author === firstName}>
 							{#each REACTION_EMOJIS as emoji}
-								{#if msgReactions[emoji]?.length > 0}
+								{#if reactions[msg.id][emoji]?.length > 0}
 									<button
 										class="reaction-pill"
-										class:reacted={msgReactions[emoji]?.includes(firstName)}
+										class:reacted={reactions[msg.id][emoji]?.includes(firstName)}
 										onclick={() => toggleReaction(msg.id, emoji)}
-									>{emoji} {msgReactions[emoji].length}</button>
+									>{emoji} {reactions[msg.id][emoji].length}</button>
 								{/if}
 							{/each}
 						</div>
