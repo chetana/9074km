@@ -121,11 +121,53 @@
 		});
 	});
 
-	// Polling uniquement quand l'auth est établie
+	// SSE — messages en temps réel pour aujourd'hui
+	// Fallback polling 30s si la connexion SSE tombe
 	$effect(() => {
-		if (!$authReady || !$user) return;
-		const id = setInterval(() => { if (isToday && !sending) swrMessages.refresh(); }, 8000);
-		return () => clearInterval(id);
+		if (!$authReady || !$user || !isToday) return;
+
+		let es: EventSource | null = null;
+		let fallback: ReturnType<typeof setInterval> | null = null;
+		let sseAlive = false;
+
+		function startSSE() {
+			es?.close();
+			es = new EventSource(`/api/chat/stream?y=${vY}&m=${vM}&d=${vD}`);
+
+			es.addEventListener('open', () => {
+				sseAlive = true;
+				if (fallback) { clearInterval(fallback); fallback = null; }
+			});
+
+			es.onmessage = (e) => {
+				try {
+					const data = JSON.parse(e.data);
+					if (data.type === 'message') {
+						const msg = data.message as ChatMessage;
+						if (!swrMessages.data?.some(m => m.id === msg.id)) {
+							swrMessages.data = [...(swrMessages.data ?? []), msg];
+						}
+					}
+				} catch {}
+			};
+
+			es.onerror = () => {
+				sseAlive = false;
+				es?.close();
+				// Fallback polling si SSE échoue (réseau instable, proxy, etc.)
+				if (!fallback) {
+					fallback = setInterval(() => { if (!sending) swrMessages.refresh(); }, 30_000);
+				}
+				// Tentative de reconnexion SSE après 5s
+				setTimeout(startSSE, 5_000);
+			};
+		}
+
+		startSSE();
+		return () => {
+			es?.close();
+			if (fallback) clearInterval(fallback);
+		};
 	});
 
 	onMount(() => {

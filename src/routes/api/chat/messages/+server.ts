@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types'
 import { requireAuth } from '$lib/server/auth'
 import { getGcsBucket } from '$lib/server/gcs'
 import { geminiTranslateAll } from '$lib/server/vertex'
+import { broadcast } from '$lib/server/sse'
 
 interface ChatMessage {
   id: string; author: string; text: string; fr: string; en: string; kh: string
@@ -77,6 +78,7 @@ export const POST: RequestHandler = async (event) => {
 
   messages.push(newMessage)
   await bucket.file(`chat/${y}/${m}/${d}.json`).save(JSON.stringify(messages), { contentType: 'application/json' })
+  broadcast(`${y}/${m}/${d}`, { type: 'message', message: newMessage })
 
   if (body.lessons && body.lessons.length > 0) {
     try {
