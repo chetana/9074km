@@ -31,7 +31,7 @@ const clearStaleCookie: Handle = async ({ event, resolve }) => {
 	return response
 }
 
-const logto = handleLogto(
+const logtoHandler = handleLogto(
 	{
 		endpoint: env.LOGTO_ENDPOINT!,
 		appId: env.LOGTO_APP_ID!,
@@ -39,8 +39,18 @@ const logto = handleLogto(
 		scopes: [UserScope.Email, UserScope.Profile],
 	},
 	{ encryptionKey: env.LOGTO_COOKIE_ENCRYPTION_KEY! },
-	{ fetchUserInfo: true },
+	// fetchUserInfo: false (défaut) — les claims sub/email/name/picture viennent du JWT local
+	// Évite un appel réseau à logto-core sur chaque requête (cold start en cascade)
 )
+
+// Skip Logto entièrement si pas de cookie de session — évite tout appel à logto-core
+// pour les visiteurs non connectés (notamment au premier cold start)
+const logto: Handle = ({ event, resolve }) => {
+	if (!event.cookies.get(LOGTO_COOKIE)) {
+		return resolve(event)
+	}
+	return logtoHandler({ event, resolve })
+}
 
 const dbUser: Handle = async ({ event, resolve }) => {
 	if (event.locals.user) {
