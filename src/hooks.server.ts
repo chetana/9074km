@@ -47,8 +47,9 @@ const logtoHandler = handleLogto(
 // Sans cette guard, chaque requête sans cookie appelait logto-core → +3-5s au cold start.
 // Ne pas retirer ce check : logto-core est un service séparé sur Cloud Run,
 // l'appeler systématiquement recréerait la cascade cold start (lys → logto-core → Supabase).
+// EXCEPTION : /api/auth/ doit toujours passer par logto (locals.logtoClient requis pour signIn/callback/sign-out).
 const logto: Handle = ({ event, resolve }) => {
-	if (!event.cookies.get(LOGTO_COOKIE)) {
+	if (!event.cookies.get(LOGTO_COOKIE) && !event.url.pathname.startsWith('/api/auth/')) {
 		return resolve(event)
 	}
 	return logtoHandler({ event, resolve })

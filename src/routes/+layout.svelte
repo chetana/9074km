@@ -19,10 +19,16 @@
 	onMount(() => {
 		checkCacheIntegrity();
 		auth.init(data.user);
-		// Auto-redirect silencieux si pas de session (directSignIn Google → 0 clic)
+		// AI-DEV: Auto-redirect silencieux si pas de session (directSignIn Google → 0 clic).
+		// EXCEPTION : liens partagés coffre (?y=&m=&d=&f=) — la page gère elle-même l'affichage
+		// sans connexion (preview publique). Ne pas rediriger dans ce cas.
 		if (!data.user) {
-			window.location.href = '/api/auth/sign-in';
-			return;
+			const p = new URLSearchParams(window.location.search);
+			const isCoffreShare = window.location.pathname === '/coffre' && p.has('f');
+			if (!isCoffreShare) {
+				window.location.href = '/api/auth/sign-in';
+				return;
+			}
 		}
 		clockInterval = setInterval(() => (now = new Date()), 1000);
 	});
