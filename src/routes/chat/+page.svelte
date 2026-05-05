@@ -65,6 +65,7 @@
 	let viewOffset = $state(0);       // 0 = aujourd'hui, -1 = hier, etc.
 	let isOnline = $state(true);
 	let notifPerm = $state<NotificationPermission>('default');
+	let supportsNotif = $state(false);
 	let showLessons = $state(false);
 	let showFlashcards = $state(false);
 	let speakingMsgId = $state<string | null>(null); // suivi du message en cours de lecture
@@ -223,7 +224,8 @@
 		isOnline = navigator.onLine;
 		window.addEventListener('online', () => { isOnline = true; });
 		window.addEventListener('offline', () => { isOnline = false; });
-		if ('Notification' in window) notifPerm = Notification.permission;
+		supportsNotif = 'Notification' in window && 'serviceWorker' in navigator;
+		if (supportsNotif) notifPerm = Notification.permission;
 	});
 	onDestroy(() => { stopRecording(); });
 
@@ -739,7 +741,7 @@
 						<span class="avatar-placeholder">👤</span>
 					{/if}
 				</button>
-				{#if 'Notification' in window}
+				{#if supportsNotif}
 					<button
 						class="bell-btn"
 						class:bell-on={notifPerm === 'granted'}
