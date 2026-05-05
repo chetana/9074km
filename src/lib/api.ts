@@ -269,11 +269,11 @@ export async function fetchLessons(): Promise<LessonEntry[]> {
 	}
 }
 
-export async function transcribeAudio(audio: string, mimeType: string): Promise<{ text: string; fr: string; en: string; kh: string }> {
+export async function transcribeAudio(audio: string, mimeType: string, previousMessage?: string): Promise<{ text: string; fr: string; en: string; kh: string }> {
 	const res = await apiFetch('/api/chat/transcribe', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ audio, mimeType })
+		body: JSON.stringify({ audio, mimeType, previousMessage })
 	});
 	return res.json();
 }

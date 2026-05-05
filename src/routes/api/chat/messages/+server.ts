@@ -93,6 +93,7 @@ export const POST: RequestHandler = async (event) => {
         original: l.original, corrected: l.corrected, lesson: l.explanation, lang: lang || 'fr',
       }))
       stored.unshift(...entries)
+      if (stored.length > 500) stored = stored.slice(0, 500)
       await bucket.file(lessonsPath).save(JSON.stringify(stored), { contentType: 'application/json' })
     } catch {}
   }

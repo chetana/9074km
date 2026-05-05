@@ -67,6 +67,7 @@
 	let showLessons = $state(false);
 	let showFlashcards = $state(false);
 	let speakingMsgId = $state<string | null>(null); // suivi du message en cours de lecture
+	let audioCtx: AudioContext | null = null;
 	let lessons = $state<LessonEntry[]>([]);
 	let lessonsLoading = $state(false);
 	let pendingLessons = $state<LessonItem[]>([]);
@@ -268,27 +269,31 @@
 		errorToastTimer = setTimeout(() => { errorToast = null; }, 3000);
 	}
 
-	function buildWavHeader(pcmLength: number): ArrayBuffer {
-		const buf = new ArrayBuffer(44), v = new DataView(buf);
-		const sr = 24000, ch = 1, bps = 16;
-		v.setUint32(0, 0x52494646, false); v.setUint32(4, 36 + pcmLength, true);
-		v.setUint32(8, 0x57415645, false); v.setUint32(12, 0x666d7420, false);
-		v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true);
-		v.setUint32(24, sr, true); v.setUint32(28, sr * ch * bps / 8, true);
-		v.setUint16(32, ch * bps / 8, true); v.setUint16(34, bps, true);
-		v.setUint32(36, 0x64617461, false); v.setUint32(40, pcmLength, true);
-		return buf;
+	// Web Audio API — déverrouillé une fois par geste utilisateur, fonctionne sur iOS Safari
+	// après un await (contrairement à new Audio().play() qui perd le contexte de geste)
+	function ensureAudioCtx() {
+		if (!audioCtx) audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+		if (audioCtx.state === 'suspended') audioCtx.resume();
 	}
 
 	function playBase64Pcm(b64: string): Promise<void> {
-		const raw = atob(b64), buf = new ArrayBuffer(raw.length), view = new Uint8Array(buf);
-		for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
-		const blob = new Blob([buildWavHeader(raw.length), buf], { type: 'audio/wav' });
-		const url = URL.createObjectURL(blob), audio = new Audio(url);
+		ensureAudioCtx();
+		const ctx = audioCtx!;
+		const raw = atob(b64);
+		const samples = Math.floor(raw.length / 2);
+		const buffer = ctx.createBuffer(1, samples, 24000);
+		const ch = buffer.getChannelData(0);
+		for (let i = 0; i < samples; i++) {
+			let v = raw.charCodeAt(i * 2) | (raw.charCodeAt(i * 2 + 1) << 8);
+			if (v >= 32768) v -= 65536;
+			ch[i] = v / 32768;
+		}
 		return new Promise((res, rej) => {
-			audio.onended = () => { URL.revokeObjectURL(url); res(); };
-			audio.onerror = () => { URL.revokeObjectURL(url); rej(new Error('playback')); };
-			audio.play().catch(rej);
+			const src = ctx.createBufferSource();
+			src.buffer = buffer;
+			src.connect(ctx.destination);
+			src.onended = () => res();
+			src.start(0);
 		});
 	}
 
@@ -306,6 +311,9 @@
 		const cached = getAudioCache(text, lang);
 		if (cached) { await playBase64Pcm(cached).catch(() => {}); return; }
 
+		// Déverrouille l'AudioContext iOS dans le contexte du geste utilisateur (avant le await)
+		ensureAudioCtx();
+
 		// Gemini TTS via serveur
 		speakingMsgId = currentId;
 		try {
@@ -321,8 +329,12 @@
 			setAudioCache(text, lang, audio);
 			await playBase64Pcm(audio).catch(() => {});
 		} catch {
-			// Fallback voix synthétique du navigateur
+			// Fallback voix synthétique du navigateur (FR/EN seulement — pas de voix KH sur iOS)
 			if (!('speechSynthesis' in window)) return;
+			if (lang === 'kh') {
+				showError(userLang === 'kh' ? '🔇 គ្មានសម្លេងខ្មែរនៅលើឧបករណ៍នេះ' : '🔇 Voix khmer indisponible sur cet appareil');
+				return;
+			}
 			speechSynthesis.cancel();
 			const utt = new SpeechSynthesisUtterance(text);
 			utt.lang = { fr: 'fr-FR', en: 'en-US', kh: 'km-KH' }[lang];
@@ -418,7 +430,8 @@
 		try {
 			const wav = float32ToWav(samples);
 			const base64 = arrayBufferToBase64(await wav.arrayBuffer());
-			const result = await transcribeAudio(base64, 'audio/wav');
+			const lastMsg = messages.length > 0 ? messages[messages.length - 1].text : undefined;
+			const result = await transcribeAudio(base64, 'audio/wav', lastMsg);
 			if (!result.text.trim()) {
 				swrMessages.data = swrMessages.data.filter(m => m.id !== tempId);
 				return;

@@ -207,12 +207,19 @@ export async function geminiTts(text: string, lang: 'fr' | 'kh'): Promise<string
 
 export interface TranscriptionResult { text: string; fr: string; en: string; kh: string }
 
-export async function geminiTranscribeAndTranslate(audioBase64: string, mimeType: string, author?: string): Promise<TranscriptionResult> {
+export async function geminiTranscribeAndTranslate(audioBase64: string, mimeType: string, author?: string, previousMessage?: string): Promise<TranscriptionResult> {
+  const ctxLine = previousMessage ? `\nMESSAGE PRÉCÉDENT (contexte) : "${previousMessage}"` : ''
   const prompt = `Transcris EXACTEMENT ce qui est dit dans ce message vocal, mot pour mot, sans rien ajouter ni inventer.
 Détecte la langue (français, anglais ou khmer).
 Traduis ensuite dans les 2 autres langues (traduction courte et fidèle au message d'origine).
 
-${coupleContext(author)}
+${coupleContext(author)}${ctxLine}
+
+Règles de traduction :
+- "គាត់" = il/elle (3ème personne), JAMAIS "tu"
+- Khmer oral/informel : ហ្នឹង (ça/là), ម្កេះ (peu/seulement), ក្រ- (pénurie) — sens pragmatique avant forme écrite
+- Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier le sujet
+- Anglais simple (Lys apprend — éviter les expressions idiomatiques)
 
 Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 {"text":"transcription exacte","fr":"texte en français","en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ"}`
