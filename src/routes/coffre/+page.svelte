@@ -152,6 +152,17 @@
 
 <svelte:head>
 	<title>Chet & Lys · Coffre</title>
+	{#if data.y && data.m && data.d && data.f}
+		{@const ogImg = `${data.origin}/api/coffre/og-image?path=${encodeURIComponent(`${data.y}/${data.m}/${data.d}/${data.f}`)}&w=1200`}
+		<meta property="og:title" content="Chet & Lys — Souvenir partagé 💌" />
+		<meta property="og:description" content="Un souvenir du {data.d}/{data.m}/{data.y}" />
+		<meta property="og:image" content={ogImg} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:type" content="image/jpeg" />
+		<meta property="og:type" content="website" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:image" content={ogImg} />
+	{/if}
 </svelte:head>
 
 <div class="page">
