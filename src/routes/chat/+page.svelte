@@ -144,7 +144,14 @@
 					const data = JSON.parse(e.data);
 					if (data.type === 'message') {
 						const msg = data.message as ChatMessage;
-						if (!swrMessages.data?.some(m => m.id === msg.id)) {
+						if (swrMessages.data?.some(m => m.id === msg.id)) return;
+						// Si c'est notre propre message et qu'un temp est en attente, le remplacer
+						const myTemp = msg.author === firstName
+							? swrMessages.data?.find(m => m.id.startsWith('temp-') && m.author === firstName)
+							: null;
+						if (myTemp) {
+							swrMessages.data = swrMessages.data!.map(m => m.id === myTemp.id ? msg : m);
+						} else {
 							swrMessages.data = [...(swrMessages.data ?? []), msg];
 						}
 					}
