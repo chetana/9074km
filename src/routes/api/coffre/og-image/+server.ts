@@ -3,6 +3,9 @@ import type { RequestHandler } from './$types'
 import { signedGetUrl } from '$lib/server/gcs'
 import sharp from 'sharp'
 
+// AI-DEV: Endpoint public — intentionnellement sans requireAuth().
+// Appelé par les bots Telegram/WhatsApp/Facebook pour générer la preview OG.
+// Ne pas ajouter d'auth ici, sinon les previews de partage ne fonctionneront plus.
 export const GET: RequestHandler = async ({ url }) => {
   const path = url.searchParams.get('path') ?? ''
   if (!path) throw error(400, 'path is required')

@@ -1,3 +1,6 @@
+// AI-DEV: Subscriptions stockées dans GCS (push/subscriptions.json), pas en base.
+// Chaque subscription inclut `author` pour cibler uniquement l'autre utilisateur.
+// Les endpoints 410/404 sont auto-nettoyés lors du prochain sendPushToOthers().
 import webpush from 'web-push'
 import { env } from '$env/dynamic/private'
 import { getGcsBucket } from './gcs'

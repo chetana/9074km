@@ -43,8 +43,10 @@ const logtoHandler = handleLogto(
 	// Évite un appel réseau à logto-core sur chaque requête (cold start en cascade)
 )
 
-// Skip Logto entièrement si pas de cookie de session — évite tout appel à logto-core
-// pour les visiteurs non connectés (notamment au premier cold start)
+// AI-DEV: Fast-path cold start — skip Logto si pas de cookie de session.
+// Sans cette guard, chaque requête sans cookie appelait logto-core → +3-5s au cold start.
+// Ne pas retirer ce check : logto-core est un service séparé sur Cloud Run,
+// l'appeler systématiquement recréerait la cascade cold start (lys → logto-core → Supabase).
 const logto: Handle = ({ event, resolve }) => {
 	if (!event.cookies.get(LOGTO_COOKIE)) {
 		return resolve(event)

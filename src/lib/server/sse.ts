@@ -1,3 +1,7 @@
+// AI-DEV: Pub/sub SSE en mémoire — fonctionne uniquement parce que Cloud Run est maxScale=1.
+// Si on passe à plusieurs instances (ex: supprimer maxScale=1 ou scale to 0+),
+// les clients sur des instances différentes ne recevront plus les broadcasts.
+// Solution future si scaling nécessaire : remplacer par Redis pub/sub ou Cloud Pub/Sub.
 type Client = { controller: ReadableStreamDefaultController<Uint8Array>; remove: () => void }
 
 const rooms = new Map<string, Set<Client>>()

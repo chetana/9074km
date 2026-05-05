@@ -152,6 +152,12 @@
 
 <svelte:head>
 	<title>Chet & Lys · Coffre</title>
+	<!-- AI-DEV: OG tags pour preview Telegram/WhatsApp/Facebook/iMessage.
+	     CRITIQUE — ne pas supprimer ni déplacer côté client.
+	     Fonctionnement : les bots de scraping ne font pas tourner JS ; ils lisent le HTML SSR.
+	     `data.origin` doit être absolu (les bots rejettent les URLs relatives pour og:image).
+	     `data.origin` vient de +page.ts → url.origin, disponible côté serveur ET client.
+	     L'endpoint /api/coffre/og-image ne requiert PAS d'auth — accessible publiquement. -->
 	{#if data.y && data.m && data.d && data.f}
 		{@const ogImg = `${data.origin}/api/coffre/og-image?path=${encodeURIComponent(`${data.y}/${data.m}/${data.d}/${data.f}`)}&w=1200`}
 		<meta property="og:title" content="Chet & Lys — Souvenir partagé 💌" />
