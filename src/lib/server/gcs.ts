@@ -25,6 +25,14 @@ async function toBuffer(body: any): Promise<Buffer> {
   return Buffer.concat(chunks)
 }
 
+// Normalise une erreur S3 "objet introuvable" au format GCS attendu par les routes (e.code === 404).
+function map404(e: any): never {
+  if (e?.$metadata?.httpStatusCode === 404 || e?.name === 'NoSuchKey' || e?.name === 'NotFound') {
+    const err: any = new Error('Not Found'); err.code = 404; throw err
+  }
+  throw e
+}
+
 export function getGcsBucket() {
   const client = s3()
   const Bucket = BUCKET()
@@ -35,11 +43,14 @@ export function getGcsBucket() {
       await client.send(new PutObjectCommand({ Bucket, Key: name, Body: data as any, ContentType }))
     },
     async download(): Promise<[Buffer]> {
-      const r = await client.send(new GetObjectCommand({ Bucket, Key: name }))
-      return [await toBuffer(r.Body)]
+      try {
+        const r = await client.send(new GetObjectCommand({ Bucket, Key: name }))
+        return [await toBuffer(r.Body)]
+      } catch (e) { map404(e) }
     },
     async delete() {
-      await client.send(new DeleteObjectCommand({ Bucket, Key: name }))
+      try { await client.send(new DeleteObjectCommand({ Bucket, Key: name })) }
+      catch (e) { map404(e) }
     },
     async exists(): Promise<[boolean]> {
       try { await client.send(new HeadObjectCommand({ Bucket, Key: name })); return [true] }
@@ -48,11 +59,16 @@ export function getGcsBucket() {
   })
   return {
     file,
+    // Émule bucket.getFiles GCS : renvoie [files, nextQuery, apiResponse{prefixes}].
+    // Les "dossiers" (années/mois/jours) = CommonPrefixes S3, lus par les routes via apiResponse.prefixes.
     async getFiles(opts?: { prefix?: string; delimiter?: string; autoPaginate?: boolean }) {
       const out = await client.send(new ListObjectsV2Command({ Bucket, Prefix: opts?.prefix, Delimiter: opts?.delimiter }))
       const files = (out.Contents ?? []).map(o =>
-        Object.assign(file(o.Key as string), { metadata: { size: Number(o.Size ?? 0), contentType: '' } }))
-      return [files] as const
+        Object.assign(file(o.Key as string), {
+          metadata: { size: Number(o.Size ?? 0), contentType: '', updated: o.LastModified ? new Date(o.LastModified).toISOString() : '' },
+        }))
+      const prefixes = (out.CommonPrefixes ?? []).map(p => p.Prefix as string)
+      return [files, null, { prefixes }] as const
     },
   }
 }
