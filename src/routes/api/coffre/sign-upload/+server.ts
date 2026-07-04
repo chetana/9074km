@@ -10,7 +10,7 @@ export const POST: RequestHandler = async (event) => {
   if (!path || !contentType) throw error(400, 'path and contentType are required')
 
   try {
-    return json({ url: signedPutUrl(path, contentType) })
+    return json({ url: await signedPutUrl(path, contentType) })
   } catch (e: any) {
     throw error(500, e?.message ?? String(e))
   }

@@ -12,6 +12,7 @@
 	import HorlogeIcon from '$lib/icons/HorlogeIcon.svelte';
 	import ChatIcon from '$lib/icons/ChatIcon.svelte';
 	import CoffreIcon from '$lib/icons/CoffreIcon.svelte';
+	import ApprendreIcon from '$lib/icons/ApprendreIcon.svelte';
 	import type { Component } from 'svelte';
 
 	let { data, children } = $props();
@@ -25,30 +26,70 @@
 		if (!data.user) {
 			const p = new URLSearchParams(window.location.search);
 			const isCoffreShare = window.location.pathname === '/coffre' && p.has('f');
-			if (!isCoffreShare) {
+			const isPublicGallery = window.location.pathname.startsWith('/fiancailles');
+			if (!isCoffreShare && !isPublicGallery) {
 				window.location.href = '/api/auth/sign-in';
 				return;
 			}
 		}
 		clockInterval = setInterval(() => (now = new Date()), 1000);
+
+		// ── Vérification de version : force le rechargement si une version plus récente
+		// est livrée (contourne le cache agressif du service worker PWA). ──
+		void checkVersion();
+		document.addEventListener('visibilitychange', onVisible);
+		versionInterval = setInterval(() => void checkVersion(), 5 * 60 * 1000);
 	});
-	onDestroy(() => clearInterval(clockInterval));
+	onDestroy(() => {
+		clearInterval(clockInterval);
+		clearInterval(versionInterval);
+		document.removeEventListener('visibilitychange', onVisible);
+	});
 
 	let now = $state(new Date());
 	let clockInterval: ReturnType<typeof setInterval>;
+	let versionInterval: ReturnType<typeof setInterval>;
+
+	function onVisible() { if (document.visibilityState === 'visible') void checkVersion(); }
+
+	async function checkVersion() {
+		try {
+			const res = await fetch('/api/version', { cache: 'no-store' });
+			if (!res.ok) return;
+			const { version } = await res.json() as { version?: string };
+			if (!version || version === APP_VERSION) return;
+
+			// Garde-fou anti-boucle : ne recharger qu'une fois par version serveur détectée.
+			if (sessionStorage.getItem('updatedTo') === version) return;
+			sessionStorage.setItem('updatedTo', version);
+
+			// Met à jour le service worker (récupère le nouveau bundle) avant de recharger.
+			try {
+				const reg = await navigator.serviceWorker?.getRegistration();
+				if (reg) {
+					await reg.update();
+					if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+				}
+			} catch { /* ignore */ }
+
+			window.location.reload();
+		} catch { /* hors-ligne ou erreur réseau → on ignore */ }
+	}
 
 	// Période Nouvel An Khmer : 1–20 avril (activé manuellement en avance)
 	const isKhmerNewYear = $derived(() => true);
 
 	type Tab = { path: string; Icon: Component<{ active?: boolean; size?: number }>; label: string; kh: string };
 	const tabs: Tab[] = [
-		{ path: '/horloge', Icon: HorlogeIcon, label: 'Horloge', kh: 'នាឡិកា' },
-		{ path: '/chat',    Icon: ChatIcon,    label: 'Chat',    kh: 'ជជែក'   },
-		{ path: '/coffre',  Icon: CoffreIcon,  label: 'Coffre',  kh: 'ប្រអប់'  },
+		{ path: '/horloge',   Icon: HorlogeIcon,   label: 'Horloge',   kh: 'នាឡិកា' },
+		{ path: '/chat',      Icon: ChatIcon,      label: 'Chat',      kh: 'ជជែក'   },
+		{ path: '/coffre',    Icon: CoffreIcon,    label: 'Coffre',    kh: 'ប្រអប់'  },
+		{ path: '/apprendre', Icon: ApprendreIcon, label: 'Apprendre', kh: 'រៀន'    },
 	];
 
 	const currentPath = $derived($page.url.pathname);
 	const activeIndex = $derived(tabs.findIndex(t => $page.url.pathname.startsWith(t.path)));
+	const isGallery = $derived($page.url.pathname.startsWith('/fiancailles'));
 </script>
 
 <div class="app" class:khmer-new-year={isKhmerNewYear()}>
@@ -65,6 +106,7 @@
 		{/key}
 	</main>
 
+	{#if !isGallery}
 	<div class="nav-dock">
 		<nav class="dock-bar">
 			{#each tabs as tab, i}
@@ -87,6 +129,7 @@
 		</nav>
 		<span class="dock-version">v{APP_VERSION}</span>
 	</div>
+	{/if}
 </div>
 
 <style>

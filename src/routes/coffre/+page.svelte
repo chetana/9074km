@@ -223,6 +223,9 @@
 				onMonth={goToMonth}
 			/>
 			<div class="header-actions">
+				{#if day !== null}
+					<a href="/fiancailles?y={year}&m={month}&d={day}" class="icon-btn" title="Galerie PS3 · រូបថត">🎞️</a>
+				{/if}
 				{#if year === null}
 					<button class="icon-btn" onclick={goToday} title="Aujourd'hui · ថ្ងៃនេះ">📅</button>
 				{/if}

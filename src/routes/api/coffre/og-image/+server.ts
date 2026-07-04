@@ -10,7 +10,7 @@ export const GET: RequestHandler = async ({ url }) => {
   const path = url.searchParams.get('path') ?? ''
   if (!path) throw error(400, 'path is required')
 
-  const gcsUrl = signedGetUrl(path)
+  const gcsUrl = await signedGetUrl(path)
   const response = await fetch(gcsUrl)
   if (!response.ok) throw error(502, 'Failed to fetch image from GCS')
 

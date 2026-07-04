@@ -8,5 +8,5 @@ export const GET: RequestHandler = async (event) => {
   await requireAuth(event)
   const path = url.searchParams.get('path')
   if (!path) throw error(400, 'path is required')
-  return json({ url: signedGetUrl(path) })
+  return json({ url: await signedGetUrl(path) })
 }

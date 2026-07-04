@@ -1,2 +1,2 @@
-// Auto-updated by git pre-commit hook (update-version.sh)
-export const APP_VERSION = '1.0.233';
+// Auto-bumped on each deploy (gen-envvars.cjs) — git pre-commit hook overwrites with commit count
+export const APP_VERSION = '1.0.251';

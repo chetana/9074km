@@ -44,7 +44,7 @@ export async function getAccessToken(): Promise<string> {
   return data.access_token
 }
 
-const GEMINI_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash'] as const
+const GEMINI_MODELS = ['gemini-3.5-flash', 'gemini-2.5-flash'] as const
 
 function geminiEndpoint(project: string, model: string, location: string): string {
   if (model.startsWith('gemini-3')) {
@@ -229,4 +229,96 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
     500
   )
   return JSON.parse(raw) as TranscriptionResult
+}
+
+// ─────────────────────────── Moteur d'apprentissage ───────────────────────────
+
+export interface LessonGenInput {
+  level: string          // 'A1' | 'A2' | 'B1'
+  title: string          // titre FR de l'unité
+  grammar: string        // focus grammatical
+  theme: string          // champ lexical
+  canDo: string          // objectif can-do FR
+  seedVocab: string[]    // mots-graines FR
+  l1: 'fr' | 'kh'        // langue maternelle de l'apprenant (consignes/explications dans cette langue)
+}
+
+/**
+ * Génère une leçon structurée (intro + 6 exercices variés) pour une unité du curriculum.
+ * Cible = français. Consignes et explications dans la L1 de l'apprenant.
+ */
+export async function geminiGenerateLesson(input: LessonGenInput): Promise<unknown> {
+  const l1Name = input.l1 === 'kh' ? 'khmer (ភាសាខ្មែរ)' : 'français'
+  const introExample = input.l1 === 'kh'
+    ? 'ការពន្យល់ខ្លីជាភាសាខ្មែរ ជាមួយឧទាហរណ៍បារាំង'
+    : 'explication courte en français avec exemples'
+
+  const prompt = `Tu es un professeur de Français Langue Étrangère (FLE) expert, bienveillant et précis.
+Tu crées une leçon pour une apprenante dont la langue maternelle est le ${l1Name}, qui apprend le FRANÇAIS.
+
+NIVEAU CECRL : ${input.level}
+UNITÉ : "${input.title}"
+OBJECTIF (can-do) : ${input.canDo}
+POINT DE GRAMMAIRE : ${input.grammar}
+THÈME LEXICAL : ${input.theme}
+VOCABULAIRE DE DÉPART : ${input.seedVocab.join(', ')}
+
+RÈGLES IMPÉRATIVES :
+- Adapte STRICTEMENT la difficulté au niveau ${input.level}. En A1, phrases très courtes et fréquentes.
+- Toutes les CONSIGNES, QUESTIONS et EXPLICATIONS sont en ${l1Name}. Le CONTENU à apprendre est en français correct.
+- Le français doit être impeccable (orthographe, accords, accents).
+- Crée EXACTEMENT 6 exercices, dans cet ordre et de ces types : "mcq", "listen", "fill", "order", "mcq", "translate".
+- Varie le vocabulaire autour du thème, reste utile pour la vie quotidienne d'un couple à distance.
+- Pour "mcq" : question en ${l1Name}, 3 options, une seule correcte (champ answer = index 0-2), explain en ${l1Name}.
+- Pour "listen" : audio = UNE phrase française simple ; options = 3 sens proposés en ${l1Name} ; answer = index correct ; explain en ${l1Name}.
+- Pour "fill" : phrase française coupée en "before" + trou + "after" ; 3 options françaises ; answer = index correct ; explain en ${l1Name} (pourquoi cette forme).
+- Pour "order" : tokens = les mots d'UNE phrase française correcte, dans le DÉSORDRE ; answer = la phrase correcte ; hint = son sens en ${l1Name}. 4 à 7 mots maximum.
+- Pour "translate" : prompt = une phrase en ${l1Name} à traduire ; expected = la traduction française modèle ; explain = point clé en ${l1Name}.
+- "intro" : ${introExample} (2-3 phrases max).
+
+Réponds UNIQUEMENT avec un JSON valide (sans markdown), structure EXACTE :
+{
+ "intro": "...",
+ "exercises": [
+  {"type":"mcq","q":"...","options":["...","...","..."],"answer":0,"explain":"..."},
+  {"type":"listen","audio":"phrase française","options":["...","...","..."],"answer":0,"explain":"..."},
+  {"type":"fill","before":"début ","after":" fin","options":["...","...","..."],"answer":0,"explain":"..."},
+  {"type":"order","tokens":["mot","mot","mot"],"answer":"phrase correcte","hint":"..."},
+  {"type":"mcq","q":"...","options":["...","...","..."],"answer":0,"explain":"..."},
+  {"type":"translate","prompt":"phrase en ${l1Name}","expected":"traduction française","explain":"..."}
+ ]
+}`
+
+  const raw = await callGemini(prompt, 3000)
+  return JSON.parse(raw)
+}
+
+export interface GradeResult { correct: boolean; score: number; feedback: string; corrected: string }
+
+/**
+ * Corrige une traduction libre (production écrite) : compare la réponse de l'apprenant
+ * à la traduction modèle, avec tolérance sur les variantes correctes. Feedback en L1.
+ */
+export async function geminiGradeTranslation(
+  l1Prompt: string, expected: string, learnerAnswer: string, l1: 'fr' | 'kh'
+): Promise<GradeResult> {
+  const l1Name = l1 === 'kh' ? 'khmer' : 'français'
+  const prompt = `Tu es un correcteur de FLE bienveillant. Une apprenante (langue maternelle : ${l1Name}) devait traduire en français.
+
+PHRASE À TRADUIRE (${l1Name}) : "${l1Prompt}"
+TRADUCTION MODÈLE (référence) : "${expected}"
+RÉPONSE DE L'APPRENANTE : "${learnerAnswer}"
+
+Évalue avec BIENVEILLANCE et tolérance :
+- Accepte toute traduction française correcte et naturelle, même différente du modèle.
+- score : 2 = parfait/excellent, 1 = compréhensible avec petites fautes, 0 = incorrect ou hors-sujet.
+- correct : true si score >= 1.
+- feedback : encourageant et utile, EN ${l1Name}, 1 phrase courte.
+- corrected : la meilleure version française de SA phrase (corrigée si besoin, sinon sa phrase telle quelle).
+
+Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
+{"correct":true,"score":2,"feedback":"...","corrected":"..."}`
+
+  const raw = await callGemini(prompt, 400)
+  return JSON.parse(raw) as GradeResult
 }
