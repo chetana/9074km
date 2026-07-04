@@ -1,69 +1,64 @@
-import { Storage } from '@google-cloud/storage'
-import { createHash, createSign } from 'crypto'
+// Stockage objet — Scaleway Object Storage (S3-compatible).
+// Migré depuis @google-cloud/storage : adaptateur minimal imitant l'API Bucket GCS
+// (sous-ensemble utilisé par lys : file().save/download/delete/exists, getFiles) + presigned URLs SigV4.
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { env } from '$env/dynamic/private'
 
-function getCredentials() {
-  const raw = env.GCS_SERVICE_ACCOUNT_JSON!.trim()
-  // gcloud --env-vars-file uses YAML single-quoted strings where \n is literal backslash+n.
-  // Strip \n sequences outside of JSON string values (structural whitespace from pretty-printing).
-  let fixed = ''
-  let inString = false
-  let i = 0
-  while (i < raw.length) {
-    if (inString && raw[i] === '\\') {
-      fixed += raw[i++]
-      if (i < raw.length) fixed += raw[i++]
-      continue
-    }
-    if (raw[i] === '"') inString = !inString
-    if (!inString && raw[i] === '\\' && raw[i + 1] === 'n') { i += 2; continue }
-    fixed += raw[i++]
-  }
-  const creds = JSON.parse(fixed)
-  creds.private_key = (creds.private_key as string).replace(/\\n/g, '\n').trim() + '\n'
-  creds.client_email = (creds.client_email as string).trim()
-  return creds
+const BUCKET = () => (env.GCS_BUCKET_NAME ?? '').replace(/\\n/g, '').trim()
+
+function s3() {
+  return new S3Client({
+    region: (env.S3_REGION ?? 'fr-par').trim(),
+    endpoint: (env.S3_ENDPOINT ?? 'https://s3.fr-par.scw.cloud').trim(),
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: (env.S3_ACCESS_KEY ?? '').trim(),
+      secretAccessKey: (env.S3_SECRET_KEY ?? '').trim(),
+    },
+  })
+}
+
+async function toBuffer(body: any): Promise<Buffer> {
+  const chunks: Buffer[] = []
+  for await (const c of body as AsyncIterable<Uint8Array>) chunks.push(Buffer.from(c))
+  return Buffer.concat(chunks)
 }
 
 export function getGcsBucket() {
-  const creds = getCredentials()
-  const bucketName = env.GCS_BUCKET_NAME!.replace(/\\n/g, '').trim()
-  return new Storage({ credentials: creds }).bucket(bucketName)
+  const client = s3()
+  const Bucket = BUCKET()
+  const file = (name: string) => ({
+    name,
+    async save(data: string | Buffer | Uint8Array, opts?: { contentType?: string; metadata?: { contentType?: string } }) {
+      const ContentType = opts?.contentType ?? opts?.metadata?.contentType
+      await client.send(new PutObjectCommand({ Bucket, Key: name, Body: data as any, ContentType }))
+    },
+    async download(): Promise<[Buffer]> {
+      const r = await client.send(new GetObjectCommand({ Bucket, Key: name }))
+      return [await toBuffer(r.Body)]
+    },
+    async delete() {
+      await client.send(new DeleteObjectCommand({ Bucket, Key: name }))
+    },
+    async exists(): Promise<[boolean]> {
+      try { await client.send(new HeadObjectCommand({ Bucket, Key: name })); return [true] }
+      catch { return [false] }
+    },
+  })
+  return {
+    file,
+    async getFiles(opts?: { prefix?: string; delimiter?: string; autoPaginate?: boolean }) {
+      const out = await client.send(new ListObjectsV2Command({ Bucket, Prefix: opts?.prefix, Delimiter: opts?.delimiter }))
+      const files = (out.Contents ?? []).map(o =>
+        Object.assign(file(o.Key as string), { metadata: { size: Number(o.Size ?? 0), contentType: '' } }))
+      return [files] as const
+    },
+  }
 }
 
-function buildSignedUrl(path: string, method: 'PUT' | 'GET', expiresSeconds: number, contentType?: string): string {
-  const creds = getCredentials()
-  const bucket = env.GCS_BUCKET_NAME!.replace(/\\n/g, '').trim()
-  const now = new Date()
+export const signedPutUrl = (path: string, contentType: string) =>
+  getSignedUrl(s3(), new PutObjectCommand({ Bucket: BUCKET(), Key: path, ContentType: contentType }), { expiresIn: 900 })
 
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  const date = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}`
-  const datetime = `${date}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`
-
-  const serviceAccount: string = creds.client_email
-  const scope = `${date}/auto/storage/goog4_request`
-  const credential = `${serviceAccount}/${scope}`
-
-  const signedHeaders = method === 'PUT' ? 'content-type;host' : 'host'
-  const canonicalHeaders = method === 'PUT'
-    ? `content-type:${contentType}\nhost:storage.googleapis.com\n`
-    : `host:storage.googleapis.com\n`
-
-  const qs = [
-    'X-Goog-Algorithm=GOOG4-RSA-SHA256',
-    `X-Goog-Credential=${encodeURIComponent(credential)}`,
-    `X-Goog-Date=${datetime}`,
-    `X-Goog-Expires=${expiresSeconds}`,
-    `X-Goog-SignedHeaders=${encodeURIComponent(signedHeaders)}`,
-  ].join('&')
-
-  const canonicalRequest = [method, `/${bucket}/${path}`, qs, canonicalHeaders, signedHeaders, 'UNSIGNED-PAYLOAD'].join('\n')
-  const hash = createHash('sha256').update(canonicalRequest).digest('hex')
-  const stringToSign = `GOOG4-RSA-SHA256\n${datetime}\n${scope}\n${hash}`
-  const signature = createSign('RSA-SHA256').update(stringToSign).sign(creds.private_key, 'hex')
-
-  return `https://storage.googleapis.com/${bucket}/${path}?${qs}&X-Goog-Signature=${signature}`
-}
-
-export const signedPutUrl = (path: string, contentType: string) => buildSignedUrl(path, 'PUT', 900, contentType)
-export const signedGetUrl = (path: string) => buildSignedUrl(path, 'GET', 3600)
+export const signedGetUrl = (path: string) =>
+  getSignedUrl(s3(), new GetObjectCommand({ Bucket: BUCKET(), Key: path }), { expiresIn: 3600 })
