@@ -8,7 +8,7 @@ export const GET: RequestHandler = async ({ url, request }) => {
   const f = url.searchParams.get('f') ?? ''
   if (!y || !m || !d || !f) throw error(400, 'y, m, d, f are required')
 
-  const origin = 'https://lys.chetana.dev'
+  const origin = 'https://lys.chetana.fr'
   const path = `${y}/${m}/${d}/${f}`
   const appUrl = `${origin}/coffre?y=${y}&m=${m}&d=${d}&f=${encodeURIComponent(f)}`
   const appUrlHtml = appUrl.replace(/&/g, '&amp;')

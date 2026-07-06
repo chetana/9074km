@@ -2,7 +2,7 @@
 
 PWA SvelteKit pour **Chet** (Paris 🇫🇷) et **Lys** (Phnom Penh 🇰🇭).
 
-**Live** : [https://lys.chetana.dev](https://lys.chetana.dev)
+**Live** : [https://lys.chetana.fr](https://lys.chetana.fr)
 
 ---
 

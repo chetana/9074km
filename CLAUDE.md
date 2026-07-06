@@ -6,7 +6,7 @@ Application de couple : Chet (Paris 🇫🇷) + Lys (Phnom Penh 🇰🇭) — 9 
 
 - **Frontend** : SvelteKit 5 + Svelte 5 runes + TypeScript
 - **Déploiement** : Cloud Run (`lys`, europe-west1) — `gcloud run deploy lys --source . --env-vars-file envvars.yaml`
-- **URL prod** : `https://lys-267131866578.europe-west1.run.app` / `https://lys.chetana.dev`
+- **URL prod** : `https://lys-267131866578.europe-west1.run.app` / `https://lys.chetana.fr`
 - **Backend intégré** : `src/routes/api/` (plus de dépendance à chetana.dev)
 - **Stockage** : Google Cloud Storage bucket `chet-lys-coffre`
 - **Auth** : Google Identity Services (GIS), client ID dans `src/app.html`

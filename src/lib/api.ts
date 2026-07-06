@@ -180,11 +180,11 @@ export function ogImageUrl(path: string, w = 300): string {
 }
 
 export function previewUrl(y: string, m: string, d: string, f: string): string {
-	return `https://lys.chetana.dev/api/coffre/preview?y=${y}&m=${m}&d=${d}&f=${encodeURIComponent(f)}`;
+	return `https://lys.chetana.fr/api/coffre/preview?y=${y}&m=${m}&d=${d}&f=${encodeURIComponent(f)}`;
 }
 
 export function shareUrl(y: string, m: string, d: string, f: string): string {
-	return `https://lys.chetana.dev/coffre?y=${y}&m=${m}&d=${d}&f=${encodeURIComponent(f)}`;
+	return `https://lys.chetana.fr/coffre?y=${y}&m=${m}&d=${d}&f=${encodeURIComponent(f)}`;
 }
 
 // Filter out metadata files from item lists

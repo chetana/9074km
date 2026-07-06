@@ -22,7 +22,7 @@ for (const line of lines) {
 }
 
 // Override LOGTO_BASE_URL with prod URL (local .env has localhost for dev)
-vars.LOGTO_BASE_URL = 'https://lys.chetana.dev';
+vars.LOGTO_BASE_URL = 'https://lys.chetana.fr';
 
 let yaml = '';
 for (const [key, val] of Object.entries(vars)) {

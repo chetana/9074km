@@ -152,7 +152,7 @@ listObjects('2026/02/22/')→ items = [{name, size, updated}, ...]
 ### Format du lien généré
 
 ```
-https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
+https://chetana.fr/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
 ```
 
 → Les bots WhatsApp/Telegram/Facebook voient le HTML og:image

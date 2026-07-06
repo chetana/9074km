@@ -82,7 +82,7 @@ Problème : une SPA (SvelteKit en mode CSR, ou même SSR sans données) retourne
 
 ```
 T+0  Utilisateur tap 🔗 dans le viewer
-       → construit https://chetana.dev/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
+       → construit https://chetana.fr/api/coffre/preview?y=2026&m=02&d=22&f=photo.jpg
        → copie dans le presse-papier + toast "Copié · ចម្លង"
 
 T+1  Utilisateur colle le lien dans WhatsApp et envoie
@@ -185,7 +185,7 @@ Les photos brutes d'appareil (ex. Lumix JPEG ~8 MB, 6000×4000 px) ne doivent **
 ```typescript
 // FileTile.svelte
 const imgSrc = isVideo ? videoThumb : ogImageUrl(name, 300);
-// ogImageUrl() → https://chetana.dev/api/coffre/og-image?path=...&w=300
+// ogImageUrl() → https://chetana.fr/api/coffre/og-image?path=...&w=300
 ```
 
 Avantage secondaire : HEIC, WebP, RAW — tous transcodes en JPEG → compatibilité universelle.
