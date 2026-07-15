@@ -140,66 +140,32 @@
 		});
 	});
 
-	// SSE — messages en temps réel pour aujourd'hui
-	// Fallback polling 30s si la connexion SSE tombe
+	// Mise à jour des messages par POLLING — uniquement quand l'onglet est VISIBLE.
+	// (SSE permanent retiré : la connexion EventSource maintenait l'instance Scaleway
+	//  allumée 24/7 même en onglet de fond → coût vCPU en continu. Onglet caché/fermé
+	//  = aucune requête = lys scale-to-zero.)
 	$effect(() => {
 		if (!$authReady || !$user || !isToday) return;
 
-		let es: EventSource | null = null;
-		let fallback: ReturnType<typeof setInterval> | null = null;
-		let sseAlive = false;
+		let timer: ReturnType<typeof setInterval> | null = null;
 
-		function startSSE() {
-			es?.close();
-			es = new EventSource(`/api/chat/stream?y=${vY}&m=${vM}&d=${vD}`);
-
-			es.addEventListener('open', () => {
-				sseAlive = true;
-				if (fallback) { clearInterval(fallback); fallback = null; }
-			});
-
-			es.onmessage = (e) => {
-				try {
-					const data = JSON.parse(e.data);
-					if (data.type === 'reaction') {
-						reactions = { ...reactions, [data.messageId]: { ...(reactions[data.messageId] ?? {}), [data.emoji]: data.authors } };
-					} else if (data.type === 'typing' && data.author !== firstName) {
-						typingAuthor = data.author;
-						if (typingTimer) clearTimeout(typingTimer);
-						typingTimer = setTimeout(() => { typingAuthor = null; }, 3000);
-					} else if (data.type === 'message') {
-						const msg = data.message as ChatMessage;
-						if (swrMessages.data?.some(m => m.id === msg.id)) return;
-						// Si c'est notre propre message et qu'un temp est en attente, le remplacer
-						const myTemp = msg.author === firstName
-							? swrMessages.data?.find(m => m.id.startsWith('temp-') && m.author === firstName)
-							: null;
-						if (myTemp) {
-							swrMessages.data = swrMessages.data!.map(m => m.id === myTemp.id ? msg : m);
-						} else {
-							swrMessages.data = [...(swrMessages.data ?? []), msg];
-							if (document.hidden && msg.author !== firstName) unreadCount.update(n => n + 1);
-						}
-					}
-				} catch {}
-			};
-
-			es.onerror = () => {
-				sseAlive = false;
-				es?.close();
-				// Fallback polling si SSE échoue (réseau instable, proxy, etc.)
-				if (!fallback) {
-					fallback = setInterval(() => { if (!sending) swrMessages.refresh(); }, 30_000);
-				}
-				// Tentative de reconnexion SSE après 5s
-				setTimeout(startSSE, 5_000);
-			};
+		function start() {
+			if (timer) return;
+			timer = setInterval(() => { if (!sending && !document.hidden) swrMessages.refresh(); }, 20_000);
+		}
+		function stop() {
+			if (timer) { clearInterval(timer); timer = null; }
+		}
+		function onVisibility() {
+			if (document.hidden) stop();
+			else { if (!sending) swrMessages.refresh(); start(); }
 		}
 
-		startSSE();
+		if (!document.hidden) start();
+		document.addEventListener('visibilitychange', onVisibility);
 		return () => {
-			es?.close();
-			if (fallback) clearInterval(fallback);
+			stop();
+			document.removeEventListener('visibilitychange', onVisibility);
 		};
 	});
 
