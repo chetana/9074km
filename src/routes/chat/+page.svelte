@@ -140,32 +140,27 @@
 		});
 	});
 
-	// Mise à jour des messages par POLLING — uniquement quand l'onglet est VISIBLE.
-	// (SSE permanent retiré : la connexion EventSource maintenait l'instance Scaleway
-	//  allumée 24/7 même en onglet de fond → coût vCPU en continu. Onglet caché/fermé
-	//  = aucune requête = lys scale-to-zero.)
+	// Mise à jour des messages par POLLING — requête réseau UNIQUEMENT quand on regarde
+	// (onglet visible ET fenêtre au premier plan). Onglet en fond / fenêtre non focus /
+	// fermé → zéro requête → l'instance Scaleway lys scale-to-zero (aucun coût).
+	// (SSE permanent retiré : il maintenait l'instance allumée 24/7 dès qu'un onglet
+	//  restait ouvert, même sans usage → 1 vCPU facturé en continu.)
 	$effect(() => {
 		if (!$authReady || !$user || !isToday) return;
 
-		let timer: ReturnType<typeof setInterval> | null = null;
+		const watched = () => !document.hidden && document.hasFocus();
+		const tick = () => { if (watched() && !sending) swrMessages.refresh(); };
+		const onWake = () => { if (watched() && !sending) swrMessages.refresh(); };
 
-		function start() {
-			if (timer) return;
-			timer = setInterval(() => { if (!sending && !document.hidden) swrMessages.refresh(); }, 20_000);
-		}
-		function stop() {
-			if (timer) { clearInterval(timer); timer = null; }
-		}
-		function onVisibility() {
-			if (document.hidden) stop();
-			else { if (!sending) swrMessages.refresh(); start(); }
-		}
+		if (watched()) tick(); // refresh immédiat si déjà en train de regarder
+		const timer = setInterval(tick, 20_000);
+		document.addEventListener('visibilitychange', onWake);
+		window.addEventListener('focus', onWake);
 
-		if (!document.hidden) start();
-		document.addEventListener('visibilitychange', onVisibility);
 		return () => {
-			stop();
-			document.removeEventListener('visibilitychange', onVisibility);
+			clearInterval(timer);
+			document.removeEventListener('visibilitychange', onWake);
+			window.removeEventListener('focus', onWake);
 		};
 	});
 
