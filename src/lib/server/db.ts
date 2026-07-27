@@ -9,7 +9,7 @@ let _pool: Pool | null = null
 
 export function getDB() {
   if (!_db) {
-    _pool = new Pool({ connectionString: env.DATABASE_URL!, max: 3 })
+    _pool = new Pool({ connectionString: env.DATABASE_URL!, max: 3, idleTimeoutMillis: 5_000, allowExitOnIdle: true })
     _pool.on('connect', (client) => { client.query('SET search_path TO public') })
     _db = drizzle(_pool)
   }
