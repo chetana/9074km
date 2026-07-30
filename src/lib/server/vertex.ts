@@ -44,7 +44,7 @@ export async function getAccessToken(): Promise<string> {
   return data.access_token
 }
 
-const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite'] as const
+const GEMINI_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const
 
 function geminiEndpoint(project: string, model: string, location: string): string {
   if (model.startsWith('gemini-3')) {
