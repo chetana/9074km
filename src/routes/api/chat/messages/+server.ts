@@ -60,8 +60,9 @@ export const POST: RequestHandler = async (event) => {
   }
 
   if (text.trim().length >= 2 && (!fr || !en || !kh)) {
-    const previousMessage = messages.length > 0 ? messages[messages.length - 1].text : undefined
-    const t = await geminiTranslateAll(text, body.author, previousMessage).catch(() => ({ fr: '', en: '', kh: '', lang: '' }))
+    // Contexte : les derniers messages avec leur auteur (désambiguïse sujet/genre/pronoms)
+    const recentContext = messages.slice(-4).map((m: any) => `${m.author ?? '?'}: ${m.text ?? ''}`).join('\n') || undefined
+    const t = await geminiTranslateAll(text, body.author, recentContext).catch(() => ({ fr: '', en: '', kh: '', lang: '' }))
     if (!fr) fr = t.fr
     if (!en) en = t.en
     if (!kh) kh = t.kh

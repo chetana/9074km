@@ -44,7 +44,7 @@ export async function getAccessToken(): Promise<string> {
   return data.access_token
 }
 
-const GEMINI_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const
+const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite'] as const
 
 function geminiEndpoint(project: string, model: string, location: string): string {
   if (model.startsWith('gemini-3')) {
@@ -88,21 +88,26 @@ function coupleContext(author?: string): string {
   const normalized = author?.normalize('NFD').replace(/[\u0300-\u036f]/g, '') ?? ''
   const isChet = author ? /^(chet|chetana)$/i.test(normalized) : null
   const authorLine = isChet === true
-    ? `Ce message est écrit par CHET (homme). Dans la traduction khmère : "je/me/moi" → "bang" (បង) OBLIGATOIRE, jamais "oun" ni "knhom".`
+    ? `CE MESSAGE est écrit par CHET (homme) : "je/moi" = "បង"(bang), "tu/toi" = "អូន"(oun). Accord MASCULIN pour lui.`
     : isChet === false
-      ? `Ce message est écrit par LYS (femme). Dans la traduction khmère : "je/me/moi" → "oun" (អូន) OBLIGATOIRE, jamais "bang".`
+      ? `CE MESSAGE est écrit par LYS (femme) : "je/moi" = "អូន"(oun), "tu/toi" = "បង"(bang). Accord FÉMININ pour elle.`
       : ''
-  return `CONTEXTE DU COUPLE (respecter impérativement) :
-- Chet (aussi appelé "Chetana") est un HOMME français. Accord MASCULIN obligatoire pour ses messages.
-- Lys (aussi appelée "Vornsok") est une femme cambodgienne.
-- Pronoms khmer : quand Chet écrit → il se dit "bang" (បង), appelle Lys "oun" (អូន). Quand Lys écrit → elle se dit "oun" (អូន), appelle Chet "bang" (បង).
-${authorLine}`.trim()
+  return `CONTEXTE DU COUPLE (à respecter absolument) :
+- Chet ("Chetana") = HOMME français. Lys ("Vornsok") = femme cambodgienne.
+- En khmer ils s'appellent par des pronoms relationnels intimes : Chet se dit "បង"(bang) et appelle Lys "អូន"(oun) ; Lys se dit "អូន"(oun) et appelle Chet "បង"(bang).
+${authorLine}
+
+RENDU DES PRONOMS EN FRANÇAIS ET ANGLAIS (le point le plus important) :
+- "អូន"(oun) et "បង"(bang) sont des PRONOMS relationnels, JAMAIS des noms propres. En français/anglais, les rendre par "je/moi" ou "tu/toi" (I/me ou you) selon qui parle — NE JAMAIS écrire "Oun", "Bang" ni "Bong" comme un nom dans le français ou l'anglais.
+  Ex : Lys écrit "អូននឹកបង" → "Tu me manques" (PAS "Oun me manque, Bang"). Chet écrit "បងស្រលាញ់អូន" → "Je t'aime" (PAS "Bang aime Oun").
+- "គាត់" = 3ᵉ personne = une AUTRE personne (sa mère, un ami, quelqu'un dont on parle), jamais "tu/toi" ni "je". Utilise le CONTEXTE récent pour choisir "il" ou "elle" et savoir de qui il s'agit (ex : si Lys parle de sa mère → "elle").
+- Garde TOUJOURS la même personne grammaticale que l'original : un "je" reste "je" (jamais "il/elle" ni un prénom), un "tu" reste "tu".`.trim()
 }
 
 export interface Translations { fr: string; en: string; kh: string; lang?: string }
 
 export async function geminiTranslateAll(text: string, author?: string, previousMessage?: string): Promise<Translations> {
-  const ctxLine = previousMessage ? `\nMESSAGE PRÉCÉDENT (contexte) : "${previousMessage}"` : ''
+  const ctxLine = previousMessage ? `\nCONVERSATION RÉCENTE (contexte pour lever les ambiguïtés de sujet, de genre et d'intention — chaque ligne = "auteur: message") :\n${previousMessage}` : ''
   const prompt = `Tu es un assistant de traduction pour un couple : Chet (français) et Lys (cambodgienne).
 
 ${coupleContext(author)}${ctxLine}
@@ -116,7 +121,8 @@ Règles impératives :
 - Khmer oral et informel : ហ្នឹង (ça/ce/là), ម្កេះ (peu/seulement), ក្រ- (pénurie/difficulté ex: ក្រញ៉ាំ = manger peu), ម្ហី/ម្ហេ (comment) — privilégier le sens pragmatique, pas la forme écrite standard
 - Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier le sujet et l'intention
 - Anglais simple et naturel (Lys apprend — éviter les expressions idiomatiques complexes)
-- Noms propres et titres khmers (Bang + prénom, Oun + prénom) : conserver tels quels sans traduire
+- Un vrai prénom collé à un titre (ex "បង Chet" = "Bang Chet") se garde tel quel ; mais "អូន"/"បង" SEULS sont des pronoms → "je/tu" (voir règle pronoms ci-dessus), jamais des noms
+- Le champ de la langue d'origine = le message corrigé tel quel, MÊME personne et MÊME sens (ne le reformule pas, ne change jamais "je" en "il/elle" ni en prénom)
 - "lang" : code de la langue détectée du message original ("fr", "en" ou "kh")
 
 Message : "${text}"
