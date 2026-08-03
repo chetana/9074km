@@ -51,8 +51,6 @@
 
 	let inputText = $state('');
 	let sending = $state(false);
-	let typingAuthor = $state<string | null>(null);
-	let typingTimer: ReturnType<typeof setTimeout> | null = null;
 	let suggestion = $state<GeminiSuggestion | null>(null);
 	let suggestionLoading = $state(false);
 	let lastSuggestedText = '';
@@ -223,20 +221,11 @@
 
 	// ── Suggestion Gemini (debounce : 5s après un mot / 7s en plein mot) ──
 	let debounceTimer: ReturnType<typeof setTimeout>;
-	let typingThrottle: ReturnType<typeof setTimeout> | null = null;
-
-	function sendTypingEvent() {
-		if (!isToday || !firstName) return;
-		if (typingThrottle) return;
-		typingThrottle = setTimeout(() => { typingThrottle = null; }, 2000);
-		fetch(`/api/chat/typing?y=${Y}&m=${M}&d=${D}`, { method: 'POST', credentials: 'include' }).catch(() => {});
-	}
 
 	function onInput() {
 		suggestion = null;
 		pendingLessons = [];
 		clearTimeout(debounceTimer);
-		sendTypingEvent();
 		const text = inputText.trim();
 		if (text.length < 10 || text === lastSuggestedText) return;
 		// Attend la fin d'un mot (dernier char = espace) ou une vraie pause
@@ -894,14 +883,6 @@
 			<FlashcardGame {userLang} userName={firstName} onClose={() => { showFlashcards = false; void loadChatXp(); }} />
 		{/if}
 
-		<!-- ── Typing indicator ── -->
-		{#if typingAuthor}
-			<div class="typing-indicator">
-				<span class="typing-dots"><span></span><span></span><span></span></span>
-				<span class="typing-name">{typingAuthor} écrit…</span>
-			</div>
-		{/if}
-
 		<!-- ── Zone de saisie ── -->
 		<input
 			bind:this={imageInput}
@@ -1002,29 +983,6 @@
 	.reaction-pick-btn:hover { transform: scale(1.2); }
 	.reaction-pick-btn.reacted { background: color-mix(in srgb, var(--accent) 25%, transparent); }
 	@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-
-	.typing-indicator {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.25rem 1rem 0.1rem;
-		font-size: 0.78rem;
-		color: var(--muted);
-	}
-	.typing-name { font-style: italic; }
-	.typing-dots { display: flex; gap: 3px; align-items: center; }
-	.typing-dots span {
-		width: 5px; height: 5px;
-		border-radius: 50%;
-		background: var(--accent);
-		animation: typingBounce 1.2s infinite ease-in-out;
-	}
-	.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-	.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-	@keyframes typingBounce {
-		0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-		40% { transform: translateY(-4px); opacity: 1; }
-	}
 
 	.chat-header {
 		display: flex;

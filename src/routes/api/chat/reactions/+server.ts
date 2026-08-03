@@ -2,7 +2,6 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { requireAuth } from '$lib/server/auth'
 import { getGcsBucket } from '$lib/server/gcs'
-import { broadcast } from '$lib/server/sse'
 
 // { [messageId]: { [emoji]: string[] } }
 type ReactionsMap = Record<string, Record<string, string[]>>
@@ -58,7 +57,6 @@ export const POST: RequestHandler = async (event) => {
   reactions[body.messageId][body.emoji] = authors
 
   await bucket.file(path).save(JSON.stringify(reactions), { contentType: 'application/json' })
-  broadcast(`${y}/${m}/${d}`, { type: 'reaction', messageId: body.messageId, emoji: body.emoji, authors: reactions[body.messageId][body.emoji] })
 
   return json({ ok: true, reactions: reactions[body.messageId] })
 }
