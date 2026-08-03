@@ -221,7 +221,7 @@
 	});
 	onDestroy(() => { stopRecording(); });
 
-	// ── Suggestion Gemini (debounce 1s) ───────────────────────────────────
+	// ── Suggestion Gemini (debounce : 5s après un mot / 7s en plein mot) ──
 	let debounceTimer: ReturnType<typeof setTimeout>;
 	let typingThrottle: ReturnType<typeof setTimeout> | null = null;
 
@@ -254,7 +254,7 @@
 			} finally {
 				suggestionLoading = false;
 			}
-		}, endsWord ? 1800 : 2500);
+		}, endsWord ? 5000 : 7000);
 	}
 
 	function acceptSuggestion() {
