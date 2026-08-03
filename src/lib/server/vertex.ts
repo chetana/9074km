@@ -53,6 +53,8 @@ function geminiEndpoint(project: string, model: string, location: string): strin
   return `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`
 }
 
+const MAX_OUTPUT_CEILING = 8192
+
 async function geminiRequest(parts: object[], maxTokens = 300): Promise<string> {
   const token = await getAccessToken()
   const project = env.VERTEX_PROJECT_ID ?? 'cykt-399216'
@@ -60,24 +62,60 @@ async function geminiRequest(parts: object[], maxTokens = 300): Promise<string> 
 
   let lastError: Error | null = null
   for (const model of GEMINI_MODELS) {
-    const res = await fetch(geminiEndpoint(project, model, location), {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 } },
-      }),
-    })
-    const data = await res.json() as any
-    if (!res.ok) {
-      console.warn(`[vertex] ${model} failed (${res.status}): ${data?.error?.message ?? 'unknown'}`)
-      lastError = new Error(`Gemini ${res.status}: ${data?.error?.message ?? 'unknown'}`)
-      continue
+    let budget = Math.min(MAX_OUTPUT_CEILING, maxTokens)
+    // Relance le même modèle avec un budget élargi si la sortie est coupée (MAX_TOKENS).
+    while (true) {
+      const res = await fetch(geminiEndpoint(project, model, location), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: budget, thinkingConfig: { thinkingBudget: 0 } },
+        }),
+      })
+      const data = await res.json() as any
+      if (!res.ok) {
+        console.warn(`[vertex] ${model} failed (${res.status}): ${data?.error?.message ?? 'unknown'}`)
+        lastError = new Error(`Gemini ${res.status}: ${data?.error?.message ?? 'unknown'}`)
+        break // modèle suivant
+      }
+      const cand = data?.candidates?.[0]
+      if (cand?.finishReason === 'MAX_TOKENS' && budget < MAX_OUTPUT_CEILING) {
+        const bumped = Math.min(MAX_OUTPUT_CEILING, Math.max(budget * 2, 2048))
+        console.warn(`[vertex] ${model} sortie tronquée (budget ${budget}) → relance à ${bumped}`)
+        budget = bumped
+        continue
+      }
+      const raw: string = cand?.content?.parts?.[0]?.text ?? '{}'
+      return raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     }
-    const raw: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
-    return raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   }
   throw lastError ?? new Error('All Gemini models failed')
+}
+
+// Budget de sortie proportionnel à l'entrée : une traduction en 3 langues (dont le khmer,
+// gourmand en tokens) fait ~1 token de sortie par caractère d'entrée ; on prend large.
+function translateBudget(text: string, factor = 4): number {
+  return Math.min(MAX_OUTPUT_CEILING, Math.max(1024, Math.ceil(text.length * factor)))
+}
+
+// Découpe un texte long aux frontières de phrase (fr/en/kh), morceaux <= maxLen.
+function splitIntoChunks(text: string, maxLen: number): string[] {
+  if (text.length <= maxLen) return [text]
+  const sentences = text.match(/[^.!?…។\n]+[.!?…។\n]*/g) ?? [text]
+  const chunks: string[] = []
+  let cur = ''
+  for (const s of sentences) {
+    if (cur && cur.length + s.length > maxLen) { chunks.push(cur); cur = '' }
+    if (s.length > maxLen) {
+      if (cur) { chunks.push(cur); cur = '' }
+      for (let i = 0; i < s.length; i += maxLen) chunks.push(s.slice(i, i + maxLen))
+    } else {
+      cur += s
+    }
+  }
+  if (cur) chunks.push(cur)
+  return chunks
 }
 
 async function callGemini(prompt: string, maxTokens = 300): Promise<string> {
@@ -106,9 +144,9 @@ RENDU DES PRONOMS EN FRANÇAIS ET ANGLAIS (le point le plus important) :
 
 export interface Translations { fr: string; en: string; kh: string; lang?: string }
 
-export async function geminiTranslateAll(text: string, author?: string, previousMessage?: string): Promise<Translations> {
+function buildTranslatePrompt(text: string, author?: string, previousMessage?: string): string {
   const ctxLine = previousMessage ? `\nCONVERSATION RÉCENTE (contexte pour lever les ambiguïtés de sujet, de genre et d'intention — chaque ligne = "auteur: message") :\n${previousMessage}` : ''
-  const prompt = `Tu es un assistant de traduction pour un couple : Chet (français) et Lys (cambodgienne).
+  return `Tu es un assistant de traduction pour un couple : Chet (français) et Lys (cambodgienne).
 
 ${coupleContext(author)}${ctxLine}
 
@@ -129,9 +167,41 @@ Message : "${text}"
 
 Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 {"fr":"texte en français","en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","lang":"code_langue"}`
+}
 
-  const raw = await callGemini(prompt, 300)
-  return JSON.parse(raw) as Translations
+export async function geminiTranslateAll(text: string, author?: string, previousMessage?: string): Promise<Translations> {
+  try {
+    const raw = await callGemini(buildTranslatePrompt(text, author, previousMessage), translateBudget(text))
+    return JSON.parse(raw) as Translations
+  } catch (e) {
+    // Échec (le plus souvent : message très long → JSON tronqué). On découpe en phrases,
+    // on traduit chaque morceau, et on recolle en UNE traduction complète.
+    console.warn(`[translate] échec en un bloc (${(e as Error).message}) — découpage en morceaux`)
+    return translateInChunks(text, author, previousMessage)
+  }
+}
+
+async function translateInChunks(text: string, author?: string, previousMessage?: string): Promise<Translations> {
+  const chunks = splitIntoChunks(text, 700)
+  const parts: Translations[] = []
+  let ctx = previousMessage
+  for (const chunk of chunks) {
+    try {
+      const raw = await callGemini(buildTranslatePrompt(chunk, author, ctx), translateBudget(chunk))
+      const t = JSON.parse(raw) as Translations
+      parts.push(t)
+      ctx = `${ctx ? ctx + '\n' : ''}${author ?? '?'}: ${chunk}` // enchaîne le contexte pour la cohérence
+    } catch (e) {
+      console.warn(`[translate] morceau échoué (${(e as Error).message}) — texte source conservé pour ce bout`)
+      parts.push({ fr: chunk, en: chunk, kh: chunk, lang: '' }) // au pire on garde le texte brut, pas de perte
+    }
+  }
+  return {
+    fr: parts.map(p => p.fr).filter(Boolean).join(' '),
+    en: parts.map(p => p.en).filter(Boolean).join(' '),
+    kh: parts.map(p => p.kh).filter(Boolean).join(' '),
+    lang: parts.find(p => p.lang)?.lang ?? '',
+  }
 }
 
 export interface LessonItem { original: string; corrected: string; explanation: string }
@@ -178,7 +248,8 @@ Message : "${text}"
 Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 {"corrected":"message corrigé","fr":"texte en français","en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","lang":"code_langue","question":"${questionHint}"${lessonsHint}}`
 
-  const raw = await callGemini(prompt, 500)
+  // Sortie plus grosse que translate (corrected + fr + en + kh + question + leçons) → budget large
+  const raw = await callGemini(prompt, translateBudget(text, 6))
   return JSON.parse(raw) as GeminiSuggestion
 }
 
@@ -230,9 +301,10 @@ Règles de traduction :
 Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 {"text":"transcription exacte","fr":"texte en français","en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ"}`
 
+  // Longueur du vocal inconnue à l'avance → budget large ; l'auto-retry MAX_TOKENS couvre les longs
   const raw = await geminiRequest(
     [{ inlineData: { mimeType, data: audioBase64 } }, { text: prompt }],
-    500
+    2048
   )
   return JSON.parse(raw) as TranscriptionResult
 }
