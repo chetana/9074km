@@ -143,9 +143,9 @@ function coupleContext(author?: string): string {
   const normalized = author?.normalize('NFD').replace(/[\u0300-\u036f]/g, '') ?? ''
   const isChet = author ? /^(chet|chetana)$/i.test(normalized) : null
   const authorLine = isChet === true
-    ? `CE MESSAGE est écrit par CHET (homme) : "je/moi" = "បង"(bang), "tu/toi" = "អូន"(oun). Accord MASCULIN pour lui.`
+    ? `⚠️ AUTEUR DE CE MESSAGE = CHET (un HOMME). RÈGLE PRIORITAIRE SUR TOUT : quand il dit "je/moi/j'" → en khmer TOUJOURS "បង"(bang), JAMAIS "អូន"(oun) ; quand il dit "tu/toi" (il parle à Lys) → "អូន"(oun). Accord MASCULIN. Ne te laisse JAMAIS influencer par le contenu du message (même s'il parle de beauté, de visage, de choses "féminines") ni par les messages précédents pour choisir le pronom de l'auteur : c'est CHET qui écrit, donc son "je" = "បង".`
     : isChet === false
-      ? `CE MESSAGE est écrit par LYS (femme) : "je/moi" = "អូន"(oun), "tu/toi" = "បង"(bang). Accord FÉMININ pour elle.`
+      ? `⚠️ AUTEUR DE CE MESSAGE = LYS (une FEMME). RÈGLE PRIORITAIRE SUR TOUT : quand elle dit "je/moi/j'" → en khmer TOUJOURS "អូន"(oun), JAMAIS "បង"(bang) ; quand elle dit "tu/toi" (elle parle à Chet) → "បង"(bang). Accord FÉMININ. Ne te laisse JAMAIS influencer par le contenu du message ni par les messages précédents pour choisir le pronom de l'auteur : c'est LYS qui écrit, donc son "je" = "អូន".`
       : ''
   return `CONTEXTE DU COUPLE (à respecter absolument) :
 - Chet ("Chetana") = HOMME français. Lys ("Vornsok") = femme cambodgienne.
@@ -194,10 +194,10 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 export async function geminiTranslateAll(text: string, author?: string, previousMessage?: string): Promise<Translations> {
   const prompt = buildTranslatePrompt(text, author, previousMessage)
   try {
-    let t = JSON.parse(await callGemini(prompt, translateBudget(text))) as Translations
-    // Si du thaï s'est glissé dans le khmer, le modèle lite a échoué → on relance sur un modèle fiable.
-    if (containsThai(t.kh)) {
-      console.warn('[translate] thaï détecté dans le khmer → relance sur modèle fiable')
+    // Modèle fiable par défaut : le lite ratait les pronoms (bang/oun) et glissait vers le thaï.
+    let t = JSON.parse(await callGemini(prompt, translateBudget(text), STRONG_MODELS)) as Translations
+    if (containsThai(t.kh)) { // re-roll de sécurité si un caractère thaï passe encore
+      console.warn('[translate] thaï détecté → re-roll modèle fiable')
       t = JSON.parse(await callGemini(prompt, translateBudget(text), STRONG_MODELS)) as Translations
     }
     t.kh = cleanKhmer(t.kh) // retire toute romanisation "(kê)" résiduelle
@@ -217,8 +217,7 @@ async function translateInChunks(text: string, author?: string, previousMessage?
   for (const chunk of chunks) {
     try {
       const p = buildTranslatePrompt(chunk, author, ctx)
-      let t = JSON.parse(await callGemini(p, translateBudget(chunk))) as Translations
-      if (containsThai(t.kh)) t = JSON.parse(await callGemini(p, translateBudget(chunk), STRONG_MODELS)) as Translations
+      const t = JSON.parse(await callGemini(p, translateBudget(chunk), STRONG_MODELS)) as Translations
       t.kh = cleanKhmer(t.kh)
       parts.push(t)
       ctx = `${ctx ? ctx + '\n' : ''}${author ?? '?'}: ${chunk}` // enchaîne le contexte pour la cohérence
@@ -279,9 +278,8 @@ Message : "${text}"
 Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 {"corrected":"message corrigé","fr":"texte en français","en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","lang":"code_langue","question":"${questionHint}"${lessonsHint}}`
 
-  // Sortie plus grosse que translate (corrected + fr + en + kh + question + leçons) → budget large
-  let s = JSON.parse(await callGemini(prompt, translateBudget(text, 6))) as GeminiSuggestion
-  if (containsThai(s.kh)) s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), STRONG_MODELS)) as GeminiSuggestion
+  // Modèle fiable (pronoms + pas de thaï) ; sortie plus grosse → budget large
+  const s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), STRONG_MODELS)) as GeminiSuggestion
   s.kh = cleanKhmer(s.kh)
   return s
 }
@@ -336,11 +334,7 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 
   // Longueur du vocal inconnue à l'avance → budget large ; l'auto-retry MAX_TOKENS couvre les longs
   const parts = [{ inlineData: { mimeType, data: audioBase64 } }, { text: prompt }]
-  let r = JSON.parse(await geminiRequest(parts, 2048)) as TranscriptionResult
-  if (containsThai(r.kh) || containsThai(r.text)) {
-    console.warn('[transcribe] thaï détecté → relance sur modèle fiable')
-    r = JSON.parse(await geminiRequest(parts, 2048, STRONG_MODELS)) as TranscriptionResult
-  }
+  const r = JSON.parse(await geminiRequest(parts, 2048, STRONG_MODELS)) as TranscriptionResult // modèle fiable (khmer propre)
   r.kh = cleanKhmer(r.kh)
   if (/[ក-៿]/.test(r.text)) r.text = cleanKhmer(r.text) // nettoie seulement si le texte transcrit est khmer
   return r
