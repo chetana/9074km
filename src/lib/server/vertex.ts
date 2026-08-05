@@ -44,7 +44,9 @@ export async function getAccessToken(): Promise<string> {
   return data.access_token
 }
 
-const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite'] as const
+// gemini-2.5-flash-lite : pas cher ($0.10/$0.40) ET fiable sur le khmer (pronoms bang/oun testés 20/20
+// avec contexte biaisant). gemini-3.5-flash-lite, lui, ratait les pronoms et glissait vers le thaï → écarté.
+const GEMINI_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const
 
 function geminiEndpoint(project: string, model: string, location: string): string {
   if (model.startsWith('gemini-3')) {
@@ -194,10 +196,10 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 export async function geminiTranslateAll(text: string, author?: string, previousMessage?: string): Promise<Translations> {
   const prompt = buildTranslatePrompt(text, author, previousMessage)
   try {
-    // Modèle fiable par défaut : le lite ratait les pronoms (bang/oun) et glissait vers le thaï.
-    let t = JSON.parse(await callGemini(prompt, translateBudget(text), STRONG_MODELS)) as Translations
-    if (containsThai(t.kh)) { // re-roll de sécurité si un caractère thaï passe encore
-      console.warn('[translate] thaï détecté → re-roll modèle fiable')
+    // 2.5-flash-lite par défaut (pas cher + fiable sur les pronoms, testé 20/20 avec contexte).
+    let t = JSON.parse(await callGemini(prompt, translateBudget(text))) as Translations
+    if (containsThai(t.kh)) { // filet : si du thaï passe, re-roll sur le modèle fort (2.5-flash)
+      console.warn('[translate] thaï détecté → re-roll sur modèle fort')
       t = JSON.parse(await callGemini(prompt, translateBudget(text), STRONG_MODELS)) as Translations
     }
     t.kh = cleanKhmer(t.kh) // retire toute romanisation "(kê)" résiduelle
@@ -217,7 +219,8 @@ async function translateInChunks(text: string, author?: string, previousMessage?
   for (const chunk of chunks) {
     try {
       const p = buildTranslatePrompt(chunk, author, ctx)
-      const t = JSON.parse(await callGemini(p, translateBudget(chunk), STRONG_MODELS)) as Translations
+      let t = JSON.parse(await callGemini(p, translateBudget(chunk))) as Translations
+      if (containsThai(t.kh)) t = JSON.parse(await callGemini(p, translateBudget(chunk), STRONG_MODELS)) as Translations
       t.kh = cleanKhmer(t.kh)
       parts.push(t)
       ctx = `${ctx ? ctx + '\n' : ''}${author ?? '?'}: ${chunk}` // enchaîne le contexte pour la cohérence
@@ -278,8 +281,9 @@ Message : "${text}"
 Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 {"corrected":"message corrigé","fr":"texte en français","en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","lang":"code_langue","question":"${questionHint}"${lessonsHint}}`
 
-  // Modèle fiable (pronoms + pas de thaï) ; sortie plus grosse → budget large
-  const s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), STRONG_MODELS)) as GeminiSuggestion
+  // 2.5-flash-lite (fiable + pas cher) ; re-roll sur modèle fort seulement si thaï. Budget large.
+  let s = JSON.parse(await callGemini(prompt, translateBudget(text, 6))) as GeminiSuggestion
+  if (containsThai(s.kh)) s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), STRONG_MODELS)) as GeminiSuggestion
   s.kh = cleanKhmer(s.kh)
   return s
 }
@@ -334,7 +338,8 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 
   // Longueur du vocal inconnue à l'avance → budget large ; l'auto-retry MAX_TOKENS couvre les longs
   const parts = [{ inlineData: { mimeType, data: audioBase64 } }, { text: prompt }]
-  const r = JSON.parse(await geminiRequest(parts, 2048, STRONG_MODELS)) as TranscriptionResult // modèle fiable (khmer propre)
+  let r = JSON.parse(await geminiRequest(parts, 2048)) as TranscriptionResult // 2.5-flash-lite (fiable + pas cher)
+  if (containsThai(r.kh) || containsThai(r.text)) r = JSON.parse(await geminiRequest(parts, 2048, STRONG_MODELS)) as TranscriptionResult
   r.kh = cleanKhmer(r.kh)
   if (/[ក-៿]/.test(r.text)) r.text = cleanKhmer(r.text) // nettoie seulement si le texte transcrit est khmer
   return r
