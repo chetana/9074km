@@ -55,13 +55,13 @@ function geminiEndpoint(project: string, model: string, location: string): strin
 
 const MAX_OUTPUT_CEILING = 8192
 
-async function geminiRequest(parts: object[], maxTokens = 300): Promise<string> {
+async function geminiRequest(parts: object[], maxTokens = 300, models: readonly string[] = GEMINI_MODELS): Promise<string> {
   const token = await getAccessToken()
   const project = env.VERTEX_PROJECT_ID ?? 'cykt-399216'
   const location = env.VERTEX_LOCATION ?? 'us-central1'
 
   let lastError: Error | null = null
-  for (const model of GEMINI_MODELS) {
+  for (const model of models) {
     let budget = Math.min(MAX_OUTPUT_CEILING, maxTokens)
     // Relance le même modèle avec un budget élargi si la sortie est coupée (MAX_TOKENS).
     while (true) {
@@ -118,8 +118,25 @@ function splitIntoChunks(text: string, maxLen: number): string[] {
   return chunks
 }
 
-async function callGemini(prompt: string, maxTokens = 300): Promise<string> {
-  return geminiRequest([{ text: prompt }], maxTokens)
+async function callGemini(prompt: string, maxTokens = 300, models: readonly string[] = GEMINI_MODELS): Promise<string> {
+  return geminiRequest([{ text: prompt }], maxTokens, models)
+}
+
+// Modèles plus fiables sur le khmer (utilisés en secours si le lite contamine la sortie).
+const STRONG_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'] as const
+
+// Le khmer et le thaï se ressemblent : les petits modèles glissent parfois vers le thaï.
+function containsThai(s?: string): boolean {
+  return /[฀-๿]/.test(s ?? '')
+}
+
+// Retire les gloses de romanisation latine insérées à tort dans le khmer (ex "កែ (kê)" → "កែ").
+// Ne matche que des parenthèses ne contenant QUE du latin/ponctuation (jamais du khmer).
+function cleanKhmer(kh?: string): string {
+  return (kh ?? '')
+    .replace(/\s*[（(][A-Za-zÀ-ÿ0-9'’ .,:;\/-]+[)）]/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim()
 }
 
 function coupleContext(author?: string): string {
@@ -139,7 +156,12 @@ RENDU DES PRONOMS EN FRANÇAIS ET ANGLAIS (le point le plus important) :
 - "អូន"(oun) et "បង"(bang) sont des PRONOMS relationnels, JAMAIS des noms propres. En français/anglais, les rendre par "je/moi" ou "tu/toi" (I/me ou you) selon qui parle — NE JAMAIS écrire "Oun", "Bang" ni "Bong" comme un nom dans le français ou l'anglais.
   Ex : Lys écrit "អូននឹកបង" → "Tu me manques" (PAS "Oun me manque, Bang"). Chet écrit "បងស្រលាញ់អូន" → "Je t'aime" (PAS "Bang aime Oun").
 - "គាត់" = 3ᵉ personne = une AUTRE personne (sa mère, un ami, quelqu'un dont on parle), jamais "tu/toi" ni "je". Utilise le CONTEXTE récent pour choisir "il" ou "elle" et savoir de qui il s'agit (ex : si Lys parle de sa mère → "elle").
-- Garde TOUJOURS la même personne grammaticale que l'original : un "je" reste "je" (jamais "il/elle" ni un prénom), un "tu" reste "tu".`.trim()
+- Garde TOUJOURS la même personne grammaticale que l'original : un "je" reste "je" (jamais "il/elle" ni un prénom), un "tu" reste "tu".
+
+ÉCRITURE DU KHMER (RÈGLE ABSOLUE) :
+- Le texte khmer ("kh") doit être écrit EXCLUSIVEMENT en écriture KHMÈRE (ភាសាខ្មែរ). Lys est CAMBODGIENNE, pas thaïlandaise.
+- INTERDIT : l'écriture thaïe (ไทย) ou toute autre écriture — pas un seul caractère thaï.
+- INTERDIT : toute romanisation / phonétique en lettres latines entre parenthèses dans le khmer. Écris "កែ", JAMAIS "កែ (kê)". Le khmer doit être pur, sans transcription latine.`.trim()
 }
 
 export interface Translations { fr: string; en: string; kh: string; lang?: string }
@@ -170,9 +192,16 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 }
 
 export async function geminiTranslateAll(text: string, author?: string, previousMessage?: string): Promise<Translations> {
+  const prompt = buildTranslatePrompt(text, author, previousMessage)
   try {
-    const raw = await callGemini(buildTranslatePrompt(text, author, previousMessage), translateBudget(text))
-    return JSON.parse(raw) as Translations
+    let t = JSON.parse(await callGemini(prompt, translateBudget(text))) as Translations
+    // Si du thaï s'est glissé dans le khmer, le modèle lite a échoué → on relance sur un modèle fiable.
+    if (containsThai(t.kh)) {
+      console.warn('[translate] thaï détecté dans le khmer → relance sur modèle fiable')
+      t = JSON.parse(await callGemini(prompt, translateBudget(text), STRONG_MODELS)) as Translations
+    }
+    t.kh = cleanKhmer(t.kh) // retire toute romanisation "(kê)" résiduelle
+    return t
   } catch (e) {
     // Échec (le plus souvent : message très long → JSON tronqué). On découpe en phrases,
     // on traduit chaque morceau, et on recolle en UNE traduction complète.
@@ -187,8 +216,10 @@ async function translateInChunks(text: string, author?: string, previousMessage?
   let ctx = previousMessage
   for (const chunk of chunks) {
     try {
-      const raw = await callGemini(buildTranslatePrompt(chunk, author, ctx), translateBudget(chunk))
-      const t = JSON.parse(raw) as Translations
+      const p = buildTranslatePrompt(chunk, author, ctx)
+      let t = JSON.parse(await callGemini(p, translateBudget(chunk))) as Translations
+      if (containsThai(t.kh)) t = JSON.parse(await callGemini(p, translateBudget(chunk), STRONG_MODELS)) as Translations
+      t.kh = cleanKhmer(t.kh)
       parts.push(t)
       ctx = `${ctx ? ctx + '\n' : ''}${author ?? '?'}: ${chunk}` // enchaîne le contexte pour la cohérence
     } catch (e) {
@@ -249,8 +280,10 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 {"corrected":"message corrigé","fr":"texte en français","en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","lang":"code_langue","question":"${questionHint}"${lessonsHint}}`
 
   // Sortie plus grosse que translate (corrected + fr + en + kh + question + leçons) → budget large
-  const raw = await callGemini(prompt, translateBudget(text, 6))
-  return JSON.parse(raw) as GeminiSuggestion
+  let s = JSON.parse(await callGemini(prompt, translateBudget(text, 6))) as GeminiSuggestion
+  if (containsThai(s.kh)) s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), STRONG_MODELS)) as GeminiSuggestion
+  s.kh = cleanKhmer(s.kh)
+  return s
 }
 
 export async function geminiTts(text: string, lang: 'fr' | 'kh'): Promise<string> {
@@ -302,11 +335,15 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 {"text":"transcription exacte","fr":"texte en français","en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ"}`
 
   // Longueur du vocal inconnue à l'avance → budget large ; l'auto-retry MAX_TOKENS couvre les longs
-  const raw = await geminiRequest(
-    [{ inlineData: { mimeType, data: audioBase64 } }, { text: prompt }],
-    2048
-  )
-  return JSON.parse(raw) as TranscriptionResult
+  const parts = [{ inlineData: { mimeType, data: audioBase64 } }, { text: prompt }]
+  let r = JSON.parse(await geminiRequest(parts, 2048)) as TranscriptionResult
+  if (containsThai(r.kh) || containsThai(r.text)) {
+    console.warn('[transcribe] thaï détecté → relance sur modèle fiable')
+    r = JSON.parse(await geminiRequest(parts, 2048, STRONG_MODELS)) as TranscriptionResult
+  }
+  r.kh = cleanKhmer(r.kh)
+  if (/[ក-៿]/.test(r.text)) r.text = cleanKhmer(r.text) // nettoie seulement si le texte transcrit est khmer
+  return r
 }
 
 // ─────────────────────────── Moteur d'apprentissage ───────────────────────────
