@@ -127,6 +127,11 @@ async function callGemini(prompt: string, maxTokens = 300, models: readonly stri
 // Modèles plus fiables sur le khmer (utilisés en secours si le lite contamine la sortie).
 const STRONG_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'] as const
 
+// Traductions DU COUPLE (chat/suggest/transcribe) : gemini-3.6-flash (le plus récent, khmer le
+// plus naturel + registre intime bang/oun constant), fallback 2.5-flash. ~€5/mois au volume réel.
+// Les leçons/grading restent sur GEMINI_MODELS (lite, pas cher, non sensible au registre intime).
+const COUPLE_MODELS = ['gemini-3.6-flash', 'gemini-2.5-flash'] as const
+
 // Le khmer et le thaï se ressemblent : les petits modèles glissent parfois vers le thaï.
 function containsThai(s?: string): boolean {
   return /[฀-๿]/.test(s ?? '')
@@ -197,7 +202,7 @@ export async function geminiTranslateAll(text: string, author?: string, previous
   const prompt = buildTranslatePrompt(text, author, previousMessage)
   try {
     // 2.5-flash-lite par défaut (pas cher + fiable sur les pronoms, testé 20/20 avec contexte).
-    let t = JSON.parse(await callGemini(prompt, translateBudget(text))) as Translations
+    let t = JSON.parse(await callGemini(prompt, translateBudget(text), COUPLE_MODELS)) as Translations
     if (containsThai(t.kh)) { // filet : si du thaï passe, re-roll sur le modèle fort (2.5-flash)
       console.warn('[translate] thaï détecté → re-roll sur modèle fort')
       t = JSON.parse(await callGemini(prompt, translateBudget(text), STRONG_MODELS)) as Translations
@@ -219,7 +224,7 @@ async function translateInChunks(text: string, author?: string, previousMessage?
   for (const chunk of chunks) {
     try {
       const p = buildTranslatePrompt(chunk, author, ctx)
-      let t = JSON.parse(await callGemini(p, translateBudget(chunk))) as Translations
+      let t = JSON.parse(await callGemini(p, translateBudget(chunk), COUPLE_MODELS)) as Translations
       if (containsThai(t.kh)) t = JSON.parse(await callGemini(p, translateBudget(chunk), STRONG_MODELS)) as Translations
       t.kh = cleanKhmer(t.kh)
       parts.push(t)
@@ -282,7 +287,7 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 {"corrected":"message corrigé","fr":"texte en français","en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","lang":"code_langue","question":"${questionHint}"${lessonsHint}}`
 
   // 2.5-flash-lite (fiable + pas cher) ; re-roll sur modèle fort seulement si thaï. Budget large.
-  let s = JSON.parse(await callGemini(prompt, translateBudget(text, 6))) as GeminiSuggestion
+  let s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), COUPLE_MODELS)) as GeminiSuggestion
   if (containsThai(s.kh)) s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), STRONG_MODELS)) as GeminiSuggestion
   s.kh = cleanKhmer(s.kh)
   return s
@@ -338,7 +343,7 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 
   // Longueur du vocal inconnue à l'avance → budget large ; l'auto-retry MAX_TOKENS couvre les longs
   const parts = [{ inlineData: { mimeType, data: audioBase64 } }, { text: prompt }]
-  let r = JSON.parse(await geminiRequest(parts, 2048)) as TranscriptionResult // 2.5-flash-lite (fiable + pas cher)
+  let r = JSON.parse(await geminiRequest(parts, 2048, COUPLE_MODELS)) as TranscriptionResult // 3.6-flash (khmer le plus naturel)
   if (containsThai(r.kh) || containsThai(r.text)) r = JSON.parse(await geminiRequest(parts, 2048, STRONG_MODELS)) as TranscriptionResult
   r.kh = cleanKhmer(r.kh)
   if (/[ក-៿]/.test(r.text)) r.text = cleanKhmer(r.text) // nettoie seulement si le texte transcrit est khmer
