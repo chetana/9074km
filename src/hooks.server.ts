@@ -55,6 +55,15 @@ const logto: Handle = ({ event, resolve }) => {
 	return logtoHandler({ event, resolve })
 }
 
+// AI-DEV: Cache mémoire du mapping logtoId → user (id/name/picture stable, jamais changeant).
+// AVANT : chaque requête faisait SELECT + UPDATE users (lastLoginAt=now()). Le chat poll toutes
+// les 8s → 1 write/8s sur la Serverless SQL chetana-portfolio → base maintenue chaude 24/7 dès
+// qu'un onglet est ouvert. La table users n'a que 2-3 lignes : pas d'éviction nécessaire.
+// APRÈS : cache-hit < 1h = ZÉRO accès DB (le poll ne réveille plus la base). L'écriture de
+// lastLoginAt est throttlée à 1×/h. Cache perdu au cold-start → 1 upsert au 1er accès (négligeable).
+const userCache = new Map<string, { id: number; name: string; picture: string; lastWriteMs: number }>()
+const WRITE_THROTTLE_MS = 60 * 60 * 1000 // 1 h
+
 const dbUser: Handle = async ({ event, resolve }) => {
 	if (event.locals.user) {
 		const userInfo = event.locals.user
@@ -64,32 +73,45 @@ const dbUser: Handle = async ({ event, resolve }) => {
 		const picture = userInfo.picture ?? ''
 
 		if (logtoId && email) {
-			const db = getDB()
+			const now = Date.now()
+			let cached = userCache.get(logtoId)
 
-			let dbRow = (await db.select().from(users).where(eq(users.logtoId, logtoId)))[0]
-			if (dbRow) {
-				await db.update(users)
-					.set({ lastLoginAt: new Date(), name: name || dbRow.name, picture: picture || dbRow.picture, email })
-					.where(eq(users.id, dbRow.id))
-			} else {
-				dbRow = (await db.select().from(users).where(eq(users.email, email)))[0]
+			if (!cached) {
+				// Cache-miss (cold-start ou 1er accès) : un seul aller-retour DB, puis on mémorise.
+				const db = getDB()
+				let dbRow = (await db.select().from(users).where(eq(users.logtoId, logtoId)))[0]
 				if (dbRow) {
 					await db.update(users)
-						.set({ logtoId, lastLoginAt: new Date(), name: name || dbRow.name, picture: picture || dbRow.picture })
+						.set({ lastLoginAt: new Date(), name: name || dbRow.name, picture: picture || dbRow.picture, email })
 						.where(eq(users.id, dbRow.id))
 				} else {
-					const inserted = await db.insert(users).values({ email, name, picture, logtoId }).returning()
-					dbRow = inserted[0]
+					dbRow = (await db.select().from(users).where(eq(users.email, email)))[0]
+					if (dbRow) {
+						await db.update(users)
+							.set({ logtoId, lastLoginAt: new Date(), name: name || dbRow.name, picture: picture || dbRow.picture })
+							.where(eq(users.id, dbRow.id))
+					} else {
+						const inserted = await db.insert(users).values({ email, name, picture, logtoId }).returning()
+						dbRow = inserted[0]
+					}
 				}
+				cached = { id: dbRow.id, name: dbRow.name ?? '', picture: dbRow.picture ?? '', lastWriteMs: now }
+				userCache.set(logtoId, cached)
+			} else if (now - cached.lastWriteMs > WRITE_THROTTLE_MS) {
+				// Cache-hit mais lastLoginAt périmé (>1h) : une seule écriture throttlée.
+				cached.lastWriteMs = now
+				const db = getDB()
+				await db.update(users)
+					.set({ lastLoginAt: new Date(), name: name || cached.name, picture: picture || cached.picture, email })
+					.where(eq(users.id, cached.id))
 			}
+			// Sinon (cache-hit, <1h) : AUCUN accès DB — le poll 8s ne réveille plus la base.
 
-			if (dbRow) {
-				event.locals.dbUser = {
-					id: dbRow.id,
-					email,
-					name: name || dbRow.name || '',
-					picture: picture || dbRow.picture || '',
-				}
+			event.locals.dbUser = {
+				id: cached.id,
+				email,
+				name: name || cached.name || '',
+				picture: picture || cached.picture || '',
 			}
 		}
 	}
