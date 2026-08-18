@@ -133,8 +133,15 @@ const STRONG_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'] as const
 const COUPLE_MODELS = ['gemini-3.6-flash', 'gemini-2.5-flash'] as const
 
 // Le khmer et le thaï se ressemblent : les petits modèles glissent parfois vers le thaï.
-function containsThai(s?: string): boolean {
-  return /[฀-๿]/.test(s ?? '')
+// Scripts qui n'ont RIEN à faire dans un texte khmer et déclenchent un re-roll sur le modèle fort.
+// Couvre : thaï, indien (devanagari/bengali/tamoul), chinois+japonais (CJK+kana), coréen (hangul),
+// arabe, cyrillique, hébreu. Le khmer (U+1780–17FF), le latin, les chiffres, la ponctuation et les
+// emoji restent autorisés. Remplace l'ancien contrôle « thaï seulement » (Lys voyait passer du
+// chinois/indien que le filet ne rattrapait pas).
+const FOREIGN_SCRIPT =
+  /[฀-๿ऀ-ॿঀ-৿஀-௿一-鿿㐀-䶿぀-ヿ가-힯ᄀ-ᇿ؀-ۿЀ-ӿ֐-׿]/
+function containsForeignScript(s?: string): boolean {
+  return FOREIGN_SCRIPT.test(s ?? '')
 }
 
 // Retire les gloses de romanisation latine insérées à tort dans le khmer (ex "កែ (kê)" → "កែ").
@@ -166,8 +173,8 @@ RENDU DES PRONOMS EN FRANÇAIS ET ANGLAIS (le point le plus important) :
 - Garde TOUJOURS la même personne grammaticale que l'original : un "je" reste "je" (jamais "il/elle" ni un prénom), un "tu" reste "tu".
 
 ÉCRITURE DU KHMER (RÈGLE ABSOLUE) :
-- Le texte khmer ("kh") doit être écrit EXCLUSIVEMENT en écriture KHMÈRE (ភាសាខ្មែរ). Lys est CAMBODGIENNE, pas thaïlandaise.
-- INTERDIT : l'écriture thaïe (ไทย) ou toute autre écriture — pas un seul caractère thaï.
+- Le texte khmer ("kh") doit être écrit EXCLUSIVEMENT en écriture KHMÈRE (ភាសាខ្មែរ). Lys est CAMBODGIENNE, pas thaïlandaise ni indienne ni chinoise.
+- INTERDIT ABSOLU : tout autre système d'écriture — pas un seul caractère thaï (ไทย), chinois/japonais (中文/日本語), coréen (한국어), indien/devanagari (हिन्दी), arabe (العربية) ni cyrillique. Uniquement du khmer.
 - INTERDIT : toute romanisation / phonétique en lettres latines entre parenthèses dans le khmer. Écris "កែ", JAMAIS "កែ (kê)". Le khmer doit être pur, sans transcription latine.`.trim()
 }
 
@@ -203,8 +210,8 @@ export async function geminiTranslateAll(text: string, author?: string, previous
   try {
     // 2.5-flash-lite par défaut (pas cher + fiable sur les pronoms, testé 20/20 avec contexte).
     let t = JSON.parse(await callGemini(prompt, translateBudget(text), COUPLE_MODELS)) as Translations
-    if (containsThai(t.kh)) { // filet : si du thaï passe, re-roll sur le modèle fort (2.5-flash)
-      console.warn('[translate] thaï détecté → re-roll sur modèle fort')
+    if (containsForeignScript(t.kh)) { // filet : script étranger (thaï/chinois/indien…) → re-roll modèle fort
+      console.warn('[translate] script étranger détecté dans le khmer → re-roll sur modèle fort')
       t = JSON.parse(await callGemini(prompt, translateBudget(text), STRONG_MODELS)) as Translations
     }
     t.kh = cleanKhmer(t.kh) // retire toute romanisation "(kê)" résiduelle
@@ -225,7 +232,7 @@ async function translateInChunks(text: string, author?: string, previousMessage?
     try {
       const p = buildTranslatePrompt(chunk, author, ctx)
       let t = JSON.parse(await callGemini(p, translateBudget(chunk), COUPLE_MODELS)) as Translations
-      if (containsThai(t.kh)) t = JSON.parse(await callGemini(p, translateBudget(chunk), STRONG_MODELS)) as Translations
+      if (containsForeignScript(t.kh)) t = JSON.parse(await callGemini(p, translateBudget(chunk), STRONG_MODELS)) as Translations
       t.kh = cleanKhmer(t.kh)
       parts.push(t)
       ctx = `${ctx ? ctx + '\n' : ''}${author ?? '?'}: ${chunk}` // enchaîne le contexte pour la cohérence
@@ -288,7 +295,7 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 
   // 2.5-flash-lite (fiable + pas cher) ; re-roll sur modèle fort seulement si thaï. Budget large.
   let s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), COUPLE_MODELS)) as GeminiSuggestion
-  if (containsThai(s.kh)) s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), STRONG_MODELS)) as GeminiSuggestion
+  if (containsForeignScript(s.kh)) s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), STRONG_MODELS)) as GeminiSuggestion
   s.kh = cleanKhmer(s.kh)
   return s
 }
@@ -344,7 +351,7 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
   // Longueur du vocal inconnue à l'avance → budget large ; l'auto-retry MAX_TOKENS couvre les longs
   const parts = [{ inlineData: { mimeType, data: audioBase64 } }, { text: prompt }]
   let r = JSON.parse(await geminiRequest(parts, 2048, COUPLE_MODELS)) as TranscriptionResult // 3.6-flash (khmer le plus naturel)
-  if (containsThai(r.kh) || containsThai(r.text)) r = JSON.parse(await geminiRequest(parts, 2048, STRONG_MODELS)) as TranscriptionResult
+  if (containsForeignScript(r.kh) || containsForeignScript(r.text)) r = JSON.parse(await geminiRequest(parts, 2048, STRONG_MODELS)) as TranscriptionResult
   r.kh = cleanKhmer(r.kh)
   if (/[ក-៿]/.test(r.text)) r.text = cleanKhmer(r.text) // nettoie seulement si le texte transcrit est khmer
   return r
