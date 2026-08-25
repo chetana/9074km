@@ -8,6 +8,35 @@ import { users } from '$lib/server/schema'
 
 const LOGTO_COOKIE = 'logtoCookies'
 
+// AI-DEV: Rate-limit global par IP (ceinture-et-bretelles anti-bot / anti-abus de coût).
+// lys n'avait AUCUNE protection de ce type — un scanner qui sonde des chemins bidon
+// (/wp-admin, /.env…) ou martèle une route réveillerait le container à chaque requête,
+// voire déclencherait des appels Vertex coûteux si le chemin scanné touche /api/chat/*.
+// Fenêtre glissante en mémoire, perdue au scale-to-zero (sans gravité pour une garde anti-abus).
+const RL_WINDOW_MS = 60_000
+const RL_MAX = 120 // 120 req/min/IP : large pour un humain, borne un bot
+const rlHits = new Map<string, number[]>()
+const rateLimit: Handle = ({ event, resolve }) => {
+	if (event.url.pathname.startsWith('/_app/')) return resolve(event) // assets statiques immuables
+
+	const xff = event.request.headers.get('x-forwarded-for')
+	if (!xff) return resolve(event) // pas de XFF = appel interne, non concerné
+	const ip = xff.split(',')[0].trim() || 'unknown'
+
+	const now = Date.now()
+	const hits = (rlHits.get(ip) ?? []).filter((t) => now - t < RL_WINDOW_MS)
+	if (hits.length >= RL_MAX) {
+		rlHits.set(ip, hits)
+		return new Response('Too many requests', { status: 429 })
+	}
+	hits.push(now)
+	rlHits.set(ip, hits)
+	if (rlHits.size > 3000) {
+		for (const [k, v] of rlHits) if (!v.some((t) => now - t < RL_WINDOW_MS)) rlHits.delete(k)
+	}
+	return resolve(event)
+}
+
 // Quand un cookie est stale (encryption key ayant changé, token expiré non-refreshable...),
 // on le nettoie avant que handleLogto ne tente de le lire.
 const clearStaleCookie: Handle = async ({ event, resolve }) => {
@@ -119,4 +148,4 @@ const dbUser: Handle = async ({ event, resolve }) => {
 	return resolve(event)
 }
 
-export const handle = sequence(clearStaleCookie, logto, dbUser)
+export const handle = sequence(rateLimit, clearStaleCookie, logto, dbUser)
