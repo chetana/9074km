@@ -632,10 +632,26 @@
 			}
 			void autoCopy(msg);
 		} catch {
-			// Supprime la bulle temporaire et restaure l'input
-			swrMessages.data = swrMessages.data.filter(m => m.id !== tempId);
-			inputText = text;
-			showError(userLang === 'kh' ? '❌ បរាជ័យក្នុងការផ្ញើសារ' : '❌ Échec de l\'envoi');
+			// AI-DEV: le fetch peut échouer côté client (PWA mise en arrière-plan pendant les
+			// quelques secondes de traduction Vertex — surtout si re-roll/découpage) alors que
+			// le serveur, lui, a bien fini d'écrire le message traduit (son exécution ne dépend
+			// pas de l'état du client). Avant de déclarer un échec, on revérifie sur le serveur :
+			// si le message y est déjà, on l'affiche normalement — sinon Lys voyait une fausse
+			// erreur ET récupérait le texte dans le champ, l'invitant à renvoyer en double.
+			await swrMessages.refresh().catch(() => {});
+			const landed = swrMessages.data.find(m =>
+				m.id !== tempId && m.author === firstName && m.text === text &&
+				Date.now() - new Date(m.ts).getTime() < 30_000
+			);
+			if (landed) {
+				swrMessages.data = swrMessages.data.filter(m => m.id !== tempId);
+				void autoCopy(landed);
+			} else {
+				// Supprime la bulle temporaire et restaure l'input
+				swrMessages.data = swrMessages.data.filter(m => m.id !== tempId);
+				inputText = text;
+				showError(userLang === 'kh' ? '❌ បរាជ័យក្នុងការផ្ញើសារ' : '❌ Échec de l\'envoi');
+			}
 		} finally {
 			sending = false;
 		}
