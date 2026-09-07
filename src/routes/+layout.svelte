@@ -34,23 +34,20 @@
 		}
 		clockInterval = setInterval(() => (now = new Date()), 1000);
 
-		// ── Vérification de version : force le rechargement si une version plus récente
-		// est livrée (contourne le cache agressif du service worker PWA). ──
+		// AI-DEV: Vérification de version UNE SEULE FOIS au lancement (plus de setInterval 5min
+		// ni de check sur visibilitychange). Avant : un onglet/PWA laissé ouvert pingait /api/version
+		// toutes les 5 min, en dessous du seuil d'inactivité Scaleway (~16-17 min) → le container ne
+		// scale-to-zero JAMAIS (mesuré : 1440/1440 min actives/jour, peu importe l'usage réel), et
+		// chaque ping réveillait aussi la Serverless SQL (lastLoginAt). Contrepartie acceptée : une
+		// fenêtre restée ouverte ne recevra la mise à jour qu'au prochain lancement, pas en direct.
 		void checkVersion();
-		document.addEventListener('visibilitychange', onVisible);
-		versionInterval = setInterval(() => void checkVersion(), 5 * 60 * 1000);
 	});
 	onDestroy(() => {
 		clearInterval(clockInterval);
-		clearInterval(versionInterval);
-		document.removeEventListener('visibilitychange', onVisible);
 	});
 
 	let now = $state(new Date());
 	let clockInterval: ReturnType<typeof setInterval>;
-	let versionInterval: ReturnType<typeof setInterval>;
-
-	function onVisible() { if (document.visibilityState === 'visible') void checkVersion(); }
 
 	async function checkVersion() {
 		try {
