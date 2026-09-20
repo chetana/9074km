@@ -1,5 +1,6 @@
 import { createSign } from 'crypto'
 import { env } from '$env/dynamic/private'
+import { glmEnabled, chatGo } from './glm'
 
 function parseServiceAccountJson(raw: string): Record<string, string> {
   // gcloud --env-vars-file YAML uses single-quoted strings where \n is literal backslash+n.
@@ -121,8 +122,19 @@ function splitIntoChunks(text: string, maxLen: number): string[] {
 }
 
 async function callGemini(prompt: string, maxTokens = 300, models: readonly string[] = GEMINI_MODELS): Promise<string> {
-  return geminiRequest([{ text: prompt }], maxTokens, models)
+	// Moteur principal : GLM-5.3-flash via OpenCode Go (même qualité de khmer, ~1/10 du prix).
+	// filet de sécurité : tout échec GLM (quota Go saturé, indispo…) retombe sur Gemini sans
+	// aucun impact utilisateur — d'où le try/catch ignoré ici.
+	if (glmEnabled()) {
+		try {
+			return await chatGo(`Tu réponds UNIQUEMENT avec un JSON valide (sans markdown).`, prompt, maxTokens)
+		} catch (e) {
+			console.warn(`[engine] GLM KO → bascule Gemini (${(e as Error).message})`)
+		}
+	}
+	return geminiRequest([{ text: prompt }], maxTokens, models)
 }
+
 
 // Modèles plus fiables sur le khmer (utilisés en secours si le lite contamine la sortie).
 const STRONG_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'] as const
