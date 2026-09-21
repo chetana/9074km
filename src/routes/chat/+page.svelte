@@ -461,23 +461,49 @@
 		return parts.join('\n');
 	}
 
-	async function autoCopy(msg: ChatMessage) {
+	// Clipboard legacy : execCommand('copy') via textarea — contourne l'expiration de la
+	// "transient activation" (requis par navigator.clipboard), qui échoue au-delà de ~5s
+	// après le tap, cas typique depuis la traduction GLM plus lente que le Vertex.
+	function legacyFallbackCopy(text: string): boolean {
 		try {
-			await navigator.clipboard.writeText(formatMsgForCopy(msg));
+			const ta = document.createElement('textarea');
+			ta.value = text;
+			ta.setAttribute('readonly', '');
+			ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px';
+			document.body.appendChild(ta);
+			ta.select();
+			const ok = document.execCommand('copy');
+			ta.remove();
+			return ok;
+		} catch {
+			return false;
+		}
+	}
+
+	async function copyText(text: string): Promise<boolean> {
+		try {
+			await navigator.clipboard.writeText(text);
+			return true;
+		} catch {
+			return legacyFallbackCopy(text);
+		}
+	}
+
+	async function autoCopy(msg: ChatMessage) {
+		if (await copyText(formatMsgForCopy(msg))) {
 			copyToast = true;
 			setTimeout(() => { copyToast = false; }, 2000);
-		} catch { /* ignore — pas critique */ }
+		}
 	}
 
 	async function copySelected() {
 		const msg = (swrMessages.data ?? []).find(m => m.id === selectedMsg);
 		if (!msg) return;
-		try {
-			await navigator.clipboard.writeText(formatMsgForCopy(msg));
+		if (await copyText(formatMsgForCopy(msg))) {
 			selectedMsg = null;
 			copyToast = true;
 			setTimeout(() => { copyToast = false; }, 2000);
-		} catch { /* ignore */ }
+		}
 	}
 
 	// ── Audio (VAD — Silero + noiseSuppression) ────────────────────────────
