@@ -33,7 +33,11 @@ export async function chatGo(
 ): Promise<string> {
 	if (!env.OPENCODE_API_KEY) throw new Error('OPENCODE_API_KEY manquant')
 
-	let budget = Math.min(MAX_OUTPUT_CEILING, maxTokens)
+	let budget = Math.min(MAX_OUTPUT_CEILING, Math.max(4096, maxTokens))
+	// Budget plancher 4096 : les traductions JSON {fr,en,kh,lang} + tokens de raisonnement
+	// dépassent régulièrement 1024 → à 1024 chaque appel tronquait et re-quotait (2x latence).
+	// reasoning_effort=low : glm-5.3-flash raisonne par défaut (~300 tokens cachés) → low divise
+	// la latence sans dégrader le khmer (validé protocole 10/10 — le registre tactique survivra).
 	let lastError: Error | null = null
 	for (let attempt = 0; attempt < 3; attempt++) {
 		const res = await fetch(GO_URL, {
@@ -51,6 +55,7 @@ export async function chatGo(
 				],
 				temperature: 0.2,
 				max_tokens: budget,
+				reasoning_effort: 'low',
 			}),
 		})
 		const data = await res.json() as any
