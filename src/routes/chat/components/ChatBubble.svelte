@@ -160,21 +160,36 @@
 	}
 
 	.bubble {
-		background: var(--surface);
+		background: linear-gradient(160deg, var(--surface), color-mix(in srgb, var(--accent) 6%, var(--surface)) 85%);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-xl);
-		border-bottom-left-radius: 4px;
+		border-top-left-radius: 8px;
 		padding: var(--space-3) var(--space-4);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
 		position: relative;
+		box-shadow: var(--shadow-sm);
 	}
 	.bubble.mine {
-		background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-		border-color: color-mix(in srgb, var(--accent) 25%, transparent);
-		border-bottom-left-radius: var(--radius-xl);
-		border-bottom-right-radius: 4px;
+		background: linear-gradient(150deg, var(--accent) 0%, var(--accent) 68%, var(--accent-warm) 100%);
+		border: none;
+		border-radius: var(--radius-xl);
+		border-top-right-radius: 8px;
+		box-shadow: var(--shadow-accent), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+		color: var(--on-accent);
+	}
+	.bubble.mine .bubble-text,
+	.bubble.mine .bubble-translation:first-child {
+		color: var(--on-accent);
+	}
+	.bubble.mine .bubble-translation,
+	.bubble.mine .bubble-time {
+		color: color-mix(in srgb, var(--on-accent) 75%, transparent);
+	}
+	.bubble.mine .bubble-translations,
+	.bubble.mine .bubble-translation:first-child {
+		border-color: color-mix(in srgb, var(--on-accent) 18%, transparent);
 	}
 
 	.source-badge {
@@ -258,7 +273,6 @@
 	.bubble-time {
 		font-size: var(--fs-xs);
 		color: var(--muted);
-		opacity: 0.6;
 		align-self: flex-end;
 	}
 

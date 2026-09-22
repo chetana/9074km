@@ -231,8 +231,9 @@
 	}
 
 	.dock-tab.active .dock-label {
-		color: var(--accent-warm);
-		font-weight: 700;
+		font-family: var(--font-display);
+		color: var(--accent-deep, var(--accent-warm));
+		font-weight: 600;
 	}
 
 	.unread-badge {

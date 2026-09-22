@@ -41,16 +41,16 @@
 <style>
 	.suggestion {
 		margin: 0 var(--space-4) var(--space-2);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-left: 3px solid var(--accent);
-		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+		background: linear-gradient(155deg, var(--lavender), var(--surface) 70%);
+		border: 1px solid color-mix(in srgb, var(--lavender-deep) 45%, transparent);
+		border-radius: var(--radius-xl);
 		padding: var(--space-3) var(--space-4);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
 		position: relative;
 		z-index: 1;
+		box-shadow: var(--shadow-lavender);
 		animation: suggest-in 0.25s ease;
 	}
 	@keyframes suggest-in {
@@ -59,15 +59,22 @@
 	}
 	.suggestion-loading { color: var(--muted); font-size: var(--fs-sm); }
 	.suggestion-dots { font-size: var(--fs-sm); color: var(--muted); }
-	.suggestion-question { font-size: var(--fs-sm); font-weight: 600; color: var(--accent); }
+	.suggestion-question {
+		font-family: var(--font-display);
+		font-size: var(--fs-sm);
+		font-weight: 600;
+		letter-spacing: 0.03em;
+		text-transform: uppercase;
+		color: var(--lavender-text);
+	}
 	.suggestion-corrected { font-size: var(--fs-base); color: var(--text); }
 	.suggestion-translation { font-size: var(--fs-sm); color: var(--muted); font-style: italic; }
 	.transl-flag { font-style: normal; flex-shrink: 0; font-size: 0.75em; }
 	.suggestion-lesson {
 		font-size: var(--fs-sm);
-		color: var(--muted);
-		background: color-mix(in srgb, var(--accent) 6%, var(--bg));
-		border-left: 2px solid var(--accent);
+		color: var(--text-secondary);
+		background: color-mix(in srgb, var(--lavender-deep) 14%, var(--surface));
+		border-left: 2px solid var(--lavender-deep);
 		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 		padding: var(--space-1) var(--space-3);
 		margin-top: var(--space-1);
@@ -82,6 +89,10 @@
 		transition: transform 0.1s;
 	}
 	.suggestion-btn:active { transform: scale(0.95); }
-	.suggestion-btn.accept { background: var(--accent); color: var(--on-accent); }
-	.suggestion-btn.dismiss { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--muted); }
+	.suggestion-btn.accept {
+		background: linear-gradient(135deg, var(--lavender-deep), #9E86DE);
+		color: var(--on-lavender);
+		box-shadow: var(--shadow-lavender);
+	}
+	.suggestion-btn.dismiss { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--text-secondary); }
 </style>

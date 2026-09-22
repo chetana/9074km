@@ -20,10 +20,13 @@
 	/* ── Accents additionnels (badge XP, carte de suggestion IA) ── */
 	--lavender:      #E4DAF8;
 	--lavender-deep: #B7A3E8;
+	--lavender-text: #5B4A8A;   /* libellé "Suggestion" sur carte lavande — 5.6:1 */
 	--on-lavender:   #3D2A5C;
 	--gold:          #FFC978;
 	--gold-deep:     #F2A54A;
 	--gold-text:     #7A4A0E;
+	--shadow-lavender: 0 6px 14px rgba(183, 163, 232, 0.28);
+	--shadow-gold:     0 4px 10px rgba(242, 165, 74, 0.28);
 
 	/* ── Espacements ── */
 	--space-1: 0.25rem;   /* 4px  */
@@ -35,6 +38,7 @@
 	--space-12: 3rem;     /* 48px */
 
 	/* ── Typographie ── */
+	--font-display: 'Fredoka', ui-rounded, 'Baloo 2', sans-serif;
 	--fs-xs:   0.6875rem;  /* 11px */
 	--fs-sm:   0.75rem;    /* 12px */
 	--fs-base: 0.8125rem;  /* 13px */

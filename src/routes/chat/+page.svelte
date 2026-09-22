@@ -1101,8 +1101,9 @@
 	}
 
 	.date-label {
+		font-family: var(--font-display);
 		font-size: var(--fs-sm);
-		color: var(--accent);
+		color: var(--accent-deep, var(--accent));
 		font-weight: 600;
 		min-width: 8rem;
 		text-align: center;
@@ -1250,10 +1251,11 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 1px;
-		padding: 0.22rem 0.4rem 0.18rem;
-		border-radius: var(--radius-sm);
-		background: var(--surface);
-		border: 1px solid var(--border);
+		padding: 0.22rem 0.5rem 0.18rem;
+		border-radius: var(--radius-full);
+		background: linear-gradient(135deg, color-mix(in srgb, var(--gold) 35%, transparent), color-mix(in srgb, var(--accent) 22%, transparent));
+		border: 1px solid color-mix(in srgb, var(--gold-deep) 35%, transparent);
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), var(--shadow-gold);
 		transition: transform 0.12s;
 		position: relative;
 		overflow: visible;
@@ -1277,7 +1279,7 @@
 		position: absolute;
 		top: -5px;
 		right: -7px;
-		background: var(--accent);
+		background: var(--accent-deep, var(--accent-warm));
 		color: #fff;
 		font-size: 0.5rem;
 		font-weight: 800;
@@ -1286,7 +1288,7 @@
 		border-radius: 999px;
 		min-width: 13px;
 		text-align: center;
-		box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 60%, transparent);
+		box-shadow: 0 0 4px color-mix(in srgb, var(--accent-deep) 60%, transparent);
 	}
 	.fc-badge-avatar {
 		font-size: 0.72rem;
@@ -1307,7 +1309,7 @@
 		left: 0;
 		width: var(--pct, 0%);
 		border-radius: 999px;
-		background: linear-gradient(90deg, var(--accent), var(--accent-warm, #D4956A));
+		background: linear-gradient(90deg, var(--gold-deep), var(--gold));
 		transition: width 0.6s ease;
 	}
 
