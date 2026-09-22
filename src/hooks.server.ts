@@ -5,6 +5,7 @@ import { sequence } from '@sveltejs/kit/hooks'
 import type { Handle } from '@sveltejs/kit'
 import { getDB } from '$lib/server/db'
 import { users } from '$lib/server/schema'
+import { rateLimitDecision } from '$lib/server/rate-limit'
 
 const LOGTO_COOKIE = 'logtoCookies'
 
@@ -24,13 +25,11 @@ const rateLimit: Handle = ({ event, resolve }) => {
 	const ip = xff.split(',')[0].trim() || 'unknown'
 
 	const now = Date.now()
-	const hits = (rlHits.get(ip) ?? []).filter((t) => now - t < RL_WINDOW_MS)
-	if (hits.length >= RL_MAX) {
-		rlHits.set(ip, hits)
+	const { limited, hits } = rateLimitDecision(rlHits.get(ip) ?? [], now, RL_WINDOW_MS, RL_MAX)
+	rlHits.set(ip, hits)
+	if (limited) {
 		return new Response('Too many requests', { status: 429 })
 	}
-	hits.push(now)
-	rlHits.set(ip, hits)
 	if (rlHits.size > 3000) {
 		for (const [k, v] of rlHits) if (!v.some((t) => now - t < RL_WINDOW_MS)) rlHits.delete(k)
 	}
