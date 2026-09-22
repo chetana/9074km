@@ -83,7 +83,10 @@
 		color: var(--accent-warm);
 		font-weight: 700;
 		white-space: nowrap;
-		text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+		padding: var(--space-1) var(--space-2);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--surface) 70%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 	}
 
 	.count {
