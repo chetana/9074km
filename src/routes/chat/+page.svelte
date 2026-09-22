@@ -162,11 +162,13 @@
 		};
 	});
 
-	function urlBase64ToUint8Array(base64: string): Uint8Array {
+	function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 		const padding = '='.repeat((4 - (base64.length % 4)) % 4);
 		const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
 		const raw = atob(b64);
-		return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+		const bytes = new Uint8Array(raw.length);
+		for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+		return bytes;
 	}
 
 	async function subscribeNotifications() {
@@ -579,10 +581,17 @@
 			// Import dynamique (SSR-safe) — charge le modèle Silero + ONNX
 			const { MicVAD } = await import('@ricky0123/vad-web');
 			const micVad = await MicVAD.new({
-				workletURL: '/vad.worklet.bundle.min.js',
-				modelURL: '/silero_vad_v5.onnx',
+				// AI-DEV: "workletURL"/"modelURL" n'existent PAS dans cette version (0.0.30) de
+				// vad-web — c'était silencieusement ignoré (TS ne le voyait pas vu le cast `as any`
+				// implicite d'un objet non typé auparavant). La vraie API est `baseAssetPath` (préfixe
+				// combiné à des noms de fichiers fixes : vad.worklet.bundle.min.js, silero_vad_*.onnx)
+				// + `model`. Sans "model: 'v5'" explicite, le défaut est "legacy" — donc le modèle v5
+				// copié par viteStaticCopy (vite.config.ts) n'était jamais réellement chargé.
+				baseAssetPath: '/',
+				model: 'v5',
 				ortConfig: (ort: any) => { ort.env.wasm.wasmPaths = '/'; },
-				additionalAudioConstraints: { noiseSuppression: true, echoCancellation: true, autoGainControl: true },
+				// "additionalAudioConstraints" n'existe pas non plus dans cette version — sans effet
+				// ici de toute façon, `getStream` par défaut demande déjà ces 3 contraintes.
 				onSpeechStart: () => { speaking = true; },
 				onSpeechEnd: (audio: Float32Array) => {
 					speaking = false;

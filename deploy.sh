@@ -14,6 +14,16 @@ URL=https://lys.chetana.fr
 DRY=${1:-}
 [ "$DRY" = "--dry" ] && DRYENV=1 || DRYENV=0
 
+# 0. Garde-fou avant tout : le hook pre-commit ne protège que les commits, pas ce script — et il
+# a tourné en CRLF depuis sa création (22/09/2026) sans jamais réellement bloquer quoi que ce soit.
+# svelte-check ici bloque AVANT de bumper la version et de builder l'image de prod.
+echo "→ svelte-check"
+npm run check 2>&1 | tail -5
+if ! npx svelte-check --threshold error > /dev/null 2>&1; then
+  echo "❌ svelte-check a trouvé des erreurs — déploiement annulé. Corrige avant de relancer deploy.sh."
+  exit 1
+fi
+
 # 1. Bump version.ts (patch +1) — n'écrit que si pas en dry-run
 VER=$(DRY=$DRYENV node -e '
   const fs=require("fs"); const p="src/lib/version.ts";

@@ -5,8 +5,11 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Only intercept git commit commands
-if ! echo "$COMMAND" | grep -q "git commit"; then
+# Only intercept git commit commands — "git" et "commit" comme mots entiers, n'importe quoi entre
+# les deux (flags et leur valeur en tokens séparés, ex: git -c user.email=x commit -m "..."),
+# jamais matché par un grep littéral "git commit" (bug trouvé le 22/09 : le hook ne voyait jamais
+# les commits de deploy.sh, qui passe justement par -c user.email=...).
+if ! echo "$COMMAND" | grep -qE "\bgit\b.*\bcommit\b"; then
   exit 0
 fi
 

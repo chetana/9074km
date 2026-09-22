@@ -237,7 +237,7 @@
 
 		<!-- Content -->
 		<div class="content">
-			{#if day !== null}
+			{#if day !== null && year !== null && month !== null}
 				<DayFiles
 					{year} {month} {day}
 					{initialFile}

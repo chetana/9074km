@@ -28,7 +28,7 @@ export const GET: RequestHandler = async ({ url }) => {
     .jpeg({ quality: width <= 400 ? 80 : 85 })
     .toBuffer()
 
-  return new Response(jpeg, {
+  return new Response(new Uint8Array(jpeg), {
     headers: {
       'Content-Type': 'image/jpeg',
       'Cache-Control': 'public, max-age=86400',

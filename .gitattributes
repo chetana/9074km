@@ -1,0 +1,7 @@
+# Les hooks .claude/hooks/*.sh doivent rester en LF — Bash plante en silence sur du CRLF
+# (piège trouvé le 22/09/2026 : les deux hooks pre-commit tournaient en CRLF depuis leur
+# création, donc svelte-check n'a jamais réellement bloqué un seul commit).
+*.sh text eol=lf
+
+# NE PAS forcer *.svelte en LF globalement : src/routes/chat/+page.svelte est
+# volontairement en CRLF (voir CLAUDE.md, section "Pièges Svelte 5").

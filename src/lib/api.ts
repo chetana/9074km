@@ -54,8 +54,8 @@ export async function listObjects(prefix: string): Promise<ListResult> {
 
 /** Invalide toutes les entrées du cache dont le préfixe commence par `prefix` */
 // ── Utils simple ──
-export function getCachedList(prefix: string) {
-	return localGetCachedList(prefix);
+export function getCachedList(prefix: string): ListResult | null {
+	return localGetCachedList(prefix) as ListResult | null;
 }
 export function getCachedNote(y: string, m: string, d: string) {
 	return localGetCachedNote(y, m, d);
