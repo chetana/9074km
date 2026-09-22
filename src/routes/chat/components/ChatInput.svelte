@@ -115,16 +115,19 @@
 	.action-btn {
 		width: 2.625rem;
 		height: 2.625rem;
-		border-radius: var(--radius-sm);
-		background: var(--raised);
+		border-radius: var(--radius-full);
+		background: var(--surface);
 		border: 1px solid var(--border);
+		color: var(--text-secondary);
 		font-size: 1.15rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		transition: opacity 0.15s, transform 0.15s;
+		box-shadow: var(--shadow-sm);
+		transition: opacity 0.15s, transform 0.15s, color 0.15s;
 	}
+	.action-btn:hover { color: var(--text); }
 	.action-btn:active { transform: scale(0.9); }
 	.action-btn:disabled { opacity: 0.35; }
 	.action-btn.active { border-color: var(--accent); }

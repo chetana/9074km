@@ -128,8 +128,8 @@
 	}
 
 	.chip:not(.active) .badge {
-		background: var(--muted);
-		opacity: 0.6;
+		background: var(--accent-deep, var(--accent-warm));
+		color: #fff;
 	}
 
 	.chip.today {

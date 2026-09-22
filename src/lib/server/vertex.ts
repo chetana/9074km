@@ -205,6 +205,7 @@ Règles impératives :
 - Registre : intime, oral, tendre — jamais formel ni littéraire
 - "គាត់" = il/elle (3ème personne), JAMAIS "tu" — ne jamais confondre avec un interlocuteur direct
 - Khmer oral et informel : ហ្នឹង (ça/ce/là), ម្កេះ (peu/seulement), ក្រ- (pénurie/difficulté ex: ក្រញ៉ាំ = manger peu), ម្ហី/ម្ហេ (comment) — privilégier le sens pragmatique, pas la forme écrite standard
+- Lexique médical : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" (jamais "អាឡែស៊ី" ni "អាឡែក") ; "sésame" → TOUJOURS "ល្ង" (jamais "ស៊ីម៉េ" ni "ស្នេហ៍" qui veut dire "amour")
 - Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier le sujet et l'intention
 - Anglais simple et naturel (Lys apprend — éviter les expressions idiomatiques complexes)
 - Un vrai prénom collé à un titre (ex "បង Chet" = "Bang Chet") se garde tel quel ; mais "អូន"/"បង" SEULS sont des pronoms → "je/tu" (voir règle pronoms ci-dessus), jamais des noms
@@ -295,6 +296,7 @@ Règles :
 - Registre intime, oral et tendre — jamais formel
 - "គាត់" = il/elle (3ème personne), JAMAIS "tu" — ne jamais confondre avec un interlocuteur direct
 - Khmer oral et informel : ហ្នឹង (ça/là), ម្កេះ (peu/seulement), ក្រ- (pénurie ex: ក្រញ៉ាំ = manger peu), ម្ហី (comment) — sens pragmatique avant forme écrite
+- Lexique médical : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" (jamais "អាឡែស៊ី" ni "អាឡែក") ; "sésame" → TOUJOURS "ល្ង" (jamais "ស៊ីម៉េ" ni "ស្នេហ៍" qui veut dire "amour")
 - Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier l'intention
 - Si aucune faute, ne mets pas de champ "lessons"
 - "lang" : code de la langue détectée ("fr", "en" ou "kh")
@@ -354,6 +356,7 @@ ${coupleContext(author)}${ctxLine}
 Règles de traduction :
 - "គាត់" = il/elle (3ème personne), JAMAIS "tu"
 - Khmer oral/informel : ហ្នឹង (ça/là), ម្កេះ (peu/seulement), ក្រ- (pénurie) — sens pragmatique avant forme écrite
+- Lexique médical : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" ; "sésame" → TOUJOURS "ល្ង"
 - Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier le sujet
 - Anglais simple (Lys apprend — éviter les expressions idiomatiques)
 

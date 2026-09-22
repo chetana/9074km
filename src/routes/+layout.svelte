@@ -73,9 +73,6 @@
 		} catch { /* hors-ligne ou erreur réseau → on ignore */ }
 	}
 
-	// Période Nouvel An Khmer : 1–20 avril (activé manuellement en avance)
-	const isKhmerNewYear = $derived(() => true);
-
 	type Tab = { path: string; Icon: Component<{ active?: boolean; size?: number }>; label: string; kh: string };
 	const tabs: Tab[] = [
 		{ path: '/horloge',   Icon: HorlogeIcon,   label: 'Horloge',   kh: 'នាឡិកា' },
@@ -89,7 +86,7 @@
 	const isGallery = $derived($page.url.pathname.startsWith('/fiancailles'));
 </script>
 
-<div class="app" class:khmer-new-year={isKhmerNewYear()}>
+<div class="app">
 	<Sky />
 	<main>
 		{#key currentPath}
@@ -165,9 +162,16 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 0;
-		padding: 0 var(--space-3) env(safe-area-inset-bottom, 0px);
+		padding: 0 var(--space-3) calc(env(safe-area-inset-bottom, 0px) + 8px);
 		background: color-mix(in srgb, var(--bg) 96%, var(--accent));
 		border-top: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+		/* Sans position+z-index, ce bloc non positionné peignait SOUS .sky
+		   (fixed, z-index:0, blend screen) dans l'ordre d'empilement CSS —
+		   même piège que header/main, corrigé partout sauf ici : tout élément
+		   sombre posé dessus (le badge de version) se retrouvait délavé par
+		   le blend au lieu d'être simplement invisible. */
+		position: relative;
+		z-index: 1;
 	}
 
 	.dock-bar {
@@ -192,23 +196,17 @@
 		color: var(--accent);
 	}
 
-	/* Barre lumineuse au-dessus du tab actif */
+	/* Barre au-dessus du tab actif — ombre courte, pas de glow néon */
 	.dock-tab.active::before {
 		content: '';
 		position: absolute;
 		top: -2px;
 		left: 20%;
 		right: 20%;
-		height: 2px;
+		height: 3px;
 		background: var(--accent);
-		border-radius: 0 0 2px 2px;
-		box-shadow: 0 0 8px var(--accent), 0 0 20px color-mix(in srgb, var(--accent) 40%, transparent);
-		animation: glow-pulse 2s ease-in-out infinite;
-	}
-
-	@keyframes glow-pulse {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.6; }
+		border-radius: 0 0 3px 3px;
+		box-shadow: 0 1px 4px color-mix(in srgb, var(--accent) 50%, transparent);
 	}
 
 	.dock-icon {
@@ -219,25 +217,30 @@
 
 	.dock-tab.active .dock-icon {
 		transform: translateY(-2px) scale(1.1);
-		filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--accent) 50%, transparent));
+		filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--accent) 35%, transparent));
 	}
 
 	.dock-tab:active .dock-icon {
 		transform: scale(0.9);
 	}
 
+	/* Couleur pleine plutôt qu'opacité réduite : une teinte moins saturée qui
+	   reste lisible (≥4.5:1), pas un texte à moitié transparent — l'opacité
+	   comme seul moyen d'atténuer un libellé finit toujours par casser le
+	   contraste selon le fond. */
 	.dock-label {
 		font-size: 0.6rem;
 		font-weight: 500;
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
-		opacity: 0.4;
-		transition: opacity 0.2s, font-weight 0.2s;
+		color: var(--muted);
+		transition: color 0.2s, font-weight 0.2s;
 	}
 
 	.dock-tab.active .dock-label {
-		opacity: 1;
-		font-weight: 700;
+		font-family: var(--font-display);
+		color: var(--accent-deep, var(--accent-warm));
+		font-weight: 600;
 	}
 
 	.unread-badge {
@@ -248,7 +251,7 @@
 		height: 16px;
 		padding: 0 3px;
 		border-radius: 8px;
-		background: var(--accent-warm, #F2A0B0);
+		background: var(--accent-deep, var(--accent-warm));
 		color: #fff;
 		font-size: 0.6rem;
 		font-weight: 700;
@@ -274,14 +277,20 @@
 		50% { opacity: 0; }
 	}
 
-	/* Version badge */
+	/* Version badge — fond plein foncé, pas un ton clair sur clair : le
+	   premier essai (fond blanc/bordure rose pâle à 10px) était quasi
+	   invisible en vrai malgré un contraste "mesurable" correct, vérifié
+	   via capture d'écran réelle. */
 	.dock-version {
-		font-size: 0.65rem;
+		font-size: 0.7rem;
 		font-family: 'Courier New', monospace;
-		color: color-mix(in srgb, var(--accent) 50%, var(--muted));
-		opacity: 0.7;
+		font-weight: 700;
+		color: #FFF8F0;
+		background: var(--text);
+		border-radius: var(--radius-full);
+		padding: 2px 10px 3px;
+		margin-bottom: 4px;
 		letter-spacing: 0.08em;
-		padding-bottom: 3px;
 		user-select: none;
 	}
 </style>

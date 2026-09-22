@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>lys — Refonte de l'écran de chat (pastel)</title>
+<meta name="description" content="Proposition de refonte visuelle de l'écran de chat de lys, PWA de messagerie bilingue franco-khmère — version pastel chaleureuse.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Khmer:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+
+<style>
+  /* ============================================================
+     TOKENS — palette pastel chaleureuse ("papier à lettres",
+     pas "verre profond") : fond clair, ombres courtes, formes rondes.
+     Remplace la V3 sombre "Sakura" suite au retour produit du 22/09 :
+     trop austère → pastel/enfantin demandé.
+     ============================================================ */
+  :root{
+    --bg:            #FFF8F0;   /* crème chaude — fond page */
+    --bg-deep:       #FFF1E4;   /* crème un peu plus dense — cadre du téléphone */
+    --surface:       #FFFFFF;   /* cartes / bulles claires */
+    --surface-2:     #FFF1F5;   /* rose très pâle — bulle "eux" */
+    --raised:        #FFEDE0;   /* pêche pâle — input, chips */
+    --raised-2:      #FFE2CE;   /* pêche un cran plus soutenu (hover) */
+
+    --rose:          #FFC2D1;
+    --rose-deep:     #FF8FA6;
+    --accent:        #FF9EB3;   /* rose principal */
+    --accent-warm:   #FF7A93;   /* rose plus soutenu (dégradés, CTA) */
+    --accent-deep:   #E85F7E;   /* rose profond (contraste, focus) */
+    --accent-tint:   rgba(255, 158, 179, 0.14);
+    --on-accent:     #5A2536;   /* gris-brun chaud — texte SUR le rose, jamais blanc */
+
+    --lavender:      #E4DAF8;
+    --lavender-deep: #B7A3E8;
+    --mint:          #CDF3E3;
+    --mint-deep:     #7DD9B6;
+    --peach:         #FFE0BE;
+
+    --gold:          #FFC978;   /* XP / badges — pêche doré, pas jaune vif */
+    --gold-deep:     #F2A54A;
+
+    /* Valeurs de secours pour le ciel (avant le premier calcul JS, ou si
+       JS est indisponible) — correspondent au créneau "après-midi doré"
+       choisi comme moment par défaut du pivot pastel. Le JS de .sky les
+       recalcule ensuite en continu depuis l'heure réelle Paris/Phnom Penh. */
+    --paris-top: #CDEAFB; --paris-mid: #FDF1DE; --paris-bot: #FFD9A0;
+    --kp-top:    #FCEFD8; --kp-mid:    #FFD9B8; --kp-bot:    #FFB88C;
+
+    --text:            #4A3438;   /* gris-brun chaud — texte principal */
+    --text-secondary:  #7A6064;   /* gris chaud moyen — assombri (4.9:1+ sur tous les fonds pastel de la page) */
+    --muted:           #B79FA4;   /* gris chaud clair — DÉCORATIF UNIQUEMENT (bordures, icônes), jamais du texte */
+    --border:          rgba(255, 143, 166, 0.30);
+    --border-soft:     rgba(74, 52, 56, 0.08);
+
+    /* Tokens "texte sur pastel" — un compagnon foncé par teinte, jamais la
+       même valeur que le fill. Introduits suite à la revue du 22/09 :
+       "un pastel clair n'autorise pas un texte pastel", donc chaque
+       libellé qui repose sur cream/lavande/or a son propre ton foncé
+       calculé pour tenir ≥4.5:1 (texte normal) / ≥3:1 (gros/gras). */
+    --lavender-text: #5B4A8A;   /* "SUGGESTION DE LYS" sur carte lavande — 5.6:1 */
+    --on-lavender:   #2E2145;   /* texte du bouton "Accepter" sur dégradé lavande — 6.6–4.9:1 */
+    --gold-text:     #8A5410;   /* "Niv. 12" sur le badge doré — 5.3:1 */
+    --muted-text:    #6E585C;   /* libellés dock inactifs sur crème — 6.2:1 */
+    --accent-text:   #B83A5C;   /* libellé dock actif "CHAT" sur crème — 5.25:1 */
+    /* Composant UI discret (glyphes, icônes) qui doit rester visible sans
+       être aussi appuyé qu'un libellé texte — cible ≥3:1 (WCAG 1.4.11),
+       jamais utilisé pour du texte de lecture (--muted-text fait ce rôle).
+       Introduit round 3 : --muted (2.1-2.3:1) traînait sur les flèches de
+       date-nav et les icônes de dock inactives, qui sont des composants
+       d'interface, pas du décor. */
+    --muted-glyph:   #9B8288;   /* flèches date-nav / icônes dock inactives — ≥3.1:1 */
+
+    /* Occulteur de la lune — DOIT rester une teinte foncée quel que soit le
+       thème (contrairement à --bg-deep, qui est crème en pastel et a rendu
+       la phase lunaire inversée round 2). Fixe, jamais dérivé du fond. */
+    --moon-occulter: #332B5E;
+
+    /* Ombres douces et COURTES — esprit "autocollant / papier découpé",
+       jamais de halo dramatique ni de glow néon. */
+    --shadow-xs:     0 1px 3px rgba(74, 52, 56, 0.07);
+    --shadow-sm:     0 3px 8px rgba(74, 52, 56, 0.09);
+    --shadow-md:     0 6px 16px rgba(74, 52, 56, 0.10);
+    --shadow-rose:   0 6px 14px rgba(255, 122, 147, 0.30);
+    --shadow-lavender: 0 6px 14px rgba(183, 163, 232, 0.28);
+    --shadow-gold:   0 4px 10px rgba(242, 165, 74, 0.28);
+    --shadow-lift:   var(--shadow-xs);
+    --shadow-soft:   var(--shadow-md);
+
+    --font-display: 'Fredoka', ui-rounded, 'Baloo 2', sans-serif;
+    --font-body: 'Noto Sans', 'Noto Sans Khmer', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    --radius-bubble: 26px;
+    --radius-card: 24px;
+    --radius-pill: 999px;
+  }
+
+  *{ box-sizing: border-box; }
+  html, body{
+    margin: 0; padding: 0;
+    background: var(--bg-deep);
+    color: var(--text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection{ background: var(--accent-tint); color: var(--accent-deep); }
+
+  /* ============================================================
+     STAGE — desktop context around the mobile mockup
+     ============================================================ */
+  .stage{
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px;
+    background:
+      radial-gradient(circle at 18% 8%, rgba(255, 194, 209, 0.35), transparent 45%),
+      radial-gradient(circle at 84% 88%, rgba(196, 220, 245, 0.30), transparent 50%),
+      var(--bg-deep);
+    position: relative;
+    overflow: hidden;
+  }
+  .stage::before{
+    content: "";
+    position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(74,52,56,0.045) 1px, transparent 1px);
+    background-size: 26px 26px;
+    mask-image: radial-gradient(circle at 50% 40%, black, transparent 70%);
+    pointer-events: none;
+  }
+  .stage-label{
+    position: fixed;
+    left: 24px; bottom: 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    z-index: 5;
+  }
+  .stage-label b{ color: var(--text-secondary); font-weight: 500; }
+
+  /* ============================================================
+     DEMO CONTROLS (review aid — not part of the shipped product)
+     ============================================================ */
+  .demo-toggle{
+    display: none;
+  }
+  .demo-bar{
+    position: fixed;
+    top: 20px; right: 20px;
+    z-index: 50;
+    display: flex;
+    gap: 6px;
+    padding: 5px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-pill);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-md);
+  }
+  .demo-bar button{
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    padding: 7px 12px;
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .demo-bar button:hover{ color: var(--text-secondary); }
+  .demo-bar button.active{
+    background: var(--raised);
+    color: var(--accent-deep);
+  }
+  .demo-bar button:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+
+  /* ============================================================
+     PHONE FRAME
+     ============================================================ */
+  .phone{
+    width: 402px;
+    max-width: 100%;
+    height: 852px;
+    max-height: 92vh;
+    border-radius: 46px;
+    padding: 12px;
+    background: linear-gradient(160deg, #FFF3E6, #FFE2CE 60%);
+    box-shadow:
+      var(--shadow-md),
+      0 0 0 1px rgba(255,255,255,0.6) inset,
+      0 24px 40px -20px rgba(255, 158, 179, 0.30);
+    position: relative;
+  }
+  .phone-notch{
+    position: absolute;
+    top: 12px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 26px;
+    background: #4A3438;
+    border-radius: 0 0 18px 18px;
+    z-index: 30;
+  }
+  .screen{
+    position: relative;
+    width: 100%; height: 100%;
+    border-radius: 34px;
+    overflow: hidden;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    isolation: isolate;
+  }
+  .screen::before{
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 140% 60% at 50% -10%, rgba(255, 217, 179, 0.35), transparent 55%),
+      radial-gradient(ellipse 100% 40% at 90% 100%, rgba(228, 218, 248, 0.30), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ============================================================
+     SKY BACKGROUND — dégradé de ciel Paris ↔ Phnom Penh en temps réel
+     (identité produit réelle, porté depuis src/lib/Sky.svelte)
+
+     Mécanisme inchangé : blend HORIZONTAL Paris/Phnom Penh (color-mix
+     85/15 → 50/50 → 15/85) + dégradé VERTICAL propre à chaque fuseau,
+     recalculé selon la tranche horaire réelle. Pour la direction pastel,
+     le moment choisi ici est un après-midi doré et clair des deux côtés
+     (plutôt qu'un crépuscule sombre) : c'est le ciel de jour, lumineux,
+     qui doit être le cas dominant et le plus réussi visuellement.
+     ============================================================ */
+  .sky{
+    position: absolute; inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  /* Deux dégradés VERTICAUX pleine hauteur superposés, celui de Phnom Penh
+     masqué en dégradé horizontal (transparent à gauche → opaque à droite),
+     plutôt qu'un unique dégradé horizontal appliqué seulement à la bande
+     du haut + un mix 70/30 uniforme pour le reste. Ça fait tenir le blend
+     Paris↔Phnom Penh à toutes les hauteurs de l'écran, pas seulement en
+     haut. Et plus de `multiply` (bleu froid × crème chaud → gris) : la
+     scission se fait en couches opaques, donc les teintes pastel restent
+     pastel jusqu'au bord gauche. */
+  .sky-gradient{
+    position: absolute; inset: 0;
+    opacity: 0.92;
+  }
+  .sky-layer{
+    position: absolute; inset: 0;
+    transition: background 4s ease-in-out;
+  }
+  .sky-layer.paris{
+    background: linear-gradient(to bottom, var(--paris-top) 0%, var(--paris-mid) 45%, var(--paris-bot) 78%, transparent 100%);
+  }
+  .sky-layer.kp{
+    background: linear-gradient(to bottom, var(--kp-top) 0%, var(--kp-mid) 45%, var(--kp-bot) 78%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 15%, black 85%);
+    mask-image: linear-gradient(to right, transparent 15%, black 85%);
+  }
+  /* voile de lisibilité : fond le ciel dans le crème de l'app en haut/bas
+     pour garder header et composer lisibles (remplace le voile sombre
+     de la V3, pensé pour un fond profond) */
+  .sky-veil{
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg) 88%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 18%, transparent) 30%,
+      color-mix(in srgb, var(--bg) 14%, transparent) 62%,
+      color-mix(in srgb, var(--bg) 80%, transparent) 100%
+    );
+  }
+  .horizon{
+    position: absolute; left: 0; right: 0; bottom: 30%;
+    height: 1px;
+    background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.7) 50%, transparent 100%);
+  }
+  /* Soleil doux — visible de jour. Le moment par défaut de ce pivot est un
+     après-midi doré, donc pas d'étoiles ni de lune à l'écran ici — mais
+     .sky-stars / .sky-moon existent réellement dans le DOM et le CSS, et
+     le JS (`applySky`) bascule `.sky.is-night` dès que l'heure réelle
+     Paris OU Phnom Penh retombe en tranche nocturne : le mécanisme de nuit
+     n'a pas été supprimé, il est simplement hors-cadre pour ce créneau. */
+  .sun-glow{
+    position: absolute; top: 16%; left: 74%;
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, rgba(255,255,255,0.9), rgba(255,214,150,0.55) 45%, rgba(255,214,150,0) 72%);
+    opacity: 1;
+    transition: opacity 3s ease;
+  }
+  .sky.is-night .sun-glow{ opacity: 0; }
+
+  .sky-moon{
+    position: absolute; top: 14%; left: 72%;
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #F5EFFF, #DCCFF2);
+    box-shadow: 0 0 22px 6px rgba(220, 206, 242, 0.5);
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 3s ease;
+  }
+  .sky.is-night .sky-moon{ opacity: 1; }
+  /* Occulteur de la phase — décalé horizontalement par le JS selon la
+     phase lunaire réelle du jour (0/1 = nouvelle lune, .5 = pleine lune).
+     Utilise --moon-occulter (fixe, toujours foncé) et non --bg-deep : ce
+     dernier est crème en pastel, donc plus CLAIR que le disque lunaire
+     (#F5EFFF/#DCCFF2) — l'ombre se peignait plus lumineuse que la lune et
+     la phase se lisait à l'envers. inset:0 (au lieu de -2px) pour ne plus
+     déborder d'un halo crème par-dessus le bord du disque. */
+  .sky-moon .moon-shadow{
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: var(--moon-occulter);
+    transition: transform 3s ease;
+  }
+  .sky-stars{
+    position: absolute; inset: 0;
+    opacity: 0;
+    transition: opacity 3s ease;
+  }
+  .sky.is-night .sky-stars{ opacity: 0.9; }
+  .star{
+    position: absolute;
+    width: 2px; height: 2px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    animation: twinkle 2.6s ease-in-out infinite;
+  }
+  @keyframes twinkle{
+    0%, 100%{ opacity: 0.35; }
+    50%{ opacity: 1; }
+  }
+
+  /* ============================================================
+     STATUS BAR
+     ============================================================ */
+  .statusbar{
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 26px 4px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    position: relative; z-index: 2;
+    flex-shrink: 0;
+  }
+  .statusbar .dots{ display:flex; gap: 4px; align-items: center; }
+  .statusbar .bars{ display:flex; align-items:flex-end; gap: 2px; height: 10px; }
+  .statusbar .bars span{ width: 3px; background: var(--text); border-radius: 1px; }
+  .statusbar .bars span:nth-child(1){ height: 40%; }
+  .statusbar .bars span:nth-child(2){ height: 60%; }
+  .statusbar .bars span:nth-child(3){ height: 80%; }
+  .statusbar .bars span:nth-child(4){ height: 100%; }
+
+  /* ============================================================
+     OFFLINE BANNER
+     ============================================================ */
+  .offline-banner{
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 16px 0;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, rgba(255, 224, 190, 0.9), rgba(255, 201, 120, 0.55));
+    border: 1px solid rgba(242, 165, 74, 0.35);
+    border-radius: var(--radius-pill);
+    font-size: 12.5px;
+    color: #7A5220;
+    position: relative; z-index: 2;
+    flex-shrink: 0;
+    animation: slideDown 0.35s cubic-bezier(.16,1,.3,1);
+  }
+  .screen.state-offline .offline-banner{ display: flex; }
+  .offline-dot{
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--gold-deep);
+    box-shadow: 0 0 0 0 rgba(242, 165, 74, 0.5);
+    animation: pulseDot 1.6s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulseDot{
+    0%   { box-shadow: 0 0 0 0 rgba(242, 165, 74, 0.45); }
+    70%  { box-shadow: 0 0 0 7px rgba(242, 165, 74, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(242, 165, 74, 0); }
+  }
+  @keyframes slideDown{
+    from{ opacity: 0; transform: translateY(-8px); }
+    to{ opacity: 1; transform: translateY(0); }
+  }
+
+  /* ============================================================
+     HEADER
+     ============================================================ */
+  .chat-header{
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px 16px 12px;
+    position: relative; z-index: 2;
+    flex-shrink: 0;
+  }
+
+  .avatar{
+    --size: 42px;
+    width: var(--size); height: var(--size);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--on-accent);
+    background: linear-gradient(150deg, var(--rose) 0%, var(--accent) 65%, var(--accent-warm) 100%);
+    box-shadow: var(--shadow-rose), 0 0 0 2px rgba(255,255,255,0.7);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .avatar.small{ --size: 26px; font-size: 11px; }
+  .avatar.medium{ font-size: 16px; }
+  .avatar-ring{
+    position: absolute; inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,158,179,0.45);
+  }
+  .avatar .dot-badge{
+    position: absolute; top: -1px; right: -1px;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--accent-deep);
+    box-shadow: 0 0 0 2px var(--bg);
+    z-index: 1;
+  }
+
+  .icon-btn{
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    color: var(--text-secondary);
+    font-size: 17px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    box-shadow: var(--shadow-xs);
+  }
+  .icon-btn:hover{ background: var(--raised); color: var(--text); }
+  .icon-btn:active{ transform: scale(0.92); }
+  .icon-btn:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+  .icon-btn .dot-badge{
+    position: absolute; top: 7px; right: 7px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-deep);
+    box-shadow: 0 0 0 2px var(--bg);
+  }
+
+  .date-nav{
+    flex: 1;
+    min-width: 0;
+    display: flex; align-items: center; justify-content: center;
+    gap: 2px;
+  }
+  .date-nav button{
+    position: relative;
+    background: none; border: none; color: var(--muted-glyph);
+    font-size: 15px; cursor: pointer;
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: color 0.2s ease, background 0.2s ease;
+  }
+  /* Hit area expanded to ~44px via pseudo-element without growing layout footprint */
+  .date-nav button::after{
+    content: "";
+    position: absolute;
+    inset: -9px;
+    border-radius: 50%;
+  }
+  .date-nav button:hover{ color: var(--text); background: var(--surface); }
+  .date-nav button:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 1px; }
+  .date-nav .date-label{
+    text-align: center;
+    padding: 0 4px;
+    cursor: default;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .date-nav .date-label .today{
+    display: block;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .date-nav .date-label .sub{
+    display: block;
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    letter-spacing: 0.05em;
+    margin-top: 1px;
+  }
+
+  /* Gamification badge */
+  .xp-badge{
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px 5px 6px;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(135deg, rgba(255,201,120,0.35), rgba(255,158,179,0.22));
+    border: 1px solid rgba(242, 165, 74, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), var(--shadow-gold);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+  .xp-badge:hover{ transform: translateY(-1px); }
+  .xp-badge:active{ transform: translateY(0) scale(0.97); }
+  .xp-avatar-wrap{ position: relative; flex-shrink: 0; }
+  .xp-avatar-wrap .avatar{
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--gold);
+  }
+  .card-icon{
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .xp-meta{ display: flex; flex-direction: column; gap: 2px; min-width: 56px; }
+  .xp-level{
+    font-family: var(--font-display);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--gold-text);
+    letter-spacing: 0.02em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .xp-track{
+    width: 100%; height: 4px;
+    border-radius: var(--radius-pill);
+    background: rgba(74,52,56,0.10);
+    overflow: hidden;
+    position: relative;
+  }
+  .xp-fill{
+    height: 100%;
+    width: 68%;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(90deg, var(--gold-deep), var(--gold));
+    position: relative;
+    overflow: hidden;
+  }
+  .xp-value{
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-secondary);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    line-height: 1;
+  }
+  .xp-fill::after{
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,0.75) 40%, transparent 60%);
+    background-size: 200% 100%;
+    animation: shimmer 2.8s ease-in-out infinite;
+  }
+  @keyframes shimmer{
+    0%{ background-position: 160% 0; }
+    100%{ background-position: -60% 0; }
+  }
+
+  /* ============================================================
+     MESSAGES
+     ============================================================ */
+  .messages{
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative; z-index: 1;
+    scrollbar-width: none;
+    /* .chat-header is transparent, so on first paint (scrolled to bottom)
+       the previous bubble was guillotined by the scroll container's own
+       top edge right under the date nav. Dissolve into the header instead
+       of clipping straight across. */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 18px);
+    mask-image: linear-gradient(to bottom, transparent 0, black 18px);
+  }
+  .messages::-webkit-scrollbar{ display: none; }
+
+  .day-divider{
+    text-align: center;
+    margin: 10px 0 18px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .day-divider::before, .day-divider::after{
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-soft), transparent);
+  }
+
+  .msg-row{
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    opacity: 0;
+    animation: riseIn 0.55s cubic-bezier(.16,1,.3,1) forwards;
+  }
+  .msg-row.from-them{ justify-content: flex-start; }
+  .msg-row.from-me{ justify-content: flex-end; }
+  @keyframes riseIn{
+    from{ opacity: 0; transform: translateY(10px) scale(0.985); }
+    to{ opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .msg-row.from-them .avatar{ margin-top: 20px; }
+
+  .msg-col{
+    display: flex; flex-direction: column;
+    max-width: 78%;
+  }
+  .msg-row.from-me .msg-col{ align-items: flex-end; }
+  .msg-row.from-them .msg-col{ align-items: flex-start; }
+
+  .msg-meta{
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin: 0 6px 5px;
+    letter-spacing: 0.02em;
+  }
+  .msg-meta b{ color: var(--text); font-weight: 600; }
+
+  .bubble{
+    position: relative;
+    padding: 11px 15px;
+    font-size: 15px;
+    line-height: 1.48;
+    border-radius: var(--radius-bubble);
+    word-wrap: break-word;
+    box-shadow: var(--shadow-lift);
+  }
+  .bubble .khmer{ font-family: 'Noto Sans Khmer', var(--font-body); }
+
+  /* bulle "eux" — galet clair, coin tiré vers l'origine du message
+     (organique, pas un rectangle plat) */
+  .msg-row.from-them .bubble{
+    background: linear-gradient(160deg, var(--surface), var(--surface-2) 85%);
+    color: var(--text);
+    border: 1px solid var(--border-soft);
+    border-top-left-radius: 8px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* bulle "moi" — dégradé rose pastel, texte gris-brun chaud (jamais blanc) */
+  .msg-row.from-me .bubble{
+    background: linear-gradient(150deg, var(--rose) 0%, var(--accent) 68%, var(--accent-warm) 100%);
+    color: var(--on-accent);
+    border-top-right-radius: 8px;
+    box-shadow: var(--shadow-rose), inset 0 1px 0 rgba(255,255,255,0.45);
+  }
+
+  .msg-row.pending .bubble{
+    /* était 0.6 (mesuré 3.83:1, sous le seuil) — la dilution vers le fond
+       crème atténue le texte ET la bulle ensemble, donc il fallait remonter
+       l'opacité plutôt que juste la couleur pour repasser sous les 4.5:1 */
+    opacity: 0.9;
+    box-shadow: none;
+  }
+  .msg-row.pending .msg-meta{ display: flex; align-items: center; gap: 5px; justify-content: flex-end; width: 100%; }
+  .pending-icon{
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid var(--muted);
+    border-top-color: transparent;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+
+  .reactions{
+    display: flex; gap: 5px; margin-top: 6px;
+  }
+  .reaction-pill{
+    display: flex; align-items: center; gap: 4px;
+    padding: 5px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s ease;
+    box-shadow: var(--shadow-xs);
+    position: relative;
+  }
+  /* Hit area expander — visual chip stays 47×29, tap target reaches ~44px,
+     same pattern as .date-nav button */
+  .reaction-pill::after{
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+  .reaction-pill:hover{ transform: translateY(-2px) scale(1.06); background: var(--raised); }
+  .reaction-pill:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+
+  /* AI suggestion card — "une autre voix" : lavande, distincte du flux
+     rose/crème de la conversation, sans casser la cohérence pastel */
+  .ai-suggestion{
+    align-self: flex-start;
+    max-width: 84%;
+    margin: 2px 0 16px 0;
+    padding: 13px 14px 12px;
+    border-radius: var(--radius-card);
+    background: linear-gradient(155deg, var(--lavender), var(--surface) 70%);
+    border: 1px solid rgba(183, 163, 232, 0.45);
+    position: relative;
+    box-shadow: var(--shadow-lavender);
+    opacity: 0;
+    animation: riseIn 0.55s cubic-bezier(.16,1,.3,1) forwards;
+    animation-delay: 0.15s;
+  }
+  .ai-suggestion-head{
+    display: flex; align-items: center; gap: 7px;
+    margin-bottom: 8px;
+  }
+  .ai-suggestion-head .spark{
+    font-size: 13px;
+  }
+  .ai-suggestion-head .label{
+    font-family: var(--font-display);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--lavender-text);
+    text-transform: uppercase;
+  }
+  .ai-suggestion-body{
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text);
+    margin-bottom: 11px;
+  }
+  .ai-suggestion-body .fix{
+    color: var(--text);
+    font-weight: 600;
+    background: rgba(183,163,232,0.22);
+    padding: 0 4px;
+    border-radius: 4px;
+  }
+  .ai-suggestion-actions{ display: flex; gap: 8px; }
+  .ai-btn{
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    font-weight: 600;
+    /* padding bump (was 9px 16px, 37px tall) so the tap target clears
+       ~44px without growing the visual chip much */
+    padding: 12px 18px;
+    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.2s ease;
+  }
+  .ai-btn:active{ transform: scale(0.95); }
+  .ai-btn:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+  .ai-btn.accept{
+    background: linear-gradient(135deg, var(--lavender-deep), #9E86DE);
+    /* jamais du blanc sur pastel clair (règle du brief) — gris-brun/violet
+       foncé dédié, tient 6.6:1 à l'extrémité claire et 4.9:1 à la foncée */
+    color: var(--on-lavender);
+    box-shadow: var(--shadow-lavender);
+  }
+  .ai-btn.accept:hover{ filter: brightness(1.06); }
+  .ai-btn.dismiss{
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border-soft);
+  }
+  .ai-btn.dismiss:hover{ color: var(--text); border-color: var(--border); }
+
+  /* ============================================================
+     EMPTY STATE
+     ============================================================ */
+  .empty-state{
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 36px 40px;
+    gap: 14px;
+    /* Sans position+z-index, cet enfant non positionné peint SOUS .sky
+       (absolute, z-index:0) dans l'ordre de peinture CSS : le texte se
+       retrouvait sous le ciel/voile → ~1.2:1, quasi invisible. Tous ses
+       voisins (messages, header, composer, dock) avaient déjà leur z-index. */
+    position: relative;
+    z-index: 1;
+  }
+  /* Sol propre pour le texte — round 3. La palette de nuit a beau être
+     repensée en pastel (voir PARIS_STOPS/KP_STOPS), le ciel reste une
+     couleur qui bouge en continu (interpolation horaire + blend Paris/PP) :
+     figer une couleur de texte pour "le pire cas" du ciel serait fragile et
+     recommencerait le bug à la prochaine palette. `.empty-state` se pose
+     donc sa propre carte translucide (même esprit que `.ai-suggestion` /
+     `.xp-badge` — la maquette a déjà ce langage de "carte") qui ancre le
+     texte à ~90% vers --bg quel que soit ce qu'il y a dessous. Vérifié
+     contre le point le plus sombre de la nouvelle palette de nuit :
+     h2 8.9:1, p 4.6–4.8:1 — jamais sous 4.5:1. */
+  .empty-state .empty-card{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 28px 24px;
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    box-shadow: var(--shadow-sm);
+  }
+  .screen.state-empty .empty-state{ display: flex; }
+  .screen.state-empty .messages{ display: none; }
+  .empty-glow{
+    width: 84px; height: 84px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px;
+    background: radial-gradient(circle at 35% 30%, var(--mint), rgba(205,243,227,0.3) 70%);
+    border: 1px solid rgba(125,217,182,0.4);
+    box-shadow: var(--shadow-sm);
+    animation: floatY 4s ease-in-out infinite;
+  }
+  @keyframes floatY{
+    0%, 100%{ transform: translateY(0); }
+    50%{ transform: translateY(-8px); }
+  }
+  .empty-state h2{
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text);
+  }
+  .empty-state p{
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.55;
+    max-width: 240px;
+  }
+
+  /* ============================================================
+     COMPOSER
+     ============================================================ */
+  .composer{
+    flex-shrink: 0;
+    padding: 10px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+    position: relative; z-index: 2;
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg) 55%, transparent) 30%, color-mix(in srgb, var(--bg) 88%, transparent) 55%);
+    backdrop-filter: blur(14px);
+  }
+  .composer-row{
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    background: var(--raised);
+    border: 1px solid var(--border-soft);
+    border-radius: 26px;
+    padding: 6px 6px 6px 8px;
+    box-shadow: var(--shadow-sm);
+  }
+  .composer-row .field{
+    flex: 1;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+  }
+  .composer-row input[type="text"]{
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    padding: 6px 4px;
+  }
+  .composer-row input[type="text"]::placeholder{ color: var(--muted-text); }
+  .composer-btn{
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s ease, transform 0.15s ease, color 0.2s ease;
+  }
+  .composer-btn svg{ display: block; stroke: currentColor; }
+  .composer-btn:hover{ background: var(--raised-2); color: var(--text); }
+  .composer-btn:active{ transform: scale(0.9); }
+  .composer-btn:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+  .composer-btn.send{
+    background: linear-gradient(150deg, var(--rose), var(--accent-warm));
+    color: var(--on-accent);
+    box-shadow: var(--shadow-rose);
+  }
+  .composer-btn.send:hover{ filter: brightness(1.05); }
+  .composer-btn.mic.recording{
+    background: linear-gradient(150deg, var(--accent-warm), var(--accent-deep));
+    color: #FFFFFF;
+    animation: micPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes micPulse{
+    0%, 100%{ box-shadow: 0 0 0 0 rgba(232,95,126,0.35); }
+    50%{ box-shadow: 0 0 0 8px rgba(232,95,126,0); }
+  }
+
+  .recording-strip{
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 10px 4px 14px;
+  }
+  .screen.recording .recording-strip{ display: flex; flex: 1; }
+  .screen.recording .field{ display: none; }
+  .screen.recording .composer-btn.emoji,
+  .screen.recording .composer-btn.image{ display: none; }
+  .rec-dot{
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--accent-deep);
+    animation: pulseDot 1.2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  .rec-time{
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  .rec-wave{
+    flex: 1;
+    display: flex; align-items: center; gap: 3px;
+    height: 20px;
+    overflow: hidden;
+  }
+  .rec-wave span{
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent-deep);
+    animation: waveBar 1s ease-in-out infinite;
+  }
+  .rec-wave span:nth-child(1){ height: 40%; animation-delay: 0s; }
+  .rec-wave span:nth-child(2){ height: 80%; animation-delay: 0.1s; }
+  .rec-wave span:nth-child(3){ height: 55%; animation-delay: 0.2s; }
+  .rec-wave span:nth-child(4){ height: 95%; animation-delay: 0.3s; }
+  .rec-wave span:nth-child(5){ height: 35%; animation-delay: 0.4s; }
+  .rec-wave span:nth-child(6){ height: 70%; animation-delay: 0.5s; }
+  .rec-wave span:nth-child(7){ height: 50%; animation-delay: 0.6s; }
+  .rec-wave span:nth-child(8){ height: 85%; animation-delay: 0.7s; }
+  .rec-wave span:nth-child(9){ height: 30%; animation-delay: 0.8s; }
+  .rec-wave span:nth-child(10){ height: 60%; animation-delay: 0.9s; }
+  @keyframes waveBar{
+    0%, 100%{ transform: scaleY(0.6); opacity: 0.7; }
+    50%{ transform: scaleY(1); opacity: 1; }
+  }
+  .rec-cancel{
+    background: none; border: none; color: var(--text-secondary);
+    font-size: 13px; cursor: pointer; padding: 6px 8px;
+    flex-shrink: 0;
+  }
+  .rec-cancel:hover{ color: var(--text); }
+  .rec-cancel:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+
+  /* ============================================================
+     NAV DOCK — barre 4 onglets (Horloge · Chat · Coffre · Apprendre)
+     porté depuis src/routes/+layout.svelte
+     ============================================================ */
+  .nav-dock{
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative; z-index: 4;
+    padding: 0 10px env(safe-area-inset-bottom, 0px);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border-soft);
+    box-shadow: 0 -6px 16px -12px rgba(74,52,56,0.15);
+  }
+  .dock-bar{
+    display: flex;
+    width: 100%;
+  }
+  .dock-tab{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 9px 0 8px;
+    position: relative;
+    background: none;
+    border: none;
+    color: var(--muted-glyph);
+    cursor: pointer;
+    transition: color 0.2s ease;
+  }
+  .dock-tab:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: -2px; border-radius: 10px; }
+  .dock-tab.active{ color: var(--accent-deep); }
+  /* pastille "autocollant" pleine derrière l'icône active, plutôt qu'un
+     trait lumineux — cohérent avec l'esprit papier découpé/sticker */
+  .dock-tab.active .dock-icon{
+    background: linear-gradient(150deg, var(--rose), var(--accent));
+    color: var(--on-accent);
+    border-radius: 14px;
+    padding: 5px 11px;
+    box-shadow: var(--shadow-rose);
+    transform: translateY(-2px) scale(1.06);
+  }
+  .dock-icon{
+    position: relative;
+    display: flex;
+    transition: transform 0.2s cubic-bezier(.34,1.56,.64,1), background 0.2s ease, box-shadow 0.2s ease;
+  }
+  .dock-icon svg{ width: 22px; height: 22px; stroke: currentColor; }
+  .dock-tab:active .dock-icon{ transform: scale(0.9); }
+  .dock-label{
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    /* Couleur dédiée plutôt qu'une opacité sur la couleur d'icône héritée :
+       --muted à 0.85 d'opacité mesurait ~2:1, illisible. Ces 4 libellés
+       sont la navigation principale, ils ont besoin de ≥4.5:1 pleins. */
+    color: var(--muted-text);
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    transition: color 0.2s ease;
+  }
+  .dock-tab.active .dock-label{ color: var(--accent-text); }
+  .dock-label-kh{
+    font-family: 'Noto Sans Khmer', var(--font-body);
+    font-size: 9px;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    /* hérite la couleur pleine de .dock-label — plus d'opacité supplémentaire,
+       qui repassait sous 4.5:1 en la recombinant avec le fond */
+  }
+  .unread-badge{
+    display: none;
+    position: absolute; top: -5px; right: -9px;
+    min-width: 15px; height: 15px; padding: 0 3px;
+    border-radius: 8px;
+    background: var(--accent-deep);
+    color: #fff;
+    font-size: 9.5px; font-weight: 700;
+    line-height: 15px; text-align: center;
+    box-shadow: 0 0 0 2px var(--bg);
+    pointer-events: none;
+  }
+  /* Unread badge only ever shows on the Chat tab, and only while it's inactive
+     (illustrated here forced-visible since Chat is the active tab in this mockup). */
+  .dock-tab.chat-tab .unread-badge{ display: flex; align-items: center; justify-content: center; }
+  .dock-cursor{
+    position: absolute; bottom: 1px; left: 50%;
+    transform: translateX(-50%) rotate(90deg);
+    font-size: 9px; color: var(--accent-deep);
+    animation: cursor-blink 1s step-end infinite;
+  }
+  @keyframes cursor-blink{ 0%, 100%{ opacity: 1; } 50%{ opacity: 0; } }
+  .dock-version{
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--muted-text);
+    opacity: 0.9;
+    letter-spacing: 0.06em;
+    padding-bottom: 4px;
+    user-select: none;
+  }
+
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (max-width: 460px){
+    .stage{ padding: 0; }
+    .phone{
+      width: 100vw; height: 100dvh; max-height: none;
+      border-radius: 0; padding: 0; box-shadow: none;
+    }
+    .phone-notch{ display: none; }
+    .screen{ border-radius: 0; height: 100dvh; }
+
+    /* Review scaffolding must never sit over the status bar, header or
+       composer — collapse it to a small toggle docked mid-right instead. */
+    .stage-label{ display: none; }
+
+    .demo-toggle{
+      display: flex;
+      position: fixed;
+      /* était top:50% → tombait sur le bord droit de la carte IA à 390px.
+         78% la dégage de tous les composants du produit. */
+      top: 78%; right: 10px;
+      transform: translateY(-50%);
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      align-items: center; justify-content: center;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid var(--border-soft);
+      color: var(--text-secondary);
+      font-size: 16px;
+      z-index: 51;
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow-md);
+      cursor: pointer;
+    }
+    .demo-toggle.open{ color: var(--accent-deep); }
+    .demo-toggle:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+
+    .demo-bar{
+      top: 78%; right: 54px; left: auto; bottom: auto;
+      transform: translateY(-50%);
+      flex-direction: column;
+      max-height: 0;
+      padding: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.25s ease;
+    }
+    .demo-bar.open{
+      max-height: 220px;
+      padding: 5px;
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <button type="button" class="demo-toggle" id="demoToggle" aria-label="Afficher les états de démonstration" aria-expanded="false" aria-controls="demoBar">⋯</button>
+  <div class="demo-bar" id="demoBar" role="group" aria-label="Aperçu des états de l'écran">
+    <button type="button" class="active" data-state="normal">Conversation</button>
+    <button type="button" data-state="empty">Vide</button>
+    <button type="button" data-state="offline">Hors-ligne</button>
+  </div>
+
+  <div class="phone">
+    <div class="phone-notch"></div>
+    <div class="screen" id="screen">
+
+      <div class="sky" id="sky" aria-hidden="true">
+        <div class="sky-gradient" id="skyGradient">
+          <div class="sky-layer paris"></div>
+          <div class="sky-layer kp"></div>
+        </div>
+        <div class="sky-stars" id="skyStars"></div>
+        <div class="sky-moon">
+          <div class="moon-shadow" id="moonShadow"></div>
+        </div>
+        <div class="sun-glow"></div>
+        <div class="horizon"></div>
+        <div class="sky-veil"></div>
+      </div>
+
+      <div class="statusbar">
+        <span>9:41</span>
+        <div class="dots" aria-hidden="true">
+          <div class="bars"><span></span><span></span><span></span><span></span></div>
+        </div>
+      </div>
+
+      <div class="offline-banner" role="status">
+        <span class="offline-dot" aria-hidden="true"></span>
+        Connexion perdue — nouvelle tentative en cours…
+      </div>
+
+      <header class="chat-header">
+        <div class="avatar medium" title="Chetana — 1 notification">
+          C
+          <span class="avatar-ring" aria-hidden="true"></span>
+          <span class="dot-badge" aria-hidden="true"></span>
+        </div>
+
+        <nav class="date-nav" aria-label="Navigation par date">
+          <button type="button" aria-label="Jour précédent">‹</button>
+          <div class="date-label">
+            <span class="today">Aujourd'hui</span>
+            <span class="sub">22 sept.</span>
+          </div>
+          <button type="button" aria-label="Jour suivant">›</button>
+        </nav>
+
+        <button class="xp-badge" type="button" aria-label="Niveau 12, 340 sur 500 XP">
+          <span class="xp-avatar-wrap">
+            <span class="avatar small">L</span>
+          </span>
+          <span class="card-icon" aria-hidden="true">🎴</span>
+          <span class="xp-meta">
+            <span class="xp-level">Niv. 12</span>
+            <span class="xp-track"><span class="xp-fill"></span></span>
+            <span class="xp-value">340/500 XP</span>
+          </span>
+        </button>
+      </header>
+
+      <main class="messages" aria-label="Messages">
+
+        <div class="msg-row from-them" style="animation-delay:.05s">
+          <span class="avatar small" title="Lys">L</span>
+          <div class="msg-col">
+            <span class="msg-meta"><b>Lys</b> · 09:14</span>
+            <div class="bubble">
+              <span class="khmer">ថ្ងៃនេះអូនចង់ញ៉ាំបាយសាច់ជ្រូក 🍖 អាចទិញនៅផ្សារបានទេ?</span>
+            </div>
+            <div class="reactions">
+              <button type="button" class="reaction-pill">❤️ 1</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="msg-row from-me" style="animation-delay:.12s">
+          <div class="msg-col">
+            <span class="msg-meta">09:16</span>
+            <div class="bubble">Oui bien sûr ! Je passe au marché après le boulot 😊</div>
+          </div>
+        </div>
+
+        <div class="msg-row from-them" style="animation-delay:.19s">
+          <span class="avatar small" title="Lys">L</span>
+          <div class="msg-col">
+            <span class="msg-meta"><b>Lys</b> · 09:17</span>
+            <div class="bubble">merci mon cœur 🥰 <span class="khmer">ស្រលាញ់បង</span></div>
+            <div class="reactions">
+              <button type="button" class="reaction-pill">🥰 2</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="msg-row from-me" style="animation-delay:.26s">
+          <div class="msg-col">
+            <span class="msg-meta">09:20</span>
+            <div class="bubble">j'apprend le mot <span class="khmer">ស្រលាញ់</span> ça veut dire aimer c'est ça ?</div>
+          </div>
+        </div>
+
+        <div class="ai-suggestion" style="animation-delay:.32s">
+          <div class="ai-suggestion-head">
+            <span class="spark">✨</span>
+            <span class="label">Suggestion de lys</span>
+          </div>
+          <div class="ai-suggestion-body">
+            Petite coquille — on écrit <span class="fix">j'apprends</span> (avec un s à la 1ʳᵉ personne). Et oui, <span class="khmer">ស្រលាញ់</span> veut bien dire « aimer » 💛
+          </div>
+          <div class="ai-suggestion-actions">
+            <button class="ai-btn accept" type="button">Accepter</button>
+            <button class="ai-btn dismiss" type="button">Ignorer</button>
+          </div>
+        </div>
+
+        <div class="msg-row from-them" style="animation-delay:.4s">
+          <span class="avatar small" title="Lys">L</span>
+          <div class="msg-col">
+            <span class="msg-meta"><b>Lys</b> · 09:21</span>
+            <div class="bubble"><span class="khmer">ចាស! ត្រូវហើយ</span> 😄 tu progresses vite dis donc</div>
+          </div>
+        </div>
+
+        <div class="msg-row from-me pending" style="animation-delay:.48s">
+          <div class="msg-col">
+            <span class="msg-meta"><span class="pending-icon" aria-hidden="true"></span> Envoi…</span>
+            <div class="bubble">Génial, merci pour la leçon du jour 📚</div>
+          </div>
+        </div>
+
+      </main>
+
+      <section class="empty-state" aria-label="Aucun message aujourd'hui">
+        <div class="empty-card">
+          <div class="empty-glow" aria-hidden="true">💬</div>
+          <h2>Rien pour l'instant</h2>
+          <p>Aucun message aujourd'hui. Écris le premier mot du jour, en français, en khmer, ou un savant mélange des deux ✨</p>
+        </div>
+      </section>
+
+      <footer class="composer">
+        <div class="composer-row">
+          <button class="composer-btn emoji" type="button" aria-label="Ouvrir le sélecteur d'émojis">😊</button>
+          <button class="composer-btn image" type="button" aria-label="Envoyer une image">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect>
+              <circle cx="8.5" cy="10" r="1.5" fill="currentColor" stroke="none"></circle>
+              <path d="M4 16.5 9 12l3 3 3.5-4L20 16"></path>
+            </svg>
+          </button>
+
+          <div class="field">
+            <input type="text" placeholder="Écris un mot doux… ✍️" aria-label="Message">
+          </div>
+
+          <div class="recording-strip">
+            <span class="rec-dot" aria-hidden="true"></span>
+            <span class="rec-time" id="recTime">0:00</span>
+            <div class="rec-wave" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <button class="rec-cancel" type="button" id="recCancel">Annuler</button>
+          </div>
+
+          <button class="composer-btn mic" type="button" id="micBtn" aria-label="Enregistrer une note vocale" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+              <path d="M6 11a6 6 0 0 0 12 0"></path>
+              <path d="M12 17v3"></path>
+              <path d="M9 20h6"></path>
+            </svg>
+          </button>
+          <button class="composer-btn send" type="button" aria-label="Envoyer le message">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 12h15"></path>
+              <path d="M13 6l6 6-6 6"></path>
+            </svg>
+          </button>
+        </div>
+      </footer>
+
+      <div class="nav-dock">
+        <nav class="dock-bar" aria-label="Navigation principale">
+
+          <button class="dock-tab" type="button">
+            <span class="dock-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="8"></circle>
+                <path d="M12 8v4l3 2"></path>
+              </svg>
+            </span>
+            <span class="dock-label">Horloge<span class="dock-label-kh">នាឡិកា</span></span>
+          </button>
+
+          <button class="dock-tab chat-tab active" type="button" aria-current="page" aria-label="Chat, 3 messages non lus">
+            <span class="dock-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 6.5C4 5.1 5.1 4 6.5 4h11C18.9 4 20 5.1 20 6.5v7c0 1.4-1.1 2.5-2.5 2.5H10l-4 3v-3H6.5C5.1 16 4 14.9 4 13.5v-7z"></path>
+              </svg>
+              <span class="unread-badge" aria-hidden="true">3</span>
+            </span>
+            <span class="dock-label">Chat<span class="dock-label-kh">ជជែក</span></span>
+            <span class="dock-cursor" aria-hidden="true">▸</span>
+          </button>
+
+          <button class="dock-tab" type="button">
+            <span class="dock-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 10c0-3.3 3.6-6 8-6s8 2.7 8 6"></path>
+                <rect x="4" y="10" width="16" height="9" rx="2"></rect>
+                <circle cx="12" cy="14.5" r="1.1" fill="currentColor" stroke="none"></circle>
+              </svg>
+            </span>
+            <span class="dock-label">Coffre<span class="dock-label-kh">ប្រអប់</span></span>
+          </button>
+
+          <button class="dock-tab" type="button">
+            <span class="dock-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 5.8C4 4.8 4.8 4 5.8 4H11v16H5.8C4.8 20 4 19.2 4 18.2V5.8z"></path>
+                <path d="M20 5.8c0-1-.8-1.8-1.8-1.8H13v16h5.2c1 0 1.8-.8 1.8-1.8V5.8z"></path>
+              </svg>
+            </span>
+            <span class="dock-label">Apprendre<span class="dock-label-kh">រៀន</span></span>
+          </button>
+
+        </nav>
+        <span class="dock-version">v1.0.269</span>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="stage-label">lys · <b>proposition de refonte — pastel</b> — écran de chat</div>
+</div>
+
+<script>
+  // ============================================================
+  // SKY MECHANISM — porté de src/lib/Sky.svelte : dégradé recalculé
+  // depuis l'heure RÉELLE Paris / Phnom Penh (Intl timeZone, pas un
+  // décalage fixe — gère les changements d'heure d'été/hiver de Paris),
+  // blend horizontal entre les deux fuseaux + dégradé vertical propre à
+  // chaque ciel, phase lunaire réelle du jour. Repeint en pastel pour ce
+  // pivot : seules les VALEURS des paliers ont changé (dusk/nuit sombre
+  // → aube/jour/golden hour pastel), pas le mécanisme — il tourne toutes
+  // les 60s exactement comme la version sombre.
+  // ============================================================
+  (function(){
+    var skyEl = document.getElementById('sky');
+    var skyGradient = document.getElementById('skyGradient');
+    var starsEl = document.getElementById('skyStars');
+    var moonShadow = document.getElementById('moonShadow');
+
+    // Palier toutes les 3h ; interpolé linéairement entre deux paliers
+    // consécutifs. `night` détermine l'affichage lune/étoiles.
+    // Palette de nuit — redessinée round 3. La V2 réutilisait telles quelles
+    // les valeurs de la V3 sombre "Sakura" (#2B2A55, #372A57…) : un ciel
+    // froid/indigo qui n'appartient plus à la direction pastel, ET dont le
+    // contraste mesurait 1.12:1 sous `.empty-state p`. La branche nuit est
+    // en écran ~14h/24 (règle "nuit si Paris OU Phnom Penh est en tranche
+    // nocturne", avec ~5-6h de décalage) : ce n'est pas un cas rare, elle a
+    // sa propre palette pastel — dusk periwinkle / prune sourde / rose
+    // sombre chaude, esprit "conte pour l'heure du coucher", jamais du noir
+    // ni un gris délavé.
+    var PARIS_STOPS = [
+      {h:0,  top:'#4E4785', mid:'#5E4C8E', bot:'#6B4D78', night:true},
+      {h:3,  top:'#524B89', mid:'#635193', bot:'#714E76', night:true},
+      {h:6,  top:'#BEDBF4', mid:'#F7E3CE', bot:'#FFCE9E', night:false},
+      {h:9,  top:'#C7E7FC', mid:'#FDF1DE', bot:'#FFE2B8', night:false},
+      {h:12, top:'#CDEAFB', mid:'#FDF6E8', bot:'#FFE9C6', night:false},
+      {h:15, top:'#CDEAFB', mid:'#FDF1DE', bot:'#FFD9A0', night:false},
+      {h:18, top:'#E7C9EC', mid:'#FBD8C8', bot:'#FFBE95', night:false},
+      {h:21, top:'#6E62A0', mid:'#7B5CA0', bot:'#93597E', night:true},
+      {h:24, top:'#4E4785', mid:'#5E4C8E', bot:'#6B4D78', night:true}
+    ];
+    var KP_STOPS = [
+      {h:0,  top:'#4A3E82', mid:'#6A4180', bot:'#7C4462', night:true},
+      {h:3,  top:'#4F4288', mid:'#714488', bot:'#8B4A64', night:true},
+      {h:6,  top:'#F9D9C4', mid:'#FFC9A0', bot:'#FFAE78', night:false},
+      {h:9,  top:'#FCE6D2', mid:'#FFDDB2', bot:'#FFC292', night:false},
+      {h:12, top:'#FCEFD8', mid:'#FFE4BC', bot:'#FFC89C', night:false},
+      {h:15, top:'#FCEFD8', mid:'#FFD9B8', bot:'#FFB88C', night:false},
+      {h:18, top:'#FBC9D6', mid:'#FFB9A8', bot:'#FF9A78', night:false},
+      {h:21, top:'#7256A0', mid:'#96468C', bot:'#B14E6C', night:true},
+      {h:24, top:'#4A3E82', mid:'#6A4180', bot:'#7C4462', night:true}
+    ];
+
+    function hex2rgb(hex){
+      var n = parseInt(hex.slice(1), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    function rgb2hex(rgb){
+      return '#' + rgb.map(function(v){
+        var c = Math.round(Math.max(0, Math.min(255, v))).toString(16);
+        return c.length < 2 ? '0' + c : c;
+      }).join('');
+    }
+    function mixHex(h1, h2, t){
+      var a = hex2rgb(h1), b = hex2rgb(h2);
+      return rgb2hex([
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t
+      ]);
+    }
+    function skyForHour(stops, hour){
+      for(var i = 0; i < stops.length - 1; i++){
+        var a = stops[i], b = stops[i + 1];
+        if(hour >= a.h && hour <= b.h){
+          var t = (hour - a.h) / (b.h - a.h);
+          return {
+            top: mixHex(a.top, b.top, t),
+            mid: mixHex(a.mid, b.mid, t),
+            bot: mixHex(a.bot, b.bot, t),
+            night: t < 0.5 ? a.night : b.night
+          };
+        }
+      }
+      return stops[0];
+    }
+    // Heure décimale réelle dans un fuseau donné (gère automatiquement
+    // l'heure d'été/hiver de Paris, contrairement à un décalage fixe +6h).
+    function hourInZone(tz){
+      var parts = new Intl.DateTimeFormat('fr-FR', {
+        timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(new Date());
+      var h = 0, m = 0;
+      parts.forEach(function(p){
+        if(p.type === 'hour') h = parseInt(p.value, 10);
+        if(p.type === 'minute') m = parseInt(p.value, 10);
+      });
+      return h + m / 60;
+    }
+    // Phase lunaire réelle du jour (algo synodique standard, précision
+    // suffisante pour une icône) : 0/1 = nouvelle lune, .5 = pleine lune.
+    function moonPhase(date){
+      var synodic = 29.530588853;
+      var knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
+      var days = (date.getTime() - knownNewMoon) / 86400000;
+      var phase = (days % synodic) / synodic;
+      return phase < 0 ? phase + 1 : phase;
+    }
+
+    // Étoiles générées une fois — positions pseudo-aléatoires mais stables
+    // (pas de recalcul à chaque tick, seule leur opacité globale bouge).
+    (function seedStars(){
+      if(!starsEl) return;
+      var positions = [
+        [8,14],[18,8],[27,20],[34,6],[42,16],[52,10],[61,22],[70,7],
+        [78,17],[86,11],[15,28],[47,26],[65,30],[90,24]
+      ];
+      positions.forEach(function(pos, i){
+        var s = document.createElement('span');
+        s.className = 'star';
+        s.style.left = pos[0] + '%';
+        s.style.top = pos[1] + '%';
+        s.style.animationDelay = (i * 0.18) + 's';
+        starsEl.appendChild(s);
+      });
+    })();
+
+    function applySky(){
+      var now = new Date();
+      var paris = skyForHour(PARIS_STOPS, hourInZone('Europe/Paris'));
+      var kp = skyForHour(KP_STOPS, hourInZone('Asia/Phnom_Penh'));
+
+      if(skyGradient){
+        skyGradient.style.setProperty('--paris-top', paris.top);
+        skyGradient.style.setProperty('--paris-mid', paris.mid);
+        skyGradient.style.setProperty('--paris-bot', paris.bot);
+        skyGradient.style.setProperty('--kp-top', kp.top);
+        skyGradient.style.setProperty('--kp-mid', kp.mid);
+        skyGradient.style.setProperty('--kp-bot', kp.bot);
+      }
+      if(skyEl) skyEl.classList.toggle('is-night', paris.night || kp.night);
+      if(moonShadow){
+        var offset = (0.5 - moonPhase(now)) * 130;
+        moonShadow.style.transform = 'translateX(' + offset.toFixed(0) + '%)';
+      }
+    }
+
+    applySky();
+    setInterval(applySky, 60000);
+  })();
+</script>
+<script>
+  (function(){
+    var screen = document.getElementById('screen');
+    var buttons = document.querySelectorAll('.demo-bar button');
+    var demoBar = document.getElementById('demoBar');
+    var demoToggle = document.getElementById('demoToggle');
+
+    buttons.forEach(function(btn){
+      btn.addEventListener('click', function(){
+        buttons.forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        screen.classList.remove('state-empty', 'state-offline');
+        var state = btn.getAttribute('data-state');
+        if(state === 'empty') screen.classList.add('state-empty');
+        if(state === 'offline') screen.classList.add('state-offline');
+        // On mobile, collapse the panel back after picking a state so it
+        // never lingers over the product.
+        if(window.matchMedia('(max-width: 460px)').matches){
+          demoBar.classList.remove('open');
+          demoToggle.classList.remove('open');
+          demoToggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+    });
+
+    demoToggle.addEventListener('click', function(){
+      var isOpen = demoBar.classList.toggle('open');
+      demoToggle.classList.toggle('open', isOpen);
+      demoToggle.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    var micBtn = document.getElementById('micBtn');
+    var recCancel = document.getElementById('recCancel');
+    var recTime = document.getElementById('recTime');
+    var timer = null, seconds = 0;
+
+    function startRecording(){
+      screen.classList.add('recording');
+      micBtn.classList.add('recording');
+      micBtn.setAttribute('aria-pressed', 'true');
+      seconds = 0;
+      recTime.textContent = '0:00';
+      timer = setInterval(function(){
+        seconds++;
+        var m = Math.floor(seconds / 60);
+        var s = seconds % 60;
+        recTime.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+      }, 1000);
+    }
+    function stopRecording(){
+      screen.classList.remove('recording');
+      micBtn.classList.remove('recording');
+      micBtn.setAttribute('aria-pressed', 'false');
+      clearInterval(timer);
+    }
+
+    micBtn.addEventListener('click', function(){
+      if(screen.classList.contains('recording')){ stopRecording(); }
+      else{ startRecording(); }
+    });
+    recCancel.addEventListener('click', stopRecording);
+
+    // Open the conversation scrolled to the latest message (pending message
+    // + AI suggestion actions must be in view on first paint), not at the top.
+    var messagesEl = document.querySelector('.messages');
+    function scrollToBottom(){ messagesEl.scrollTop = messagesEl.scrollHeight; }
+    scrollToBottom();
+    requestAnimationFrame(scrollToBottom);
+    window.addEventListener('load', scrollToBottom);
+  })();
+</script>
+
+</body>
+</html>
