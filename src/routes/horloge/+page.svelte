@@ -4,6 +4,7 @@
 	import { fr } from 'date-fns/locale';
 	import { getStatus, getDaysTogether, TZ_PARIS, TZ_PP, DISTANCE_KM } from '$lib/i18n';
 	import Flag from '$lib/Flag.svelte';
+	import { skyAt, type SkyColors } from '$lib/sky';
 
 	let now = $state(new Date());
 	let interval: ReturnType<typeof setInterval>;
@@ -20,6 +21,16 @@
 	const parisStatus = $derived(getStatus(paris.getHours()));
 	const ppStatus = $derived(getStatus(pp.getHours()));
 	const hourDiff = $derived(Math.round((pp.getTime() - paris.getTime()) / 3_600_000));
+
+	// Chaque carte devient une fenêtre sur son ciel local (même mécanisme que Sky.svelte, réutilisé
+	// via sky.ts) — plan de modernisation P5, 22/09/2026. Auparavant les deux cartes étaient des
+	// surfaces blanches opaques qui masquaient Sky, alors que l'écran compare justement les deux
+	// fuseaux : le ciel local de chaque ville y a plus sa place que sur n'importe quel autre écran.
+	const parisHour = $derived(paris.getHours() + paris.getMinutes() / 60);
+	const kpHour = $derived(pp.getHours() + pp.getMinutes() / 60);
+	function cardSky(hour: number, side: 'paris' | 'kp'): SkyColors {
+		return skyAt(hour, side);
+	}
 
 	function fmtTime(d: Date) {
 		return format(d, 'HH:mm:ss');
@@ -54,55 +65,30 @@
 			<text class="pin-label" x="120" y="145" text-anchor="middle">Paris</text>
 			<circle class="pin pin-pp" cx="680" cy="160" r="6"/>
 			<text class="pin-label" x="680" y="145" text-anchor="middle">Phnom Penh</text>
-
-			<!-- ── 8 cœurs animés (4 Paris→PP, 4 PP→Paris) ── -->
-			<text class="heart fwd" style="animation-delay: 0s">♡</text>
-			<text class="heart fwd" style="animation-delay: 1.5s">♡</text>
-			<text class="heart fwd" style="animation-delay: 3s">♡</text>
-			<text class="heart fwd" style="animation-delay: 4.5s">♡</text>
-			<text class="heart bwd" style="animation-delay: 0s">♡</text>
-			<text class="heart bwd" style="animation-delay: 1.5s">♡</text>
-			<text class="heart bwd" style="animation-delay: 3s">♡</text>
-			<text class="heart bwd" style="animation-delay: 4.5s">♡</text>
 		</svg>
 		<div class="map-footer">
-			<span class="map-together">💍 Jour {daysTogether}</span>
-			<span class="map-sep">·</span>
-			<span class="map-dist">{DISTANCE_KM.toLocaleString('fr-FR')} km</span>
-			<span class="map-sep">·</span>
-			<span class="map-heart">♡</span>
-			<span class="map-sep">·</span>
+			<div class="map-hero">
+				<span class="map-dist">{DISTANCE_KM.toLocaleString('fr-FR')} km</span>
+				<span class="map-sep">·</span>
+				<span class="map-together">Jour {daysTogether}</span>
+			</div>
 			<span class="map-offset">+{hourDiff}h</span>
 		</div>
 	</div>
 
 	<!-- Carte Paris -->
-	<div class="clock-card card-paris">
-		<div class="card-glow glow-paris"></div>
-		<!-- Jardin Paris : pétales sakura flottantes -->
-		<svg class="garden-floor garden-paris" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true">
-			<g class="petals">
-				{#each [ [30,22,0], [70,35,1], [110,18,2], [150,40,3], [190,25,4], [230,32,5], [270,20,6], [310,38,7], [350,26,8], [380,14,9] ] as [cx, cy, i]}
-					<ellipse cx={cx} cy={cy} rx="6" ry="3.5" class="petal" style="--i:{i}" />
-				{/each}
-			</g>
-			<g class="grass">
-				{#each Array.from({length: 20}, (_, i) => i * 20 + 8) as x, i}
-					<line x1={x} y1="58" x2={x + 2} y2={42 + (i % 3) * 4} class="blade" style="--i:{i}" />
-				{/each}
-			</g>
-		</svg>
-		<!-- Tour Eiffel — couleurs drapeau français -->
+	<div class="clock-card card-paris" style="--sky-top:{cardSky(parisHour, 'paris').top};--sky-mid:{cardSky(parisHour, 'paris').mid};--sky-bot:{cardSky(parisHour, 'paris').bot}">
+		<!-- Tour Eiffel — silhouette monochrome, seule couche de décor de la carte -->
 		<svg class="landmark landmark-eiffel" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 			<defs>
 				<!-- Dégradé tricolore vertical : bleu | blanc | rouge -->
+				<!-- Silhouette monochrome (plus les couleurs du drapeau, qui entraient en collision
+				     avec le pastel et donnaient un rendu "clip-art" — plan de modernisation P5,
+				     22/09/2026) : un dégradé à une seule teinte, gardé en <linearGradient> pour ne
+				     pas retoucher chaque <rect> individuellement. -->
 				<linearGradient id="fr-flag" x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
-					<stop offset="0%"    stop-color="#002395"/>
-					<stop offset="33.3%" stop-color="#002395"/>
-					<stop offset="33.3%" stop-color="#EDEDED"/>
-					<stop offset="66.6%" stop-color="#EDEDED"/>
-					<stop offset="66.6%" stop-color="#ED2939"/>
-					<stop offset="100%"  stop-color="#ED2939"/>
+					<stop offset="0%"   stop-color="#C43A5A"/>
+					<stop offset="100%" stop-color="#C43A5A"/>
 				</linearGradient>
 				<!-- Clippath de la silhouette entière -->
 				<clipPath id="eiffel-clip">
@@ -142,31 +128,14 @@
 	</div>
 
 	<!-- Carte Phnom Penh -->
-	<div class="clock-card card-pp">
-		<div class="card-glow glow-pp"></div>
-		<!-- Jardin Phnom Penh : pétales lotus flottantes -->
-		<svg class="garden-floor garden-pp" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true">
-			<g class="petals">
-				{#each [ [25,26,0], [75,32,1], [125,20,2], [175,36,3], [215,24,4], [255,30,5], [295,22,6], [335,34,7], [370,18,8] ] as [cx, cy, i]}
-					<ellipse cx={cx} cy={cy} rx="7" ry="4" class="petal" style="--i:{i}" />
-				{/each}
-			</g>
-			<g class="grass">
-				{#each Array.from({length: 18}, (_, i) => i * 22 + 10) as x, i}
-					<line x1={x} y1="58" x2={x - 1} y2={44 + (i % 3) * 3} class="blade" style="--i:{i}" />
-				{/each}
-			</g>
-		</svg>
-		<!-- Angkor Wat — silhouette drapeau cambodgien, tours prasat en bulbe lotus étagé -->
+	<div class="clock-card card-pp" style="--sky-top:{cardSky(kpHour, 'kp').top};--sky-mid:{cardSky(kpHour, 'kp').mid};--sky-bot:{cardSky(kpHour, 'kp').bot}">
+		<!-- Angkor Wat — silhouette monochrome, seule couche de décor de la carte -->
 		<svg class="landmark landmark-angkor" viewBox="0 0 300 140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 			<defs>
+				<!-- Silhouette monochrome, même raison que fr-flag ci-dessus. -->
 				<linearGradient id="kh-flag" x1="0" y1="0" x2="0" y2="140" gradientUnits="userSpaceOnUse">
-					<stop offset="0%"   stop-color="#032EA1"/>
-					<stop offset="20%"  stop-color="#032EA1"/>
-					<stop offset="20%"  stop-color="#E00025"/>
-					<stop offset="80%"  stop-color="#E00025"/>
-					<stop offset="80%"  stop-color="#032EA1"/>
-					<stop offset="100%" stop-color="#032EA1"/>
+					<stop offset="0%"   stop-color="#B7A3E8"/>
+					<stop offset="100%" stop-color="#B7A3E8"/>
 				</linearGradient>
 			</defs>
 
@@ -315,59 +284,43 @@
 		font-family: inherit;
 	}
 
-	.heart {
-		font-size: 16px;
-		fill: var(--accent);
-		offset-path: path("M 120,160 C 280,20 520,20 680,160");
-		offset-rotate: 0deg;
-	}
-
-	.fwd { animation: fly-forward 6s ease-in-out infinite; }
-	.bwd { animation: fly-backward 6s ease-in-out infinite; }
-
-	@keyframes fly-forward {
-		0%   { offset-distance: 0%;   opacity: 0; }
-		8%   { opacity: 1; }
-		92%  { opacity: 1; }
-		100% { offset-distance: 100%; opacity: 0; }
-	}
-
-	@keyframes fly-backward {
-		0%   { offset-distance: 100%; opacity: 0; }
-		8%   { opacity: 1; }
-		92%  { opacity: 1; }
-		100% { offset-distance: 0%;   opacity: 0; }
-	}
-
+	/* "9074 km · Jour N" est le cœur du produit — traité en héros Fredoka plutôt qu'en petite
+	   ligne muted sous le SVG (plan de modernisation P5, 22/09/2026). */
 	.map-footer {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		gap: var(--space-2);
+		gap: var(--space-1);
 		padding: var(--space-2) var(--space-3) var(--space-3);
-		font-size: var(--fs-xs);
-		color: var(--muted);
+	}
+
+	.map-hero {
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-2);
+		font-family: var(--font-display);
 	}
 
 	.map-dist {
-		font-weight: 600;
-		letter-spacing: 0.5px;
+		font-size: var(--fs-2xl);
+		font-weight: 700;
+		color: var(--accent-text);
+		letter-spacing: 0.2px;
 	}
 
 	.map-sep {
-		opacity: 0.4;
+		color: var(--muted);
+		opacity: 0.5;
 	}
 
 	.map-together {
+		font-size: var(--fs-lg);
 		font-weight: 600;
-		color: var(--accent-text);
-	}
-
-	.map-heart {
-		color: var(--accent-text);
+		color: var(--text-secondary);
 	}
 
 	.map-offset {
+		font-size: var(--fs-xs);
 		font-weight: 700;
 		color: var(--accent-text);
 		background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -379,88 +332,28 @@
 	/* ── Cartes ── */
 	.clock-card {
 		position: relative;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: var(--radius-sm);
+		/* Fenêtre sur le ciel local de la ville (--sky-top/mid/bot posés en style inline depuis
+		   cardSky()) + un voile clair pour garder le texte lisible à tous les paliers, y compris
+		   nuit — plan de modernisation P5, 22/09/2026. */
+		background:
+			linear-gradient(180deg, color-mix(in srgb, var(--bg) 78%, transparent), color-mix(in srgb, var(--bg) 88%, transparent)),
+			linear-gradient(160deg, var(--sky-top), var(--sky-mid) 55%, var(--sky-bot));
+		border: 1px solid var(--border-soft);
+		border-radius: var(--radius-pebble);
 		padding: var(--space-6) var(--space-6) calc(var(--space-6) + 3.5rem);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
 		overflow: hidden;
 		flex: 1;
-	}
-
-	/* ── Jardin ── */
-	.garden-floor {
-		position: absolute;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		width: 100%;
-		height: 3.5rem;
-		pointer-events: none;
-		z-index: 1;
-	}
-
-	.garden-paris .petal {
-		fill: #F4A0B8;
-		opacity: 0.55;
-		animation: float-petal 4s ease-in-out infinite;
-		animation-delay: calc(var(--i, 0) * 200ms);
-		transform-origin: center;
-		transform-box: fill-box;
-	}
-
-	.garden-pp .petal {
-		fill: #E8B87A;
-		opacity: 0.55;
-		animation: float-petal 4.5s ease-in-out infinite;
-		animation-delay: calc(var(--i, 0) * 220ms);
-		transform-origin: center;
-		transform-box: fill-box;
-	}
-
-	@keyframes float-petal {
-		0%, 100% { transform: translateY(0) rotate(0deg); }
-		50%      { transform: translateY(-3px) rotate(12deg); }
-	}
-
-	.garden-paris .blade {
-		stroke: #5DBB84;
-		stroke-width: 1.3;
-		opacity: 0.45;
-		stroke-linecap: round;
-		animation: sway 3s ease-in-out infinite;
-		animation-delay: calc(var(--i, 0) * 120ms);
-		transform-origin: bottom;
-		transform-box: fill-box;
-	}
-
-	.garden-pp .blade {
-		stroke: #8BA863;
-		stroke-width: 1.3;
-		opacity: 0.45;
-		stroke-linecap: round;
-		animation: sway 3.5s ease-in-out infinite;
-		animation-delay: calc(var(--i, 0) * 140ms);
-		transform-origin: bottom;
-		transform-box: fill-box;
-	}
-
-	@keyframes sway {
-		0%, 100% { transform: skewX(0deg); }
-		50%      { transform: skewX(-8deg); }
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.petal, .blade { animation: none; }
+		transition: background 4s ease-in-out;
 	}
 
 	.landmark {
 		position: absolute;
 		bottom: var(--space-2);
 		right: var(--space-3);
-		opacity: 0.55;
+		opacity: 0.14;
 		pointer-events: none;
 	}
 
@@ -472,10 +365,6 @@
 	.landmark-angkor {
 		height: 5rem;
 		width: auto;
-	}
-
-	.card-glow {
-		display: none;
 	}
 
 	.card-header {
@@ -503,16 +392,6 @@
 		color: var(--accent-text);
 		font-size: 0.85rem;
 		opacity: 0.65;
-		animation: bridge-pulse 2.4s ease-in-out infinite;
-	}
-
-	.bridge:nth-child(4) {
-		animation-delay: 1.2s;
-	}
-
-	@keyframes bridge-pulse {
-		0%, 100% { opacity: 0.4; transform: scale(0.9); }
-		50%      { opacity: 0.9; transform: scale(1.15); }
 	}
 
 	.name-sub {
@@ -522,8 +401,9 @@
 	}
 
 	.time {
+		font-family: var(--font-display);
 		font-size: clamp(3.2rem, 15vw, 5rem);
-		font-weight: 200;
+		font-weight: 600;
 		color: var(--accent-text);
 		font-variant-numeric: tabular-nums;
 		letter-spacing: -0.01em;
