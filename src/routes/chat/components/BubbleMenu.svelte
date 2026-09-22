@@ -2,7 +2,7 @@
 	import { Volume2, Copy, Trash2 } from 'lucide-svelte';
 	import LangTag from '$lib/LangTag.svelte';
 
-	// Menu contextuel unique au long-press — remplace la colonne de 6 boutons + la rangée de
+	// Menu contextuel unique au tap — remplace la colonne de 6 boutons + la rangée de
 	// réactions séparée (plan de modernisation P7, 22/09/2026, maquette bubbles-states.html).
 	// "Répondre/traduire" de la maquette n'existe pas comme fonctionnalité réelle de l'app — non
 	// repris ici, on ne consolide que ce qui existait déjà (réagir/écouter/copier/supprimer).
@@ -20,7 +20,13 @@
 	let { align, emojis, reacted, canDelete, userLang, onReact, onSpeak, onCopy, onDelete }: Props = $props();
 </script>
 
-<div class="bubble-menu" class:align-right={align === 'right'} role="menu" aria-label="Actions sur le message">
+<div
+	class="bubble-menu"
+	class:align-right={align === 'right'}
+	role="menu"
+	aria-label="Actions sur le message"
+	onclick={(e) => e.stopPropagation()}
+>
 	<div class="menu-emoji-row" role="group" aria-label="Réagir">
 		{#each emojis as emoji}
 			<button class="menu-emoji" class:active={reacted(emoji)} type="button" onclick={() => onReact(emoji)}>{emoji}</button>

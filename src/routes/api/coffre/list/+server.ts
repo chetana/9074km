@@ -2,11 +2,13 @@ import { error, json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { requireAuth } from '$lib/server/auth'
 import { getGcsBucket } from '$lib/server/gcs'
+import { isValidCoffrePrefix } from '$lib/server/coffre-path'
 
 export const GET: RequestHandler = async (event) => {
   const { request, url } = event
   await requireAuth(event)
   const prefix = url.searchParams.get('prefix') ?? ''
+  if (!isValidCoffrePrefix(prefix)) throw error(400, 'invalid prefix')
   const bucket = getGcsBucket()
 
   let files: any[], apiResponse: any

@@ -52,26 +52,14 @@
 	let showTranslations = $state(false);
 	const toggleLangLabel = (l: 'fr' | 'en' | 'kh') => (l === 'kh' ? 'ខ្មែរ' : l.toUpperCase());
 
-	// Menu contextuel unique au long-press, remplace la colonne de 6 boutons + la rangée de
-	// réactions séparée (section 3 de la maquette). ~450ms, annulé au déplacement/relâchement.
-	let pressTimer: ReturnType<typeof setTimeout> | null = null;
-	let pressStart = { x: 0, y: 0 };
-	const MOVE_TOLERANCE = 10;
-
-	function onPointerDown(e: PointerEvent) {
-		pressStart = { x: e.clientX, y: e.clientY };
-		if (pressTimer) clearTimeout(pressTimer);
-		pressTimer = setTimeout(() => { pressTimer = null; onSelect(); }, 450);
-	}
-	function onPointerMove(e: PointerEvent) {
-		if (!pressTimer) return;
-		if (Math.abs(e.clientX - pressStart.x) > MOVE_TOLERANCE || Math.abs(e.clientY - pressStart.y) > MOVE_TOLERANCE) {
-			clearTimeout(pressTimer);
-			pressTimer = null;
-		}
-	}
-	function cancelPress() {
-		if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+	// Menu contextuel unique au tap, remplace la colonne de 6 boutons + la rangée de réactions
+	// séparée (section 3 de la maquette). D'abord fait au long-press (~450ms) comme dans la
+	// maquette, repassé au tap direct sur demande de Chetana le 23/09 : un tap simple ne faisait
+	// rien d'autre avant, donc pas de conflit avec un futur usage du tap court, et c'est plus
+	// intuitif à l'usage réel.
+	function onBubbleClick(e: MouseEvent) {
+		e.stopPropagation();
+		onSelect();
 	}
 </script>
 
@@ -85,11 +73,8 @@
 			class:mine={isMine}
 			class:tail={isLastInGroup}
 			class:selected={isSelected}
-			onpointerdown={onPointerDown}
-			onpointermove={onPointerMove}
-			onpointerup={cancelPress}
-			onpointercancel={cancelPress}
-			oncontextmenu={(e) => e.preventDefault()}
+			onclick={onBubbleClick}
+			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); } }}
 			role="button"
 			tabindex="0"
 			aria-haspopup="true"

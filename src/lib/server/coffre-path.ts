@@ -9,3 +9,29 @@ const COFFRE_PATH = /^\d{4}\/\d{2}\/\d{2}\/[^/]+$/
 export function isValidCoffrePath(path: string): boolean {
 	return COFFRE_PATH.test(path)
 }
+
+// Préfixes de navigation légitimes dans le coffre : racine (années), YYYY/ (mois), YYYY/MM/
+// (jours), YYYY/MM/DD/ (fichiers d'un jour). Utilisé par list/+server.ts et cover/+server.ts —
+// avant cette validation, /api/coffre/list acceptait n'importe quel préfixe (ex. "chat/" ou
+// "apprendre/lessons/"), permettant à un utilisateur connecté d'énumérer les clés S3 d'une autre
+// feature du bucket partagé. Trouvé en même temps que l'ajout de cover/+server.ts (23/09/2026).
+const COFFRE_PREFIX = /^$|^\d{4}\/$|^\d{4}\/\d{2}\/$|^\d{4}\/\d{2}\/\d{2}\/$/
+
+export function isValidCoffrePrefix(prefix: string): boolean {
+	return COFFRE_PREFIX.test(prefix)
+}
+
+// Une "couverture" n'a de sens que pour une année ou un mois (pas un jour seul, pas la racine).
+const COVER_PREFIX = /^\d{4}\/$|^\d{4}\/\d{2}\/$/
+
+export function isValidCoverPrefix(prefix: string): boolean {
+	return COVER_PREFIX.test(prefix)
+}
+
+// Fichiers méta stockés à côté des photos/vidéos dans chaque dossier jour — jamais une couverture.
+export const COFFRE_META_FILES = ['note.txt', 'meta.json', 'reactions.json']
+
+export function isMediaFile(key: string): boolean {
+	const filename = key.split('/').pop() ?? ''
+	return filename !== '' && !COFFRE_META_FILES.includes(filename)
+}

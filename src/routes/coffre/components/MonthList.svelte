@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { listObjects, getCachedList } from '$lib/api';
+	import { listObjects, getCachedList, fetchCover, ogImageUrl } from '$lib/api';
 	import { userStore } from '$lib/auth';
 	import { MONTHS_FR, MONTHS_KH } from '$lib/i18n';
 	import { createSWR } from '$lib/swr.svelte';
@@ -13,7 +13,7 @@
 	let { year, onSelect }: Props = $props();
 	const token = userStore;
 
-	interface MonthEntry { mm: string; label: string; dayCount: number | null }
+	interface MonthEntry { mm: string; label: string; dayCount: number | null; cover: string | null }
 
 	function monthLabel(mm: string) {
 		const idx = parseInt(mm, 10) - 1;
@@ -43,6 +43,7 @@
 
 	// État pour stocker les comptes de jours (lazy)
 	let countsMap = $state<Record<string, number>>({});
+	let coversMap = $state<Record<string, string | null>>({});
 
 	let error = $derived(swr.error ? String(swr.error) : null);
 
@@ -51,7 +52,8 @@
 		months.map((m) => ({
 			mm: m,
 			label: monthLabel(m),
-			dayCount: countsMap[m] ?? null
+			dayCount: countsMap[m] ?? null,
+			cover: coversMap[m] ?? null
 		}))
 	);
 
@@ -64,6 +66,15 @@
 				const r = await listObjects(`${year}/${m}/`);
 				countsMap[m] = r.prefixes.length;
 			} catch { /* count reste null */ }
+		});
+	});
+
+	// Photo de couverture (plan de modernisation P6, 23/09/2026) — un appel par mois, lazy.
+	$effect(() => {
+		const currentMonths = months;
+		currentMonths.forEach(async (m) => {
+			if (coversMap[m] !== undefined) return;
+			coversMap[m] = await fetchCover(`${year}/${m}/`);
 		});
 	});
 </script>
@@ -82,7 +93,12 @@
 		<div class="empty">Aucun mois disponible</div>
 	{:else}
 		{#each items ?? [] as item, i}
-			<button class="card" style="--i:{i}" onclick={() => onSelect(item.mm)}>
+			<button
+				class="card"
+				class:has-cover={!!item.cover}
+				style="--i:{i}{item.cover ? `;--cover:url(${JSON.stringify(ogImageUrl(item.cover, 400))})` : ''}"
+				onclick={() => onSelect(item.mm)}
+			>
 				<span class="label">{item.label}</span>
 				<span class="count">
 					{#if item.dayCount === null}
@@ -117,6 +133,11 @@
 		transition: border-color var(--transition), transform var(--transition);
 		width: 100%;
 		box-shadow: var(--shadow-sm);
+	}
+	.card.has-cover {
+		background:
+			linear-gradient(90deg, color-mix(in srgb, var(--bg) 60%, transparent), color-mix(in srgb, var(--bg) 82%, transparent)),
+			var(--cover) center / cover no-repeat;
 	}
 
 	.card:hover {

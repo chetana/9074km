@@ -179,6 +179,18 @@ export function ogImageUrl(path: string, w = 300): string {
 	return `${BASE}/api/coffre/og-image?path=${encodeURIComponent(path)}&w=${w}`;
 }
 
+/** Fichier média le plus récent sous un préfixe année (`YYYY/`) ou mois (`YYYY/MM/`), pour la
+ * vignette de couverture de YearList/MonthList — null si le dossier ne contient aucun média. */
+export async function fetchCover(prefix: string): Promise<string | null> {
+	try {
+		const res = await apiFetch(`/api/coffre/cover?prefix=${encodeURIComponent(prefix)}`);
+		const data = await res.json() as { cover: string | null };
+		return data.cover;
+	} catch {
+		return null;
+	}
+}
+
 export function previewUrl(y: string, m: string, d: string, f: string): string {
 	return `https://lys.chetana.fr/api/coffre/preview?y=${y}&m=${m}&d=${d}&f=${encodeURIComponent(f)}`;
 }

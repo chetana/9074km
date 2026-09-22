@@ -829,7 +829,7 @@
 		</header>
 
 		<!-- ── Liste des messages ── -->
-		<div class="message-list" bind:this={listEl}>
+		<div class="message-list" bind:this={listEl} onclick={() => selectedMsg = null}>
 			{#if loadingMessages}
 				<div class="empty">
 					<span class="loading-spinner"></span>
@@ -860,7 +860,7 @@
 								reacted={(emoji) => reactions[msg.id]?.[emoji]?.includes(firstName) ?? false}
 								onSelect={() => selectMsg(msg.id)}
 								onDeselect={() => selectedMsg = null}
-								onReact={(emoji) => toggleReaction(msg.id, emoji)}
+								onReact={(emoji) => { toggleReaction(msg.id, emoji); selectedMsg = null; }}
 								onCopy={copySelected}
 								onSpeak={speakSelected}
 								onDelete={deleteSelected}

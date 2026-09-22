@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { listObjects, getCachedList } from '$lib/api';
+	import { listObjects, getCachedList, fetchCover, ogImageUrl } from '$lib/api';
 	import { userStore } from '$lib/auth';
 	import { createSWR } from '$lib/swr.svelte';
 	import { ChevronRight } from 'lucide-svelte';
@@ -11,7 +11,7 @@
 	let { onSelect }: Props = $props();
 	const token = userStore;
 
-	interface YearEntry { year: string; monthCount: number | null }
+	interface YearEntry { year: string; monthCount: number | null; cover: string | null }
 
 	// SWR pour la liste racine (les années)
 	// Le token dans la clé force un re-fetch quand l'auth arrive
@@ -37,6 +37,7 @@
 
 	// État pour stocker les comptes de mois (lazy)
 	let countsMap = $state<Record<string, number>>({});
+	let coversMap = $state<Record<string, string | null>>({});
 
 	let error = $derived(swr.error ? String(swr.error) : null);
 
@@ -44,7 +45,8 @@
 	let items = $derived(
 		years.map((y) => ({
 			year: y,
-			monthCount: countsMap[y] ?? null
+			monthCount: countsMap[y] ?? null,
+			cover: coversMap[y] ?? null
 		}))
 	);
 
@@ -57,6 +59,15 @@
 				const r = await listObjects(`${y}/`);
 				countsMap[y] = r.prefixes.length;
 			} catch { /* count reste null */ }
+		});
+	});
+
+	// Photo de couverture (plan de modernisation P6, 23/09/2026) — un appel par année, lazy.
+	$effect(() => {
+		const currentYears = years;
+		currentYears.forEach(async (y) => {
+			if (coversMap[y] !== undefined) return;
+			coversMap[y] = await fetchCover(`${y}/`);
 		});
 	});
 </script>
@@ -75,7 +86,12 @@
 		<div class="empty">Aucune photo pour l'instant 🌸</div>
 	{:else}
 		{#each items ?? [] as item, i}
-			<button class="card" style="--i:{i}" onclick={() => onSelect(item.year)}>
+			<button
+				class="card"
+				class:has-cover={!!item.cover}
+				style="--i:{i}{item.cover ? `;--cover:url(${JSON.stringify(ogImageUrl(item.cover, 400))})` : ''}"
+				onclick={() => onSelect(item.year)}
+			>
 				<span class="year">{item.year}</span>
 				<span class="count">
 					{#if item.monthCount === null}
@@ -110,6 +126,13 @@
 		transition: border-color var(--transition), transform var(--transition);
 		width: 100%;
 		box-shadow: var(--shadow-sm);
+	}
+	/* Photo de couverture : voile crème pour garder le texte lisible quelle que soit la photo
+	   (plan de modernisation P6, 23/09/2026). */
+	.card.has-cover {
+		background:
+			linear-gradient(90deg, color-mix(in srgb, var(--bg) 60%, transparent), color-mix(in srgb, var(--bg) 82%, transparent)),
+			var(--cover) center / cover no-repeat;
 	}
 
 	.card:hover {
