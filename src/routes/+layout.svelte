@@ -162,7 +162,7 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 0;
-		padding: 0 var(--space-3) env(safe-area-inset-bottom, 0px);
+		padding: 0 var(--space-3) calc(env(safe-area-inset-bottom, 0px) + 8px);
 		background: color-mix(in srgb, var(--bg) 96%, var(--accent));
 		border-top: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
 	}
