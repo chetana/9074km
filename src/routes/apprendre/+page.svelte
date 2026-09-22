@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fade, fly } from 'svelte/transition';
 	import { userStore as user } from '$lib/auth';
 	import {
 		CURRICULUM, LEVEL_META, levelMeta, currentUnitId, isUnlocked, progressPct,
@@ -8,6 +7,8 @@
 	} from '$lib/curriculum';
 	import { getAvatar, getLevel, getLevelTitle } from '$lib/flashcard-levels';
 	import LessonPlayer from '$lib/LessonPlayer.svelte';
+	import BottomSheet from '$lib/BottomSheet.svelte';
+	import { Lock, Target, Flag } from 'lucide-svelte';
 
 	function isChet(name: string): boolean {
 		const n = name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -84,7 +85,7 @@
 
 <div class="ap-root">
 	<!-- ── En-tête : avatar + progression globale ── -->
-	<header class="ap-header">
+	<header class="ap-header glass">
 		<div class="ap-hero">
 			<span class="ap-avatar">{avatar}</span>
 			<div class="ap-hero-txt">
@@ -129,12 +130,11 @@
 								aria-label={t(u.title_fr, u.title_kh)}
 							>
 								{#if st === 'locked'}
-									<span class="ap-node-icon">🔒</span>
+									<span class="ap-node-icon"><Lock size={20} /></span>
 								{:else}
 									<span class="ap-node-icon">{u.icon}</span>
 								{/if}
-								{#if st === 'current'}<span class="ap-node-pulse"></span>{/if}
-								{#if st === 'done'}
+									{#if st === 'done'}
 									<span class="ap-node-stars">
 										{#each Array(3) as _, s}<span class:lit={(stars[u.id] ?? 0) > s}>★</span>{/each}
 									</span>
@@ -154,7 +154,7 @@
 
 			<!-- Drapeau d'arrivée -->
 			<div class="ap-finish">
-				<span class="ap-finish-flag">🏁</span>
+				<span class="ap-finish-flag"><Flag size={28} /></span>
 				<span class="ap-finish-txt">{t('Niveau B1 atteint !', 'កម្រិត B1 សម្រេច!')}</span>
 			</div>
 		</div>
@@ -162,51 +162,48 @@
 </div>
 
 <!-- ── Panneau détail d'unité ── -->
-{#if selected}
-	<div class="ap-overlay" onclick={closeSheet} role="button" tabindex="-1" transition:fade={{ duration: 180 }}>
-		<div class="ap-sheet" onclick={(e) => e.stopPropagation()} role="dialog" transition:fly={{ y: 300, duration: 280 }}>
-			<div class="ap-sheet-grip"></div>
-			<div class="ap-sheet-head">
-				<span class="ap-sheet-icon" style="--lvl-color:{levelMeta(selected.level).color}">{selected.icon}</span>
-				<div>
-					<span class="ap-sheet-level">{selected.level} · {t('Leçon', 'មេរៀន')} {selected.order}</span>
-					<h2 class="ap-sheet-title">{t(selected.title_fr, selected.title_kh)}</h2>
-				</div>
+<BottomSheet open={!!selected} onclose={closeSheet}>
+	{#if selected}
+		<div class="ap-sheet-head">
+			<span class="ap-sheet-icon" style="--lvl-color:{levelMeta(selected.level).color}">{selected.icon}</span>
+			<div>
+				<span class="ap-sheet-level">{selected.level} · {t('Leçon', 'មេរៀន')} {selected.order}</span>
+				<h2 class="ap-sheet-title">{t(selected.title_fr, selected.title_kh)}</h2>
 			</div>
-
-			<div class="ap-cando">
-				<span class="ap-cando-icon">🎯</span>
-				<p>{t(selected.canDo_fr, selected.canDo_kh)}</p>
-			</div>
-
-			<div class="ap-meta-grid">
-				<div class="ap-meta">
-					<span class="ap-meta-k">{t('Grammaire', 'វេយ្យាករណ៍')}</span>
-					<span class="ap-meta-v">{selected.grammar}</span>
-				</div>
-				<div class="ap-meta">
-					<span class="ap-meta-k">{t('Thème', 'ប្រធានបទ')}</span>
-					<span class="ap-meta-v">{selected.theme}</span>
-				</div>
-			</div>
-
-			<div class="ap-vocab">
-				<span class="ap-meta-k">{t('Vocabulaire', 'វាក្យសព្ទ')}</span>
-				<div class="ap-vocab-chips">
-					{#each selected.seedVocab as w}<span class="ap-chip">{w}</span>{/each}
-				</div>
-			</div>
-
-			<button class="ap-start" onclick={() => selected && startUnit(selected)}>
-				{#if completed.includes(selected.id)}
-					{t('Réviser', 'ពិនិត្យឡើងវិញ')} ↻
-				{:else}
-					{t('Commencer la leçon', 'ចាប់ផ្តើមមេរៀន')} →
-				{/if}
-			</button>
 		</div>
-	</div>
-{/if}
+
+		<div class="ap-cando">
+			<span class="ap-cando-icon"><Target size={18} /></span>
+			<p>{t(selected.canDo_fr, selected.canDo_kh)}</p>
+		</div>
+
+		<div class="ap-meta-grid">
+			<div class="ap-meta">
+				<span class="ap-meta-k">{t('Grammaire', 'វេយ្យាករណ៍')}</span>
+				<span class="ap-meta-v">{selected.grammar}</span>
+			</div>
+			<div class="ap-meta">
+				<span class="ap-meta-k">{t('Thème', 'ប្រធានបទ')}</span>
+				<span class="ap-meta-v">{selected.theme}</span>
+			</div>
+		</div>
+
+		<div class="ap-vocab">
+			<span class="ap-meta-k">{t('Vocabulaire', 'វាក្យសព្ទ')}</span>
+			<div class="ap-vocab-chips">
+				{#each selected.seedVocab as w}<span class="ap-chip">{w}</span>{/each}
+			</div>
+		</div>
+
+		<button class="ap-start" onclick={() => selected && startUnit(selected)}>
+			{#if completed.includes(selected.id)}
+				{t('Réviser', 'ពិនិត្យឡើងវិញ')} ↻
+			{:else}
+				{t('Commencer la leçon', 'ចាប់ផ្តើមមេរៀន')} →
+			{/if}
+		</button>
+	{/if}
+</BottomSheet>
 
 <!-- ── Lecteur d'exercices ── -->
 {#if playing}
@@ -226,12 +223,9 @@
 		flex: 1; min-height: 0; overflow-y: auto;
 		display: flex; flex-direction: column;
 		padding: 0 0 2rem;
-		/* Section "mode étude" : surface sombre + texte clair FORCÉ, indépendamment
-		   du mode clair/sombre du téléphone (sinon --text sombre devient illisible). */
-		background: #0B1A28;
-		--text: #EAF4F8;
-		--muted: #8FB2C4;
-		color: #EAF4F8;
+		/* Thème pastel unique (plan de modernisation P3, 22/09/2026) — Sky reste visible derrière,
+		   plus de surface sombre forcée indépendante du reste de l'app. */
+		background: transparent;
 		-webkit-overflow-scrolling: touch;
 	}
 
@@ -239,8 +233,6 @@
 	.ap-header {
 		position: sticky; top: 0; z-index: 5;
 		padding: max(env(safe-area-inset-top), 0.75rem) 1.1rem 0.75rem;
-		background: #0B1A28;   /* fond plein opaque (header sticky) */
-		border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
 		display: flex; flex-direction: column; gap: 0.55rem;
 	}
 	.ap-hero { display: flex; align-items: center; gap: 0.7rem; }
@@ -251,26 +243,26 @@
 	.ap-hero-txt { display: flex; flex-direction: column; gap: 0.25rem; align-items: flex-start; }
 	.ap-title { font-size: 1.05rem; font-weight: 800; color: var(--text); line-height: 1.1; }
 	.ap-badge {
-		font-size: 0.72rem; font-weight: 700; color: #fff;
-		background: linear-gradient(90deg, #58C4DC, #4DBFD8);
+		font-size: 0.72rem; font-weight: 700; color: var(--on-lavender);
+		background: linear-gradient(90deg, var(--lavender), var(--lavender-deep));
 		padding: 0.15rem 0.6rem; border-radius: 99px;
-		box-shadow: 0 2px 8px rgba(77, 191, 216, 0.35);
+		box-shadow: var(--shadow-lavender);
 	}
 	.ap-progress {
 		display: flex; flex-direction: column; gap: 0.4rem;
 		padding: 0.6rem 0.75rem; border-radius: 0.9rem;
-		background: color-mix(in srgb, #1a3a52 70%, transparent);
-		border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+		background: var(--surface-2);
+		border: 1px solid var(--border-soft);
 	}
 	.ap-progress-head { display: flex; align-items: center; justify-content: space-between; }
 	.ap-progress-label { font-size: 0.66rem; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.05em; }
 	.ap-progress-bar {
 		height: 9px; border-radius: 99px; overflow: hidden;
-		background: rgba(0, 0, 0, 0.28);
+		background: color-mix(in srgb, var(--muted) 18%, transparent);
 	}
 	.ap-progress-fill {
 		height: 100%; border-radius: 99px;
-		background: linear-gradient(90deg, #58C4DC, #7BC86C, #F2A0B8);
+		background: linear-gradient(90deg, var(--lavender-deep), var(--accent), var(--gold));
 		transition: width 0.6s cubic-bezier(0.34, 1.2, 0.64, 1);
 	}
 	.ap-progress-txt { font-size: 0.68rem; color: var(--text); font-weight: 700; white-space: nowrap; }
@@ -329,16 +321,6 @@
 	}
 	.ap-node-icon { line-height: 1; }
 
-	.ap-node-pulse {
-		position: absolute; inset: -2px; border-radius: 50%;
-		border: 2px solid var(--lvl-color);
-		animation: node-pulse 1.8s ease-out infinite;
-	}
-	@keyframes node-pulse {
-		0%   { transform: scale(1);   opacity: 0.8; }
-		100% { transform: scale(1.5); opacity: 0; }
-	}
-
 	.ap-node-stars {
 		position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%);
 		display: flex; gap: 1px; font-size: 0.5rem;
@@ -378,27 +360,7 @@
 	}
 	@keyframes spin { to { transform: rotate(360deg); } }
 
-	/* ── Sheet ── */
-	.ap-overlay {
-		position: fixed; inset: 0; z-index: 60;
-		background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
-		display: flex; align-items: flex-end; justify-content: center;
-	}
-	.ap-sheet {
-		width: 100%; max-width: 30rem;
-		background: var(--card);
-		border-radius: 1.6rem 1.6rem 0 0;
-		border-top: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-		padding: 0.6rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
-		display: flex; flex-direction: column; gap: 0.85rem;
-		box-shadow: 0 -20px 60px rgba(0,0,0,0.5);
-		max-height: 88dvh; overflow-y: auto;
-	}
-	.ap-sheet-grip {
-		width: 2.6rem; height: 4px; border-radius: 99px;
-		background: color-mix(in srgb, var(--muted) 40%, transparent);
-		margin: 0.1rem auto 0.4rem;
-	}
+	/* ── Détail d'unité (contenu de BottomSheet) ── */
 	.ap-sheet-head { display: flex; align-items: center; gap: 0.8rem; }
 	.ap-sheet-icon {
 		font-size: 1.8rem; flex-shrink: 0;
@@ -407,7 +369,7 @@
 		background: color-mix(in srgb, var(--lvl-color) 18%, var(--card));
 		border: 1px solid color-mix(in srgb, var(--lvl-color) 35%, transparent);
 	}
-	.ap-sheet-level { font-size: 0.66rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+	.ap-sheet-level { font-size: 0.66rem; font-weight: 700; color: var(--accent-text); text-transform: uppercase; letter-spacing: 0.05em; }
 	.ap-sheet-title { font-size: 1.2rem; font-weight: 800; color: var(--text); line-height: 1.15; }
 
 	.ap-cando {
@@ -435,7 +397,7 @@
 
 	.ap-start {
 		margin-top: 0.4rem; padding: 0.85rem; border-radius: 1rem;
-		background: var(--accent); color: #fff;
+		background: linear-gradient(150deg, var(--accent), var(--accent-warm)); color: var(--on-accent);
 		font-size: 0.95rem; font-weight: 800;
 		transition: transform 0.12s, opacity 0.15s;
 	}

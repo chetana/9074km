@@ -375,17 +375,14 @@
 <style>
 	.lp-overlay {
 		position: fixed; inset: 0; z-index: 80;
-		background: rgba(2,4,10,0.78); backdrop-filter: blur(10px);
+		background: color-mix(in srgb, var(--text) 25%, transparent); backdrop-filter: blur(10px);
 		display: flex; align-items: stretch; justify-content: center;
 	}
 	.lp-panel {
 		width: 100%; max-width: 32rem; display: flex; flex-direction: column;
-		/* Surface sombre + texte clair forcé (lisible quel que soit le mode du téléphone). */
-		background: #0B1A28;
-		--text: #EAF4F8;
-		--muted: #8FB2C4;
-		--card: #14283A;
-		color: #EAF4F8;
+		/* Thème pastel unique (plan de modernisation P3, 22/09/2026) — plus de surface sombre
+		   forcée indépendante du reste de l'app. */
+		background: var(--surface);
 		padding: max(env(safe-area-inset-top), 0.6rem) 1.1rem calc(1rem + env(safe-area-inset-bottom, 0px));
 	}
 

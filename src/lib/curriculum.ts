@@ -27,9 +27,11 @@ export interface LevelMeta {
 }
 
 export const LEVEL_META: LevelMeta[] = [
-	{ level: 'A1', label_fr: 'Découverte',  label_kh: 'ការរកឃើញ',  subtitle_fr: 'Les premiers mots',     color: '#58C4DC' },
-	{ level: 'A2', label_fr: 'Survie',      label_kh: 'ការរស់រាន',  subtitle_fr: 'Le quotidien',          color: '#7BC86C' },
-	{ level: 'B1', label_fr: 'Seuil',       label_kh: 'កម្រិតមធ្យម', subtitle_fr: 'S\'exprimer librement',  color: '#F2A0B8' },
+	// Couleurs par palier alignées sur la palette pastel de l'app (lavande/menthe/pêche) plutôt que
+	// le teal/vert/rose "jeu mobile 2019" d'origine — plan de modernisation P3, 22/09/2026.
+	{ level: 'A1', label_fr: 'Découverte',  label_kh: 'ការរកឃើញ',  subtitle_fr: 'Les premiers mots',     color: '#B7A3E8' },
+	{ level: 'A2', label_fr: 'Survie',      label_kh: 'ការរស់រាន',  subtitle_fr: 'Le quotidien',          color: '#6BC79A' },
+	{ level: 'B1', label_fr: 'Seuil',       label_kh: 'កម្រិតមធ្យម', subtitle_fr: 'S\'exprimer librement',  color: '#E8935E' },
 ]
 
 export const CURRICULUM: Unit[] = [

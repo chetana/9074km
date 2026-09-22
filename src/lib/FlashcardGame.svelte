@@ -268,7 +268,7 @@
 <style>
 	.fg-overlay {
 		position: fixed; inset: 0; z-index: 100;
-		background: rgba(0,0,0,0.7);
+		background: color-mix(in srgb, var(--text) 25%, transparent);
 		backdrop-filter: blur(10px);
 		display: flex; align-items: center; justify-content: center;
 		padding: 1rem;
@@ -281,7 +281,7 @@
 		border-radius: 2rem;
 		padding: 1.25rem 1.25rem 1.5rem;
 		display: flex; flex-direction: column; gap: 0.6rem;
-		box-shadow: 0 28px 72px rgba(0,0,0,0.55);
+		box-shadow: var(--shadow-lg);
 		animation: panel-in 0.38s cubic-bezier(0.34, 1.3, 0.64, 1);
 		max-height: 92dvh; overflow-y: auto;
 	}
@@ -398,7 +398,7 @@
 		border-radius: 1.5rem; display: flex; flex-direction: column;
 		align-items: center; justify-content: center; gap: 0.35rem; padding: 1.25rem;
 		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
-		box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+		box-shadow: var(--shadow-lg);
 	}
 	.fg-front { background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 14%, var(--card)), color-mix(in srgb, var(--accent) 6%, var(--card))); }
 	.fg-back  { background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 22%, var(--card)), color-mix(in srgb, var(--accent) 10%, var(--card))); transform: rotateY(180deg); }
@@ -417,7 +417,7 @@
 		width: 3.1rem; height: 3.1rem; border-radius: var(--radius-full); font-size: 1.35rem;
 		display: flex; align-items: center; justify-content: center;
 		transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s;
-		box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+		box-shadow: var(--shadow-md);
 		animation: btn-appear 0.3s cubic-bezier(0.34, 1.5, 0.64, 1) both;
 	}
 	.fg-btn:nth-child(1) { animation-delay: 0ms; }
