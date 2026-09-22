@@ -165,6 +165,13 @@
 		padding: 0 var(--space-3) calc(env(safe-area-inset-bottom, 0px) + 8px);
 		background: color-mix(in srgb, var(--bg) 96%, var(--accent));
 		border-top: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+		/* Sans position+z-index, ce bloc non positionné peignait SOUS .sky
+		   (fixed, z-index:0, blend screen) dans l'ordre d'empilement CSS —
+		   même piège que header/main, corrigé partout sauf ici : tout élément
+		   sombre posé dessus (le badge de version) se retrouvait délavé par
+		   le blend au lieu d'être simplement invisible. */
+		position: relative;
+		z-index: 1;
 	}
 
 	.dock-bar {
