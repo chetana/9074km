@@ -274,9 +274,14 @@
 	.dock-version {
 		font-size: 0.65rem;
 		font-family: 'Courier New', monospace;
-		color: var(--muted);
+		font-weight: 600;
+		color: var(--text-secondary);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-full);
+		padding: 1px 8px 2px;
+		margin-bottom: 3px;
 		letter-spacing: 0.08em;
-		padding-bottom: 3px;
 		user-select: none;
 	}
 </style>
