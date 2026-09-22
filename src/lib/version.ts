@@ -1,2 +1,2 @@
-// Auto-updated by git pre-commit hook (update-version.sh)
-export const APP_VERSION = '1.0.275';
+// Bump patch +1 a chaque deploiement (via deploy.sh).
+export const APP_VERSION = '1.0.276';
