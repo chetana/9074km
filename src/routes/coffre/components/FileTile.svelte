@@ -81,6 +81,7 @@
 <div
 	class="tile"
 	class:selected
+	class:has-badge={!!uploader || reactionDisplay.length > 0}
 	role="button"
 	tabindex="0"
 	onpointerdown={onPointerDown}
@@ -135,12 +136,13 @@
 		transition: border-color 0.15s, transform 0.15s;
 	}
 
-	/* Gradient de lisibilité (bas de la vignette) */
-	.tile::after {
+	/* Gradient de lisibilité (bas de la vignette) — seulement quand un badge est posé dessus,
+	   pas un aplat permanent sur chaque photo (plan de modernisation P6, 22/09/2026). */
+	.tile.has-badge::after {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 50%);
+		background: linear-gradient(to top, color-mix(in srgb, var(--text) 40%, transparent) 0%, transparent 50%);
 		pointer-events: none;
 		border-radius: inherit;
 	}
@@ -180,7 +182,7 @@
 		transform: translate(-50%, -50%);
 		width: 2.25rem;
 		height: 2.25rem;
-		background: rgba(0, 0, 0, 0.6);
+		background: color-mix(in srgb, var(--text) 55%, transparent);
 		border-radius: 50%;
 		display: flex;
 		align-items: center;
@@ -198,7 +200,7 @@
 		height: 1.375rem;
 		border-radius: 50%;
 		border: 2px solid white;
-		background: rgba(0, 0, 0, 0.4);
+		background: color-mix(in srgb, var(--text) 45%, transparent);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -216,7 +218,7 @@
 		bottom: var(--space-1);
 		left: var(--space-1);
 		font-size: var(--fs-xs);
-		background: rgba(0, 0, 0, 0.65);
+		background: color-mix(in srgb, var(--text) 60%, transparent);
 		color: rgba(255,255,255,0.9);
 		padding: 2px 7px;
 		border-radius: var(--radius-full);
@@ -232,7 +234,7 @@
 		bottom: var(--space-1);
 		right: var(--space-1);
 		font-size: 0.9rem;
-		background: rgba(0, 0, 0, 0.55);
+		background: color-mix(in srgb, var(--text) 55%, transparent);
 		padding: 2px 6px;
 		border-radius: var(--radius-full);
 		letter-spacing: 1px;

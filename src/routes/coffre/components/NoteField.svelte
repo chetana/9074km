@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { NotebookPen } from 'lucide-svelte';
 
 	interface Props {
 		note: string;
@@ -39,7 +40,7 @@
 
 <!-- Collapsed note field -->
 <button class="note-collapsed" onclick={open}>
-	<span class="note-icon">📝</span>
+	<span class="note-icon"><NotebookPen size={16} /></span>
 	{#if preview}
 		<span class="note-preview">{preview}</span>
 	{:else}
@@ -52,7 +53,7 @@
 <dialog bind:this={dialogEl} class="note-dialog" onclose={close} onclick={(e) => { if (e.target === dialogEl) close(); }}>
 	<div class="note-editor">
 		<div class="note-toolbar">
-			<span class="note-title">📝 Note · ចំណាំ</span>
+			<span class="note-title"><NotebookPen size={18} /> Note · ចំណាំ</span>
 			<button class="done-btn" onclick={close}>Fait · រួចរាល់</button>
 		</div>
 		<textarea
@@ -91,8 +92,7 @@
 
 	.note-placeholder {
 		font-size: var(--fs-base);
-		color: var(--muted);
-		font-style: italic;
+		color: var(--muted-text);
 	}
 
 	.note-dialog {
@@ -102,15 +102,15 @@
 		margin: auto;
 		padding: 0;
 		border: none;
-		border-radius: var(--radius-2xl);
+		border-radius: var(--radius-xl);
 		background: var(--card);
 		color: var(--text);
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+		box-shadow: var(--shadow-lg);
 		overflow: hidden;
 	}
 
 	.note-dialog::backdrop {
-		background: rgba(0, 0, 0, 0.6);
+		background: color-mix(in srgb, var(--text) 25%, transparent);
 	}
 
 	.note-editor {
@@ -129,13 +129,16 @@
 	}
 
 	.note-title {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
 		font-size: var(--fs-lg);
 		font-weight: 600;
 	}
 
 	.done-btn {
 		font-size: var(--fs-md);
-		color: var(--accent);
+		color: var(--accent-text);
 		font-weight: 600;
 		padding: var(--space-1) var(--space-2);
 	}

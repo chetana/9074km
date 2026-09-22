@@ -1,4 +1,7 @@
 <script lang="ts">
+	import BottomSheet from '$lib/BottomSheet.svelte';
+	import { Plus, ImagePlus, Sparkles, Hourglass } from 'lucide-svelte';
+
 	interface Props {
 		phase: 'idle' | 'compressing' | 'uploading';
 		current: number;
@@ -54,39 +57,35 @@
 />
 
 <!-- Date picker sheet -->
-{#if showSheet}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-	<div class="sheet-backdrop" onclick={handleCancel}></div>
-	<div class="sheet">
-		<p class="sheet-title">Choisir une date · ជ្រើសរើសថ្ងៃ</p>
-		<div class="date-row">
-			<input
-				class="date-input"
-				type="date"
-				bind:value={pickedDate}
-			/>
-			<button class="btn-today" onclick={() => pickedDate = new Date().toLocaleDateString('sv')}>
-				<span>Aujourd'hui</span>
-				<span class="kh-today">ថ្ងៃនេះ</span>
-			</button>
-		</div>
-		<button class="btn-confirm" onclick={handleConfirm}>
-			<span class="btn-emoji">🖼️ 📸</span>
-			<span>Choisir des photos</span>
-			<span class="kh">រើសរូបភាព</span>
+<BottomSheet open={showSheet} onclose={handleCancel}>
+	<p class="sheet-title">Choisir une date · ជ្រើសរើសថ្ងៃ</p>
+	<div class="date-row">
+		<input
+			class="date-input"
+			type="date"
+			bind:value={pickedDate}
+		/>
+		<button class="btn-today" onclick={() => pickedDate = new Date().toLocaleDateString('sv')}>
+			<span>Aujourd'hui</span>
+			<span class="kh-today" lang="km">ថ្ងៃនេះ</span>
 		</button>
-		<button class="btn-cancel" onclick={handleCancel}>Annuler · បោះបង់</button>
 	</div>
-{/if}
+	<button class="btn-confirm" onclick={handleConfirm}>
+		<ImagePlus size={22} />
+		<span>Choisir des photos</span>
+		<span class="kh" lang="km">រើសរូបភាព</span>
+	</button>
+	<button class="btn-cancel" onclick={handleCancel}>Annuler · បោះបង់</button>
+</BottomSheet>
 
 <!-- FAB -->
 <button class="fab" class:busy={phase !== 'idle'} onclick={handleFabClick} aria-label="Ajouter des fichiers">
 	{#if phase === 'idle'}
-		<span class="fab-icon">+</span>
+		<Plus size={26} />
 	{:else if phase === 'compressing'}
-		<span class="fab-label">✨ {current}/{total}</span>
+		<span class="fab-label"><Sparkles size={16} /> {current}/{total}</span>
 	{:else}
-		<span class="fab-label">⏳ {current}/{total}</span>
+		<span class="fab-label"><Hourglass size={16} /> {current}/{total}</span>
 	{/if}
 </button>
 
@@ -98,9 +97,11 @@
 		width: var(--btn-fab);
 		height: var(--btn-fab);
 		border-radius: var(--radius-full);
-		background: var(--accent);
+		background: linear-gradient(150deg, var(--accent), var(--accent-warm));
 		color: var(--on-accent);
-		box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent);
+		/* Jamais de halo dramatique (règle du thème pastel) — une ombre courte comme le reste des
+		   surfaces accentuées, pas un glow diffus. */
+		box-shadow: var(--shadow-accent);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -132,32 +133,6 @@
 		font-size: var(--fs-base);
 		font-weight: 600;
 		white-space: nowrap;
-	}
-
-	/* Sheet */
-	.sheet-backdrop {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.6);
-		z-index: 200;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.sheet {
-		position: fixed;
-		left: var(--space-4);
-		right: var(--space-4);
-		top: 50%;
-		transform: translateY(-50%);
-		background: var(--card);
-		border-radius: var(--radius-2xl);
-		padding: var(--space-8) var(--space-6);
-		z-index: 201;
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-4);
 	}
 
 	.sheet-title {
@@ -207,15 +182,16 @@
 
 	.kh-today {
 		font-size: var(--fs-xs);
-		opacity: 0.75;
+		color: var(--muted-text);
 		font-weight: 400;
+		line-height: var(--lh-kh);
 	}
 
 	.btn-confirm {
 		width: 100%;
 		padding: var(--space-4);
 		border-radius: var(--radius-md);
-		background: var(--accent);
+		background: linear-gradient(150deg, var(--accent), var(--accent-warm));
 		color: var(--on-accent);
 		font-size: var(--fs-lg);
 		font-weight: 600;
@@ -225,15 +201,11 @@
 		gap: var(--space-1);
 	}
 
-	.btn-emoji {
-		font-size: var(--fs-2xl);
-		line-height: 1;
-	}
-
 	.btn-confirm .kh {
 		font-size: var(--fs-sm);
-		opacity: 0.7;
+		color: color-mix(in srgb, var(--on-accent) 75%, transparent);
 		font-weight: 400;
+		line-height: var(--lh-kh);
 	}
 
 	.btn-cancel {

@@ -34,23 +34,30 @@
 	aria-label={label}
 	title={label}
 >
-	<svg class="flower-svg" viewBox="-50 -50 100 100" aria-hidden="true">
-		<!-- 5 pétales radiaux (rotation via SVG transform attribute) -->
-		{#each Array(5) as _, i}
-			<ellipse
-				class="petal"
-				cx="0"
-				cy="-28"
-				rx="16"
-				ry="26"
-				transform="rotate({i * 72})"
-				style:--rot="{i * 72}deg"
-				style:--delay="{i * 60}ms"
-			/>
-		{/each}
-		<!-- Cœur (pollen) -->
-		<circle class="core" cx="0" cy="0" r="9" />
-	</svg>
+	{#if state === 'bloom' || state === 'loading'}
+		<svg class="flower-svg" viewBox="-50 -50 100 100" aria-hidden="true">
+			<!-- 5 pétales radiaux (rotation via SVG transform attribute) -->
+			{#each Array(5) as _, i}
+				<ellipse
+					class="petal"
+					cx="0"
+					cy="-28"
+					rx="16"
+					ry="26"
+					transform="rotate({i * 72})"
+					style:--rot="{i * 72}deg"
+					style:--delay="{i * 60}ms"
+				/>
+			{/each}
+			<!-- Cœur (pollen) -->
+			<circle class="core" cx="0" cy="0" r="9" />
+		</svg>
+	{:else}
+		<!-- Jour sans fichier : point discret plutôt qu'une fleur fanée pleine taille — un mois
+		     peu fourni ne doit pas noyer les jours "fleuris" sous des dizaines de fleurs grises
+		     (plan de modernisation P6, 22/09/2026). -->
+		<span class="bud-dot" aria-hidden="true"></span>
+	{/if}
 
 	<span class="day-num">{dd}</span>
 
@@ -88,8 +95,8 @@
 	}
 
 	.flower[data-color="today"] {
-		--petal-color: #58C4DC;
-		--petal-glow: rgba(88, 196, 220, 0.6);
+		--petal-color: var(--lavender-deep);
+		--petal-glow: color-mix(in srgb, var(--lavender-deep) 55%, transparent);
 		--core-color: #FFF1A0;
 	}
 
@@ -115,10 +122,12 @@
 		opacity: 0.92;
 	}
 
-	/* Bud = pétales regroupés vers le centre et décolorés (via SVG attrs) */
-	.bud .petal {
-		opacity: 0.5;
-		fill: color-mix(in srgb, var(--petal-color) 55%, #8A9BAB);
+	/* ── Point discret (jour sans fichier) ──────────────────────── */
+	.bud-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--border-soft);
 	}
 
 	/* Loading = pulsation */
@@ -136,10 +145,6 @@
 	.core {
 		fill: var(--core-color);
 		filter: drop-shadow(0 0 4px rgba(255, 227, 138, 0.6));
-	}
-
-	.bud .core {
-		fill: color-mix(in srgb, var(--core-color) 40%, #8A9BAB);
 	}
 
 	/* ── Today : halo subtil ─────────────────────────────────── */

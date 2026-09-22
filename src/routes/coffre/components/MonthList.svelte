@@ -3,6 +3,7 @@
 	import { userStore } from '$lib/auth';
 	import { MONTHS_FR, MONTHS_KH } from '$lib/i18n';
 	import { createSWR } from '$lib/swr.svelte';
+	import { ChevronRight } from 'lucide-svelte';
 
 	interface Props {
 		year: string;
@@ -90,7 +91,7 @@
 						{item.dayCount} jours · {item.dayCount} ថ្ងៃ
 					{/if}
 				</span>
-				<span class="arrow">›</span>
+				<span class="arrow"><ChevronRight size={20} /></span>
 			</button>
 		{/each}
 	{/if}
@@ -109,12 +110,13 @@
 		align-items: center;
 		gap: var(--space-3);
 		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: var(--radius-sm);
-		padding: var(--space-4);
+		border: 1px solid var(--border-soft);
+		border-radius: var(--radius-pebble);
+		padding: var(--space-4) var(--space-5, 1.25rem);
 		text-align: left;
 		transition: border-color var(--transition), transform var(--transition);
 		width: 100%;
+		box-shadow: var(--shadow-sm);
 	}
 
 	.card:hover {
@@ -124,14 +126,15 @@
 
 	.label {
 		flex: 1;
+		font-family: var(--font-display);
 		font-size: var(--fs-lg);
 		color: var(--text);
-		font-weight: 500;
+		font-weight: 600;
 	}
 
 	.count {
 		font-size: var(--fs-sm);
-		color: var(--muted);
+		color: var(--muted-text);
 		white-space: nowrap;
 	}
 
@@ -140,8 +143,8 @@
 	}
 
 	.arrow {
-		font-size: var(--fs-xl);
-		color: var(--muted);
+		display: flex;
+		color: var(--muted-glyph);
 	}
 
 	@keyframes card-in {
