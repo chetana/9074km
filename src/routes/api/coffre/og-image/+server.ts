@@ -1,14 +1,19 @@
 import { error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { signedGetUrl } from '$lib/server/gcs'
+import { isValidCoffrePath } from '$lib/server/coffre-path'
 import sharp from 'sharp'
 
 // AI-DEV: Endpoint public — intentionnellement sans requireAuth().
 // Appelé par les bots Telegram/WhatsApp/Facebook pour générer la preview OG.
 // Ne pas ajouter d'auth ici, sinon les previews de partage ne fonctionneront plus.
+// La validation de path est en revanche INDISPENSABLE ici : sans elle, n'importe qui sur
+// internet pouvait faire signer une URL vers n'importe quelle clé du bucket partagé
+// (ex. chat/2026/09/22.json) via cette route publique.
 export const GET: RequestHandler = async ({ url }) => {
   const path = url.searchParams.get('path') ?? ''
   if (!path) throw error(400, 'path is required')
+  if (!isValidCoffrePath(path)) throw error(400, 'invalid path')
 
   const gcsUrl = await signedGetUrl(path)
   const response = await fetch(gcsUrl)
