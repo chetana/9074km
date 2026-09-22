@@ -35,44 +35,46 @@
 {/if}
 
 <div class="input-bar">
-	<button class="action-btn" class:active={showEmojis} onclick={onToggleEmojis} aria-label="Emojis"><Smile size={20} /></button>
-	<button class="action-btn" onclick={onPickImage} disabled={sending || recording || transcribing} aria-label="Image"><Camera size={20} /></button>
-	<button
-		class="action-btn"
-		class:recording={recording && !speaking}
-		class:speaking
-		onclick={onToggleRecording}
-		disabled={sending || transcribing}
-		aria-label={vadLoading ? 'Chargement…' : recording ? 'Arrêter' : 'Vocal'}
-	>
-		{#if recording || speaking}
-			<span class="wav-bars" class:wav-active={speaking}><span></span><span></span><span></span><span></span><span></span></span>
-		{:else}
-			{#if transcribing}…{:else if vadLoading}⏳{:else}<Mic size={20} />{/if}
-		{/if}
-	</button>
-	<textarea
-		class="input"
-		bind:value={inputText}
-		oninput={onInput}
-		onkeydown={onKeydown}
-		{placeholder}
-		rows="1"
-		disabled={sending}
-	></textarea>
-	<button
-		class="send-btn"
-		class:is-sending={sending}
-		onclick={onSend}
-		disabled={!inputText.trim() || sending}
-		aria-label="Envoyer"
-	>
-		{#if sending}
-			<span class="send-sparkle">✦</span>
-		{:else}
-			<span class="send-arrow"><Send size={18} /></span>
-		{/if}
-	</button>
+	<div class="composer-pill">
+		<button class="action-btn" class:active={showEmojis} onclick={onToggleEmojis} aria-label="Emojis"><Smile size={20} /></button>
+		<button class="action-btn" onclick={onPickImage} disabled={sending || recording || transcribing} aria-label="Image"><Camera size={20} /></button>
+		<button
+			class="action-btn"
+			class:recording={recording && !speaking}
+			class:speaking
+			onclick={onToggleRecording}
+			disabled={sending || transcribing}
+			aria-label={vadLoading ? 'Chargement…' : recording ? 'Arrêter' : 'Vocal'}
+		>
+			{#if recording || speaking}
+				<span class="wav-bars" class:wav-active={speaking}><span></span><span></span><span></span><span></span><span></span></span>
+			{:else}
+				{#if transcribing}…{:else if vadLoading}⏳{:else}<Mic size={20} />{/if}
+			{/if}
+		</button>
+		<textarea
+			class="input"
+			bind:value={inputText}
+			oninput={onInput}
+			onkeydown={onKeydown}
+			{placeholder}
+			rows="1"
+			disabled={sending}
+		></textarea>
+		<button
+			class="send-btn"
+			class:is-sending={sending}
+			onclick={onSend}
+			disabled={!inputText.trim() || sending}
+			aria-label="Envoyer"
+		>
+			{#if sending}
+				<span class="send-sparkle">✦</span>
+			{:else}
+				<span class="send-arrow"><Send size={18} /></span>
+			{/if}
+		</button>
+	</div>
 </div>
 
 <style>
@@ -103,34 +105,44 @@
 	.emoji-btn:active { transform: scale(0.82); }
 
 	.input-bar {
+		padding: var(--space-2) var(--space-3) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+		background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg) 55%, transparent) 30%, color-mix(in srgb, var(--bg) 88%, transparent) 55%);
+		backdrop-filter: blur(14px);
+		-webkit-backdrop-filter: blur(14px);
+		flex-shrink: 0;
+	}
+
+	/* Pilule unique regroupant emoji/photo/micro/texte/envoi — plus des
+	   éléments séparés flottant sur le fond, esprit "papier à lettres". */
+	.composer-pill {
 		display: flex;
 		align-items: flex-end;
-		gap: var(--space-2);
-		padding: var(--space-2) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-		background: color-mix(in srgb, var(--bg) 96%, var(--accent));
-		border-top: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
-		flex-shrink: 0;
+		gap: var(--space-1);
+		background: var(--raised);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-xl);
+		padding: var(--space-1);
+		box-shadow: var(--shadow-sm);
 	}
 
 	.action-btn {
 		width: 2.625rem;
 		height: 2.625rem;
 		border-radius: var(--radius-full);
-		background: var(--surface);
-		border: 1px solid var(--border);
+		background: transparent;
+		border: none;
 		color: var(--text-secondary);
 		font-size: 1.15rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		box-shadow: var(--shadow-sm);
-		transition: opacity 0.15s, transform 0.15s, color 0.15s;
+		transition: opacity 0.15s, transform 0.15s, color 0.15s, background 0.15s;
 	}
-	.action-btn:hover { color: var(--text); }
+	.action-btn:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 	.action-btn:active { transform: scale(0.9); }
 	.action-btn:disabled { opacity: 0.35; }
-	.action-btn.active { border-color: var(--accent); }
+	.action-btn.active { color: var(--accent-deep); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
 	.action-btn.recording {
 		background: #e53935;
@@ -165,31 +177,28 @@
 
 	.input {
 		flex: 1;
-		background: color-mix(in srgb, var(--accent) 6%, var(--raised));
-		border: 1px solid var(--border);
-		border-radius: var(--radius-xl);
-		padding: var(--space-3) var(--space-4);
+		background: transparent;
+		border: none;
+		padding: var(--space-2) var(--space-1);
 		font-size: 1rem;
 		color: var(--text);
 		font-family: inherit;
 		resize: none;
-		min-height: 2.5rem;
+		min-height: 2.625rem;
 		max-height: 8rem;
 		overflow-y: auto;
 		line-height: 1.5;
 	}
-	.input::placeholder { color: var(--muted); opacity: 0.6; }
+	.input::placeholder { color: var(--muted); }
 	.input:focus {
 		outline: none;
-		border-color: var(--accent);
-		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 	}
 
 	.send-btn {
-		width: 2.75rem;
-		height: 2.75rem;
+		width: 2.625rem;
+		height: 2.625rem;
 		border-radius: var(--radius-full);
-		background: var(--accent);
+		background: linear-gradient(150deg, var(--accent), var(--accent-warm));
 		color: var(--on-accent);
 		font-size: var(--fs-lg);
 		display: flex;
@@ -197,7 +206,7 @@
 		justify-content: center;
 		flex-shrink: 0;
 		transition: opacity 0.15s, transform 0.15s;
-		box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent);
+		box-shadow: var(--shadow-accent);
 	}
 	.send-btn:not(:disabled):hover { transform: scale(1.07); }
 	.send-btn:not(:disabled):active { transform: scale(0.89); }

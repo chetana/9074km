@@ -1034,8 +1034,10 @@
 		flex-shrink: 0;
 		position: relative;
 		z-index: 2;
-		background: color-mix(in srgb, var(--bg) 96%, var(--accent));
-		border-bottom: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+		background: color-mix(in srgb, var(--bg) 82%, transparent);
+		backdrop-filter: blur(16px);
+		-webkit-backdrop-filter: blur(16px);
+		border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
 	}
 
 	.header-left {

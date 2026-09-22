@@ -163,8 +163,11 @@
 		align-items: center;
 		gap: 0;
 		padding: 0 var(--space-3) calc(env(safe-area-inset-bottom, 0px) + 8px);
-		background: color-mix(in srgb, var(--bg) 96%, var(--accent));
-		border-top: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+		background: color-mix(in srgb, var(--bg) 88%, transparent);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		border-top: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+		box-shadow: 0 -6px 16px -12px rgba(74, 52, 56, 0.15);
 		/* Sans position+z-index, ce bloc non positionné peignait SOUS .sky
 		   (fixed, z-index:0, blend screen) dans l'ordre d'empilement CSS —
 		   même piège que header/main, corrigé partout sauf ici : tout élément
@@ -196,28 +199,22 @@
 		color: var(--accent);
 	}
 
-	/* Barre au-dessus du tab actif — ombre courte, pas de glow néon */
-	.dock-tab.active::before {
-		content: '';
-		position: absolute;
-		top: -2px;
-		left: 20%;
-		right: 20%;
-		height: 3px;
-		background: var(--accent);
-		border-radius: 0 0 3px 3px;
-		box-shadow: 0 1px 4px color-mix(in srgb, var(--accent) 50%, transparent);
-	}
-
 	.dock-icon {
 		font-size: 1.3rem;
 		line-height: 1;
-		transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+		display: flex;
+		transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, box-shadow 0.2s ease;
 	}
 
+	/* Pastille "autocollant" pleine derrière l'icône active, plutôt qu'une
+	   barre lumineuse au-dessus — esprit papier découpé/sticker (maquette). */
 	.dock-tab.active .dock-icon {
-		transform: translateY(-2px) scale(1.1);
-		filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--accent) 35%, transparent));
+		color: var(--on-accent);
+		background: linear-gradient(150deg, var(--accent), var(--accent-warm));
+		border-radius: 14px;
+		padding: 0.3rem 0.7rem;
+		box-shadow: var(--shadow-accent);
+		transform: translateY(-2px) scale(1.06);
 	}
 
 	.dock-tab:active .dock-icon {
