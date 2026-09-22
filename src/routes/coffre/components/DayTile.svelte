@@ -18,25 +18,40 @@
 
 	let { dd, label, fileCount, thumb, isToday = false, index = 0, onSelect }: Props = $props();
 
-	const state = $derived<'loading' | 'empty' | 'photo'>(
-		fileCount === null ? 'loading' : fileCount > 0 && thumb ? 'photo' : 'empty'
+	// Un <img> avec onerror (retry une fois) plutôt qu'un background-image CSS : le CSS n'a aucun
+	// moyen de détecter un échec de chargement, donc une vignette qui rate une fois (S3/og-image
+	// occasionnellement lent sur la box) reste vide en silence au lieu de réessayer — bug réel
+	// remonté par Chetana le 23/09/2026.
+	let loadFailed = $state(false);
+	let retried = $state(false);
+	function onImgError() {
+		if (!retried) { retried = true; loadFailed = false; return; } // le key-change ci-dessous relance le <img>
+		loadFailed = true;
+	}
+	$effect(() => { thumb; loadFailed = false; retried = false; });
+
+	const tileState = $derived<'loading' | 'empty' | 'photo'>(
+		fileCount === null ? 'loading' : fileCount > 0 && thumb && !loadFailed ? 'photo' : 'empty'
 	);
 </script>
 
 <button
 	class="tile"
 	class:today={isToday}
-	class:loading={state === 'loading'}
+	class:loading={tileState === 'loading'}
 	style:--i={index}
-	style:background-image={state === 'photo' && thumb ? `url(${JSON.stringify(ogImageUrl(thumb, 200))})` : undefined}
 	onclick={onSelect}
 	aria-label={label}
 	title={label}
 >
-	{#if state === 'empty'}
+	{#if tileState === 'photo' && thumb}
+		{#key retried}
+			<img class="thumb" src={ogImageUrl(thumb, 200)} alt="" loading="lazy" onerror={onImgError} />
+		{/key}
+	{:else if tileState === 'empty'}
 		<CameraOff size={22} class="empty-icon" />
 	{/if}
-	<span class="day-num">{dd}</span>
+	<span class="day-num" class:on-photo={tileState === 'photo'}>{dd}</span>
 	{#if fileCount !== null && fileCount > 0}
 		<span class="badge" aria-hidden="true">{fileCount}</span>
 	{/if}
@@ -51,8 +66,7 @@
 		border-radius: 1rem;
 		border: 2px solid transparent;
 		background-color: var(--surface-2);
-		background-size: cover;
-		background-position: center;
+		overflow: hidden;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -60,6 +74,14 @@
 		transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 		animation: tile-in 0.4s cubic-bezier(0.34, 1.4, 0.64, 1) both;
 		animation-delay: calc(var(--i, 0) * 30ms);
+	}
+
+	.thumb {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
 	@keyframes tile-in {
 		from { opacity: 0; transform: scale(0.85); }
@@ -97,6 +119,7 @@
 		position: absolute;
 		bottom: 4px;
 		left: 6px;
+		z-index: 1;
 		font-family: var(--font-display);
 		font-size: 0.85rem;
 		font-weight: 700;
@@ -108,7 +131,7 @@
 	}
 	/* Sur une photo, le badge doit rester lisible quelle que soit sa luminosité — même teinte
 	   chaude que FileTile.svelte (coffre) plutôt qu'un aplat noir. */
-	.tile[style*="background-image"] .day-num {
+	.day-num.on-photo {
 		color: #FFF8F0;
 		background: color-mix(in srgb, var(--text) 55%, transparent);
 	}
