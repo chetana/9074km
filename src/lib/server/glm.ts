@@ -21,6 +21,20 @@ const MAX_OUTPUT_CEILING = 8192
 // en cache lecture côté Go ($0.03/M) → coût de chaque appel quasi nul.
 const SESSION_ID = 'lys-couple-translate'
 
+/**
+ * Directives d'adaptation GLM — dérivées de l'A/B réel GLM vs Gemini-3.6 (scripts/glm-prompt-v2.mjs,
+ * messages réels du couple). Sans elles, GLM traduit trop littéralement et ajoute des mots
+ * absents du source ("ឥឡូវនេះ", vocatif "អូន"...) ; avec elles il adopte le lexique khmer oral
+ * naturel du couple (ហត់/ធូរ/តោះ/អរហ្នឹង) comme Gemini. C'est ce qui transformerait un modèle
+ * "traducteur" en adaptateur. Lexque issu des sorties réelles de Gemini-3.6 (référence validée).
+ */
+export const GLM_ADAPT = `
+- Tu n'es PAS Google Translate : adapte le SENS INTENTIONNÉ du message, comme l'écrirait un khmer natif du couple, au naturel.
+- CORRIGE d'abord les fautes/tournures du français source avant de traduire — ne traduis jamais les maladresses lettre à lettre.
+- N'AJOUTE AUCUN mot absent du message source : pas de "ឥឡូវនេះ"(maintenant), pas de vocatif "អូន"/"បង"/"ម៉ែ" qui ne serait pas dans le français, aucun titre inventé type "ទឹកមុត".
+- Vocabulaire khmer ORAL à privilégier (registre couple, Phnom Penh) : "aller" → "តោះ" ; "être fatigué" → "ហត់" (réserve "អស់កម្លាំង" au sens physique fort) ; "ça va mieux" → "ធូរជាងមុន" ; "content de savoir" → "អរហ្នឹង".
+- Le message traduit doit sonner comme si le couple lui-même écrivait en khmer, pas comme du français traduit.
+`
 export function glmEnabled(): boolean {
 	return env.GLM_ENABLED === '1' && !!env.OPENCODE_API_KEY
 }

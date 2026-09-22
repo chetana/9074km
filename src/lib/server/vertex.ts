@@ -1,6 +1,6 @@
 import { createSign } from 'crypto'
 import { env } from '$env/dynamic/private'
-import { glmEnabled, chatGo } from './glm'
+import { glmEnabled, chatGo, GLM_ADAPT } from './glm'
 
 function parseServiceAccountJson(raw: string): Record<string, string> {
   // gcloud --env-vars-file YAML uses single-quoted strings where \n is literal backslash+n.
@@ -127,7 +127,7 @@ async function callGemini(prompt: string, maxTokens = 300, models: readonly stri
 	// aucun impact utilisateur — d'où le try/catch ignoré ici.
 	if (glmEnabled()) {
 		try {
-			return await chatGo(`Tu réponds UNIQUEMENT avec un JSON valide (sans markdown).`, prompt, maxTokens)
+			return await chatGo(`Tu réponds UNIQUEMENT avec un JSON valide (sans markdown).${GLM_ADAPT}`, prompt, maxTokens)
 		} catch (e) {
 			console.warn(`[engine] GLM KO → bascule Gemini (${(e as Error).message})`)
 		}
