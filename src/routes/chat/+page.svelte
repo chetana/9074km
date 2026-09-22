@@ -922,7 +922,7 @@
 
 		<!-- ── Flashcards ── -->
 		{#if showFlashcards}
-			<FlashcardGame {userLang} userName={firstName} onClose={() => { showFlashcards = false; void loadChatXp(); }} />
+			<FlashcardGame {userLang} userName={firstName} onClose={() => { showFlashcards = false; void swrXp.refresh(); }} />
 		{/if}
 
 		<!-- ── Zone de saisie ── -->
