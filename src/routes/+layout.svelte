@@ -34,20 +34,29 @@
 		}
 		clockInterval = setInterval(() => (now = new Date()), 1000);
 
-		// AI-DEV: Vérification de version UNE SEULE FOIS au lancement (plus de setInterval 5min
-		// ni de check sur visibilitychange). Avant : un onglet/PWA laissé ouvert pingait /api/version
-		// toutes les 5 min, en dessous du seuil d'inactivité Scaleway (~16-17 min) → le container ne
-		// scale-to-zero JAMAIS (mesuré : 1440/1440 min actives/jour, peu importe l'usage réel), et
-		// chaque ping réveillait aussi la Serverless SQL (lastLoginAt). Contrepartie acceptée : une
-		// fenêtre restée ouverte ne recevra la mise à jour qu'au prochain lancement, pas en direct.
+		// Vérification de version au lancement + toutes les 5 min + au retour au premier plan.
+		// Restauré le 22/09/2026 : la limitation "une seule fois au lancement" datait de l'ère
+		// serverless (un ping périodique empêchait le container de scale-to-zero, ~16-17 min
+		// d'inactivité requis). Depuis la bascule sur chetbox (VM dédiée, coût fixe), ce ping ne
+		// coûte plus rien — un onglet/PWA laissé ouvert reçoit la mise à jour en direct au lieu
+		// d'attendre le prochain lancement (voir la confusion du 22/09 : badge de version qui
+		// semblait "invisible" alors que le client tournait juste sur un bundle jamais rafraîchi).
 		void checkVersion();
+		versionInterval = setInterval(() => { if (!document.hidden) void checkVersion(); }, 5 * 60_000);
+		const onVisible = () => { if (!document.hidden) void checkVersion(); };
+		document.addEventListener('visibilitychange', onVisible);
+		cleanupVersionCheck = () => document.removeEventListener('visibilitychange', onVisible);
 	});
 	onDestroy(() => {
 		clearInterval(clockInterval);
+		clearInterval(versionInterval);
+		cleanupVersionCheck?.();
 	});
 
 	let now = $state(new Date());
 	let clockInterval: ReturnType<typeof setInterval>;
+	let versionInterval: ReturnType<typeof setInterval>;
+	let cleanupVersionCheck: (() => void) | undefined;
 
 	async function checkVersion() {
 		try {
