@@ -1,6 +1,7 @@
 import { createSign } from 'crypto'
 import { env } from '$env/dynamic/private'
 import { glmEnabled, chatGo, GLM_ADAPT } from './glm'
+import { logTranslationIssue } from './translation-issues'
 
 function parseServiceAccountJson(raw: string): Record<string, string> {
   // gcloud --env-vars-file YAML uses single-quoted strings where \n is literal backslash+n.
@@ -156,6 +157,15 @@ function containsForeignScript(s?: string): boolean {
   return FOREIGN_SCRIPT.test(s ?? '')
 }
 
+// Corruption détectée le 22/09/2026 sur "boutons" → "បុortonexus" : du latin collé
+// SANS espace à du khmer (signature d'un mot halluciné/tronqué en cours de génération).
+// Un vrai nom propre latin dans une phrase khmère est toujours séparé par une espace
+// ("iPhone", "WhatsApp") — cette adjacence directe khmer↔latin n'arrive jamais en usage normal.
+const GLUED_LATIN = /[ក-៿][A-Za-z]{2,}|[A-Za-z]{2,}[ក-៿]/
+function containsGluedLatin(s?: string): boolean {
+  return GLUED_LATIN.test(s ?? '')
+}
+
 // Retire les gloses de romanisation latine insérées à tort dans le khmer (ex "កែ (kê)" → "កែ").
 // Ne matche que des parenthèses ne contenant QUE du latin/ponctuation (jamais du khmer).
 function cleanKhmer(kh?: string): string {
@@ -205,7 +215,9 @@ Règles impératives :
 - Registre : intime, oral, tendre — jamais formel ni littéraire
 - "គាត់" = il/elle (3ème personne), JAMAIS "tu" — ne jamais confondre avec un interlocuteur direct
 - Khmer oral et informel : ហ្នឹង (ça/ce/là), ម្កេះ (peu/seulement), ក្រ- (pénurie/difficulté ex: ក្រញ៉ាំ = manger peu), ម្ហី/ម្ហេ (comment) — privilégier le sens pragmatique, pas la forme écrite standard
-- Lexique médical : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" (jamais "អាឡែស៊ី" ni "អាឡែក") ; "sésame" → TOUJOURS "ល្ង" (jamais "ស៊ីម៉េ" ni "ស្នេហ៍" qui veut dire "amour")
+- Lexique : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" (jamais "អាឡែស៊ី" ni "អាឡែក") ; "sésame" → TOUJOURS "ល្ង" (jamais "ស៊ីម៉េ" ni "ស្នេហ៍" qui veut dire "amour") ; "acidulé/aigre" → "ជូរ" ; "bleu" → "ខៀវ" (jamais tronqué type "ប៊ូ")
+- NE JAMAIS INVERSER LE SENS : "cher"/"pas cher", "oui"/"non", "content"/"pas content" doivent rester dans le bon sens après traduction
+- INTERDIT : alphabet latin collé SANS espace à du khmer au milieu d'un mot (ex "បុortonexus") — signe d'un mot corrompu, jamais un vrai mot khmer
 - Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier le sujet et l'intention
 - Anglais simple et naturel (Lys apprend — éviter les expressions idiomatiques complexes)
 - Un vrai prénom collé à un titre (ex "បង Chet" = "Bang Chet") se garde tel quel ; mais "អូន"/"បង" SEULS sont des pronoms → "je/tu" (voir règle pronoms ci-dessus), jamais des noms
@@ -223,9 +235,16 @@ export async function geminiTranslateAll(text: string, author?: string, previous
   try {
     // 2.5-flash-lite par défaut (pas cher + fiable sur les pronoms, testé 20/20 avec contexte).
     let t = JSON.parse(await callGemini(prompt, translateBudget(text), COUPLE_MODELS)) as Translations
-    if (containsForeignScript(t.kh)) { // filet : script étranger (thaï/chinois/indien…) → re-roll modèle fort
-      console.warn('[translate] script étranger détecté dans le khmer → re-roll sur modèle fort')
-      t = JSON.parse(await callGemini(prompt, translateBudget(text), STRONG_MODELS)) as Translations
+    const badKh = t.kh
+    const reason = containsForeignScript(t.kh) ? 'foreign_script' : containsGluedLatin(t.kh) ? 'glued_latin' : null
+    if (reason) {
+      // filet : script étranger ou latin corrompu collé au khmer → re-roll modèle fort.
+      // Appel DIRECT à geminiRequest (jamais callGemini) : sinon, si GLM est actif, le
+      // "re-roll" rappelait GLM en premier — donc une corruption GLM se re-produisait telle
+      // quelle au lieu d'escalader vers Gemini (bug découvert le 22/09 sur "boutons"→latin collé).
+      console.warn('[translate] khmer suspect (script étranger ou latin collé) → re-roll sur Gemini fort (bypass GLM)')
+      t = JSON.parse(await geminiRequest([{ text: prompt }], translateBudget(text), STRONG_MODELS)) as Translations
+      void logTranslationIssue({ reason, sourceText: text, author, badKh, fixedKh: t.kh, engine: glmEnabled() ? 'glm' : 'gemini' })
     }
     t.kh = cleanKhmer(t.kh) // retire toute romanisation "(kê)" résiduelle
     return t
@@ -245,7 +264,12 @@ async function translateInChunks(text: string, author?: string, previousMessage?
     try {
       const p = buildTranslatePrompt(chunk, author, ctx)
       let t = JSON.parse(await callGemini(p, translateBudget(chunk), COUPLE_MODELS)) as Translations
-      if (containsForeignScript(t.kh)) t = JSON.parse(await callGemini(p, translateBudget(chunk), STRONG_MODELS)) as Translations
+      const badKh = t.kh
+      const reason = containsForeignScript(t.kh) ? 'foreign_script' : containsGluedLatin(t.kh) ? 'glued_latin' : null
+      if (reason) {
+        t = JSON.parse(await geminiRequest([{ text: p }], translateBudget(chunk), STRONG_MODELS)) as Translations
+        void logTranslationIssue({ reason, sourceText: chunk, author, badKh, fixedKh: t.kh, engine: glmEnabled() ? 'glm' : 'gemini' })
+      }
       t.kh = cleanKhmer(t.kh)
       parts.push(t)
       ctx = `${ctx ? ctx + '\n' : ''}${author ?? '?'}: ${chunk}` // enchaîne le contexte pour la cohérence
@@ -296,7 +320,9 @@ Règles :
 - Registre intime, oral et tendre — jamais formel
 - "គាត់" = il/elle (3ème personne), JAMAIS "tu" — ne jamais confondre avec un interlocuteur direct
 - Khmer oral et informel : ហ្នឹង (ça/là), ម្កេះ (peu/seulement), ក្រ- (pénurie ex: ក្រញ៉ាំ = manger peu), ម្ហី (comment) — sens pragmatique avant forme écrite
-- Lexique médical : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" (jamais "អាឡែស៊ី" ni "អាឡែក") ; "sésame" → TOUJOURS "ល្ង" (jamais "ស៊ីម៉េ" ni "ស្នេហ៍" qui veut dire "amour")
+- Lexique : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" (jamais "អាឡែស៊ី" ni "អាឡែក") ; "sésame" → TOUJOURS "ល្ង" (jamais "ស៊ីម៉េ" ni "ស្នេហ៍" qui veut dire "amour") ; "acidulé/aigre" → "ជូរ" ; "bleu" → "ខៀវ" (jamais tronqué type "ប៊ូ")
+- NE JAMAIS INVERSER LE SENS : "cher"/"pas cher", "oui"/"non", "content"/"pas content" doivent rester dans le bon sens après traduction
+- INTERDIT : alphabet latin collé SANS espace à du khmer au milieu d'un mot (ex "បុortonexus") — signe d'un mot corrompu, jamais un vrai mot khmer
 - Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier l'intention
 - Si aucune faute, ne mets pas de champ "lessons"
 - "lang" : code de la langue détectée ("fr", "en" ou "kh")
@@ -309,7 +335,12 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 
   // 2.5-flash-lite (fiable + pas cher) ; re-roll sur modèle fort seulement si thaï. Budget large.
   let s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), COUPLE_MODELS)) as GeminiSuggestion
-  if (containsForeignScript(s.kh)) s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), STRONG_MODELS)) as GeminiSuggestion
+  const badKh = s.kh
+  const reason = containsForeignScript(s.kh) ? 'foreign_script' : containsGluedLatin(s.kh) ? 'glued_latin' : null
+  if (reason) {
+    s = JSON.parse(await geminiRequest([{ text: prompt }], translateBudget(text, 6), STRONG_MODELS)) as GeminiSuggestion
+    void logTranslationIssue({ reason, sourceText: text, author, badKh, fixedKh: s.kh, engine: glmEnabled() ? 'glm' : 'gemini' })
+  }
   s.kh = cleanKhmer(s.kh)
   return s
 }
@@ -356,7 +387,7 @@ ${coupleContext(author)}${ctxLine}
 Règles de traduction :
 - "គាត់" = il/elle (3ème personne), JAMAIS "tu"
 - Khmer oral/informel : ហ្នឹង (ça/là), ម្កេះ (peu/seulement), ក្រ- (pénurie) — sens pragmatique avant forme écrite
-- Lexique médical : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" ; "sésame" → TOUJOURS "ល្ង"
+- Lexique : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" ; "sésame" → TOUJOURS "ល្ង" ; "acidulé/aigre" → "ជូរ" ; "bleu" → "ខៀវ"
 - Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier le sujet
 - Anglais simple (Lys apprend — éviter les expressions idiomatiques)
 
@@ -366,7 +397,7 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
   // Longueur du vocal inconnue à l'avance → budget large ; l'auto-retry MAX_TOKENS couvre les longs
   const parts = [{ inlineData: { mimeType, data: audioBase64 } }, { text: prompt }]
   let r = JSON.parse(await geminiRequest(parts, 2048, COUPLE_MODELS)) as TranscriptionResult // 3.6-flash (khmer le plus naturel)
-  if (containsForeignScript(r.kh) || containsForeignScript(r.text)) r = JSON.parse(await geminiRequest(parts, 2048, STRONG_MODELS)) as TranscriptionResult
+  if (containsForeignScript(r.kh) || containsForeignScript(r.text) || containsGluedLatin(r.kh)) r = JSON.parse(await geminiRequest(parts, 2048, STRONG_MODELS)) as TranscriptionResult
   r.kh = cleanKhmer(r.kh)
   if (/[ក-៿]/.test(r.text)) r.text = cleanKhmer(r.text) // nettoie seulement si le texte transcrit est khmer
   return r
