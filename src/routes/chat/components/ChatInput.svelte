@@ -147,25 +147,25 @@
 	.action-btn:disabled { opacity: 0.35; }
 	.action-btn.active { color: var(--accent-deep); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
+	/* Palette rose de l'app plutôt que rouge/vert Material — un état actif, l'animation reste
+	   légitime (pas une boucle ambiante, plan de modernisation P4, 22/09/2026). */
 	.action-btn.recording {
-		background: #e53935;
-		color: #fff;
-		border-color: #e53935;
+		background: linear-gradient(150deg, var(--accent), var(--accent-deep));
+		color: var(--on-accent);
 		animation: pulse-rec 1.2s ease-in-out infinite;
 	}
 	.action-btn.speaking {
-		background: #2e7d32;
-		color: #fff;
-		border-color: #2e7d32;
+		background: linear-gradient(150deg, var(--gold), var(--gold-deep));
+		color: var(--gold-text);
 		animation: pulse-speak 0.6s ease-in-out infinite;
 	}
 	@keyframes pulse-rec {
-		0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, #e53935 40%, transparent); }
-		50% { box-shadow: 0 0 0 6px color-mix(in srgb, #e53935 0%, transparent); }
+		0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-deep) 40%, transparent); }
+		50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent-deep) 0%, transparent); }
 	}
 	@keyframes pulse-speak {
-		0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, #2e7d32 50%, transparent); }
-		50% { box-shadow: 0 0 0 8px color-mix(in srgb, #2e7d32 0%, transparent); }
+		0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold-deep) 50%, transparent); }
+		50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--gold-deep) 0%, transparent); }
 	}
 
 	.wav-bars { display: inline-flex; align-items: center; gap: 2px; height: 20px; }

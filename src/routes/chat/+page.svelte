@@ -12,7 +12,7 @@
 	import { createSWR } from '$lib/swr.svelte';
 	import FlashcardGame from '$lib/FlashcardGame.svelte';
 	import Flag from '$lib/Flag.svelte';
-	import { Bell, BellOff, Layers, X } from 'lucide-svelte';
+	import { Bell, BellOff, Layers, X, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import { getLevel, getAvatar, xpProgressPct } from '$lib/flashcard-levels';
 	import ChatBubble from './components/ChatBubble.svelte';
 	import ChatInput from './components/ChatInput.svelte';
@@ -810,9 +810,9 @@
 				{/if}
 			</div>
 			<div class="date-center">
-				<button class="date-btn" onclick={prevDay} aria-label="Jour précédent">‹</button>
+				<button class="date-btn" onclick={prevDay} aria-label="Jour précédent"><ChevronLeft size={18} /></button>
 				<span class="date-label">{dayLabelStr}</span>
-				<button class="date-btn" onclick={nextDay} disabled={isToday} aria-label="Jour suivant">›</button>
+				<button class="date-btn" onclick={nextDay} disabled={isToday} aria-label="Jour suivant"><ChevronRight size={18} /></button>
 			</div>
 			<button class="fc-badge-btn" onclick={() => showFlashcards = true} aria-label="Flashcards" title="Flashcards · Nv.{chatLevel.level}">
 				<div class="fc-badge-icon-wrap">
@@ -1040,7 +1040,9 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.45rem var(--space-4);
+		/* env(safe-area-inset-top) manquait ici (présent sur Apprendre) — probable contenu masqué
+		   sous l'encoche en PWA standalone iPhone, plan de modernisation P4, 22/09/2026. */
+		padding: max(env(safe-area-inset-top), 0.45rem) var(--space-4) 0.45rem;
 		flex-shrink: 0;
 		position: relative;
 		z-index: 2;
@@ -1095,6 +1097,8 @@
 		line-height: 2.1rem;
 	}
 
+	/* Date-nav sans cadre — plus de 3 boîtes emboîtées (header + date-center + date-btn), un seul
+	   header .glass suffit (plan de modernisation P4, 22/09/2026). */
 	.date-center {
 		position: absolute;
 		left: 50%;
@@ -1102,16 +1106,12 @@
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: var(--radius-sm);
-		padding: 0.2rem 0.35rem;
 	}
 
 	.date-label {
 		font-family: var(--font-display);
 		font-size: var(--fs-sm);
-		color: var(--accent-deep, var(--accent));
+		color: var(--accent-text);
 		font-weight: 600;
 		min-width: 8rem;
 		text-align: center;
@@ -1123,15 +1123,13 @@
 		width: 1.9rem;
 		height: 1.9rem;
 		border-radius: var(--radius-sm);
-		background: var(--raised);
-		border: 1px solid var(--border);
-		font-size: 1rem;
-		color: var(--accent);
+		color: var(--muted-glyph);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: opacity 0.15s, transform 0.12s;
+		transition: opacity 0.15s, transform 0.12s, color 0.15s;
 	}
+	.date-btn:not(:disabled):hover { color: var(--accent-text); }
 
 	.date-btn:not(:disabled):active {
 		transform: scale(0.9);
@@ -1156,13 +1154,7 @@
 
 	.auth-lotus {
 		font-size: 4rem;
-		animation: lotus-breathe 3s ease-in-out infinite;
 		filter: drop-shadow(0 0 20px color-mix(in srgb, var(--accent) 30%, transparent));
-	}
-
-	@keyframes lotus-breathe {
-		0%, 100% { transform: scale(1); opacity: 0.9; }
-		50% { transform: scale(1.08); opacity: 1; }
 	}
 
 	.auth-festival {
