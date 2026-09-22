@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { LEVELS, getLevel, getAvatar as _getAvatar, getLevelTitle as _getLevelTitle, xpForNextLevel, xpProgressPct } from '$lib/flashcard-levels';
-	import Flag from '$lib/Flag.svelte';
+	import LangTag from '$lib/LangTag.svelte';
+	import { X } from 'lucide-svelte';
 
 	interface Card { id: string; fr: string; kh: string; en?: string; phonetic_kh?: string; phonetic_fr?: string }
 	interface Progress { name: string; xp: number; sessions: { date: string; correct: number; approx: number; wrong: number; xp_gained: number }[] }
@@ -158,7 +159,7 @@
 				<span class="fg-xp-txt">{curXp} XP{nextLvlXp ? ` · ${nextLvlXp - curXp} jusqu'au Nv${curLevel.level + 1}` : ' · MAX'}</span>
 			</div>
 		</div>
-		<button class="fg-close" onclick={onClose}>✕</button>
+		<button class="fg-close" onclick={onClose} aria-label="Fermer"><X size={18} /></button>
 	</div>
 
 	<!-- Play progress bar -->
@@ -182,8 +183,8 @@
 			<div class="fg-card {exitClass}" class:flipped onclick={flip}>
 				<!-- Front -->
 				<div class="fg-front">
-					<span class="fg-flag"><Flag lang={frontFlag} size="lg" /></span>
-					<p class="fg-word">{frontText}</p>
+					<span class="fg-flag"><LangTag lang={frontFlag} /></span>
+					<p class="fg-word" lang={frontFlag === 'kh' ? 'km' : 'fr'}>{frontText}</p>
 					{#if frontPhonetic}
 						<p class="fg-phonetic">{frontPhonetic}</p>
 					{/if}
@@ -193,8 +194,8 @@
 				</div>
 				<!-- Back -->
 				<div class="fg-back">
-					<span class="fg-flag"><Flag lang={backFlag} size="lg" /></span>
-					<p class="fg-word">{backText}</p>
+					<span class="fg-flag"><LangTag lang={backFlag} /></span>
+					<p class="fg-word" lang={backFlag === 'kh' ? 'km' : 'fr'}>{backText}</p>
 					{#if backPhonetic}
 						<p class="fg-phonetic">{backPhonetic}</p>
 					{/if}
@@ -404,8 +405,9 @@
 
 	.fg-flag  { font-size: 1.4rem; }
 	.fg-word  { font-size: 1.4rem; font-weight: 700; color: var(--text); text-align: center; line-height: 1.3; }
+	.fg-word[lang="km"] { line-height: var(--lh-kh); }
 	.fg-phonetic { font-size: 0.72rem; color: var(--accent-text); font-style: italic; opacity: 0.8; text-align: center; }
-	.fg-sub   { font-size: 0.68rem; color: var(--muted); font-style: italic; }
+	.fg-sub   { font-size: var(--fs-base); color: var(--muted-text); text-align: center; }
 	.fg-hint  { font-size: 0.65rem; color: var(--muted); margin-top: 0.15rem; }
 
 	/* ── Rating buttons ── */

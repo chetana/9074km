@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { X } from 'lucide-svelte';
 	import { REACTIONS } from '$lib/i18n';
 
 	interface FileItem {
@@ -187,7 +188,7 @@
 	<!-- Top bar -->
 	{#if barsVisible}
 		<div class="top-bar" transition:fly={{ y: -48, duration: 200 }}>
-			<button class="bar-btn" onclick={onClose} aria-label="Fermer">✕</button>
+			<button class="bar-btn" onclick={onClose} aria-label="Fermer"><X size={18} /></button>
 			<span class="filename">{currentItem?.name?.split('/').pop() ?? ''}</span>
 			<div class="bar-actions">
 				<button class="bar-btn" onclick={handleCopyLink} aria-label="Copier le lien">🔗</button>

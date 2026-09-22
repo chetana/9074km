@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Flag from '$lib/Flag.svelte';
-	import { Volume2, Mic as MicIcon } from 'lucide-svelte';
+	import LangTag from '$lib/LangTag.svelte';
+	import { Volume2, Mic as MicIcon, Trash2, X } from 'lucide-svelte';
 	import type { ChatMessage } from '$lib/api';
 
 	interface Props {
@@ -29,6 +30,15 @@
 
 	const legacy = $derived((msg as unknown as { translation?: string }).translation);
 	const aLang = $derived((msg.lang as 'fr' | 'en' | 'kh' | undefined) ?? (isChet(msg.author) ? 'fr' : 'kh'));
+	const htmlLang = (l: 'fr' | 'en' | 'kh') => (l === 'kh' ? 'km' : l);
+
+	// Ordre des traductions secondaires : la langue du lecteur d'abord (khmer traité comme
+	// langue première, pas systématiquement relégué en dernier) — voir CLAUDE.md § Bilinguisme.
+	const otherTranslations = $derived(
+		(['fr', 'en', 'kh'] as const)
+			.filter((l) => l !== aLang && msg[l])
+			.sort((a, b) => (a === userLang ? -1 : b === userLang ? 1 : 0))
+	);
 </script>
 
 <div class="bubble-wrapper" class:mine={isMine} class:selected={isSelected} class:is-pending={isPending || isSpeaking}>
@@ -36,13 +46,13 @@
 		<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
 			<button class="act-btn copy" onclick={onCopy} aria-label="Copier">{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}</button>
 			<div class="act-row">
-				<button class="act-btn" onclick={() => onSpeak('fr')} aria-label="FR"><Volume2 size={14} /><Flag lang="fr" size="sm" /></button>
-				<button class="act-btn" onclick={() => onSpeak('en')} aria-label="EN"><Volume2 size={14} /><Flag lang="en" size="sm" /></button>
-				<button class="act-btn" onclick={() => onSpeak('kh')} aria-label="KH"><Volume2 size={14} /><Flag lang="kh" size="sm" /></button>
+				<button class="act-btn" onclick={() => onSpeak('fr')} aria-label="FR"><Volume2 size={14} /><LangTag lang="fr" /></button>
+				<button class="act-btn" onclick={() => onSpeak('en')} aria-label="EN"><Volume2 size={14} /><LangTag lang="en" /></button>
+				<button class="act-btn" onclick={() => onSpeak('kh')} aria-label="KH"><Volume2 size={14} /><LangTag lang="kh" /></button>
 			</div>
 			<div class="act-row">
-				<button class="act-btn delete" onclick={onDelete} aria-label="Supprimer">🗑</button>
-				<button class="act-btn close" onclick={onDeselect} aria-label="Fermer">✕</button>
+				<button class="act-btn delete" onclick={onDelete} aria-label="Supprimer"><Trash2 size={16} /></button>
+				<button class="act-btn close" onclick={onDeselect} aria-label="Fermer"><X size={16} /></button>
 			</div>
 		</div>
 	{/if}
@@ -67,10 +77,10 @@
 			{/if}
 			{#if msg.fr || msg.en || msg.kh}
 				<div class="bubble-translations">
-					<p class="bubble-translation"><span class="transl-flag"><Flag lang={aLang} size="sm" /></span>{msg.text}</p>
-					{#if aLang !== 'fr' && msg.fr}<p class="bubble-translation"><span class="transl-flag"><Flag lang="fr" size="sm" /></span>{msg.fr}</p>{/if}
-					{#if aLang !== 'en' && msg.en}<p class="bubble-translation"><span class="transl-flag"><Flag lang="en" size="sm" /></span>{msg.en}</p>{/if}
-					{#if aLang !== 'kh' && msg.kh}<p class="bubble-translation"><span class="transl-flag"><Flag lang="kh" size="sm" /></span>{msg.kh}</p>{/if}
+					<p class="bubble-translation first" lang={htmlLang(aLang)}><span class="transl-tag"><LangTag lang={aLang} /></span>{msg.text}</p>
+					{#each otherTranslations as l (l)}
+						<p class="bubble-translation" lang={htmlLang(l)}><span class="transl-tag"><LangTag lang={l} /></span>{msg[l]}</p>
+					{/each}
 				</div>
 			{:else}
 				<p class="bubble-text">{msg.text}</p>
@@ -87,12 +97,12 @@
 		<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
 			<button class="act-btn copy" onclick={onCopy} aria-label="Copier">{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}</button>
 			<div class="act-row">
-				<button class="act-btn" onclick={() => onSpeak('fr')} aria-label="FR"><Volume2 size={14} /><Flag lang="fr" size="sm" /></button>
-				<button class="act-btn" onclick={() => onSpeak('en')} aria-label="EN"><Volume2 size={14} /><Flag lang="en" size="sm" /></button>
-				<button class="act-btn" onclick={() => onSpeak('kh')} aria-label="KH"><Volume2 size={14} /><Flag lang="kh" size="sm" /></button>
+				<button class="act-btn" onclick={() => onSpeak('fr')} aria-label="FR"><Volume2 size={14} /><LangTag lang="fr" /></button>
+				<button class="act-btn" onclick={() => onSpeak('en')} aria-label="EN"><Volume2 size={14} /><LangTag lang="en" /></button>
+				<button class="act-btn" onclick={() => onSpeak('kh')} aria-label="KH"><Volume2 size={14} /><LangTag lang="kh" /></button>
 			</div>
 			<div class="act-row">
-				<button class="act-btn close" onclick={onDeselect} aria-label="Fermer">✕</button>
+				<button class="act-btn close" onclick={onDeselect} aria-label="Fermer"><X size={16} /></button>
 			</div>
 		</div>
 	{/if}
@@ -185,7 +195,7 @@
 		color: var(--on-accent);
 	}
 	.bubble.mine .bubble-text,
-	.bubble.mine .bubble-translation:first-child {
+	.bubble.mine .bubble-translation.first {
 		color: var(--on-accent);
 	}
 	.bubble.mine .bubble-translation,
@@ -193,7 +203,7 @@
 		color: color-mix(in srgb, var(--on-accent) 75%, transparent);
 	}
 	.bubble.mine .bubble-translations,
-	.bubble.mine .bubble-translation:first-child {
+	.bubble.mine .bubble-translation.first {
 		border-color: color-mix(in srgb, var(--on-accent) 18%, transparent);
 	}
 
@@ -247,11 +257,10 @@
 		flex-direction: column;
 		gap: 4px;
 	}
-	.bubble-translation:first-child {
+	.bubble-translation.first {
 		font-size: var(--fs-md);
 		font-weight: 500;
 		color: var(--text);
-		font-style: normal;
 		line-height: 1.55;
 		padding-bottom: var(--space-2);
 		border-bottom: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
@@ -261,18 +270,22 @@
 		gap: var(--space-1);
 	}
 	.bubble-translation {
-		font-size: var(--fs-xs);
-		color: var(--muted);
-		font-style: italic;
-		line-height: 1.4;
+		font-size: var(--fs-base);
+		color: var(--muted-text);
+		line-height: 1.5;
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-1);
 	}
-	.transl-flag {
-		font-style: normal;
+	/* Khmer traité comme langue première, pas une langue secondaire échappée en petit/italique
+	   (voir CLAUDE.md § Bilinguisme) — même si la règle globale de app.css couvre déjà [lang=km],
+	   on la répète ici en scoped pour ne pas dépendre de l'ordre de cascade entre app.css et ce
+	   composant. */
+	.bubble-translation[lang="km"] {
+		line-height: var(--lh-kh);
+	}
+	.transl-tag {
 		flex-shrink: 0;
-		font-size: 0.75em;
 	}
 
 	.bubble-time {

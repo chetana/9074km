@@ -133,7 +133,7 @@
 		<div class="time">{fmtTime(paris)}</div>
 		<div class="dates">
 			<div class="date-fr">{fmtDate(now, TZ_PARIS)}</div>
-			<div class="date-kh">{fmtDateKh(now, TZ_PARIS)}</div>
+			<div class="date-kh" lang="km">{fmtDateKh(now, TZ_PARIS)}</div>
 		</div>
 		<div class="status">
 			<span class="status-icon">{parisStatus.icon}</span>
@@ -252,7 +252,7 @@
 		<div class="time">{fmtTime(pp)}</div>
 		<div class="dates">
 			<div class="date-fr">{fmtDate(now, TZ_PP)}</div>
-			<div class="date-kh">{fmtDateKh(now, TZ_PP)}</div>
+			<div class="date-kh" lang="km">{fmtDateKh(now, TZ_PP)}</div>
 		</div>
 		<div class="status">
 			<span class="status-icon">{ppStatus.icon}</span>
@@ -519,7 +519,6 @@
 		font-size: var(--fs-xs);
 		color: var(--muted);
 		letter-spacing: 0.02em;
-		font-style: italic;
 	}
 
 	.time {
@@ -544,9 +543,9 @@
 	}
 
 	.date-kh {
-		font-size: var(--fs-sm);
+		font-size: var(--fs-base);
 		color: var(--muted);
-		opacity: 0.65;
+		line-height: var(--lh-kh);
 	}
 
 	.status {

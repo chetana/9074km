@@ -1,4 +1,6 @@
 <script lang="ts">
+import { ChevronLeft, ChevronRight, Grid2x2, Grid3x3, LayoutGrid } from 'lucide-svelte';
+
 interface Props {
 		label: string;
 		hasPrev: boolean;
@@ -11,20 +13,18 @@ interface Props {
 
 	let { label, hasPrev, hasNext, columns, onPrev, onNext, onCycleColumns }: Props = $props();
 
-	const gridIcon = $derived(
-		columns === 2 ? '⊞' : columns === 3 ? '⊟' : '▦'
-	);
+	const GridIcon = $derived(columns === 2 ? Grid2x2 : columns === 3 ? Grid3x3 : LayoutGrid);
 </script>
 
 <div class="navbar">
-	<button class="nav-btn" onclick={onPrev} disabled={!hasPrev} aria-label="Jour précédent">‹</button>
+	<button class="nav-btn" onclick={onPrev} disabled={!hasPrev} aria-label="Jour précédent"><ChevronLeft size={20} /></button>
 
 	<span class="day-label">{label}</span>
 
-	<button class="nav-btn" onclick={onNext} disabled={!hasNext} aria-label="Jour suivant">›</button>
+	<button class="nav-btn" onclick={onNext} disabled={!hasNext} aria-label="Jour suivant"><ChevronRight size={20} /></button>
 
 	<button class="grid-btn" onclick={onCycleColumns} title="Changer le zoom">
-		{gridIcon}
+		<GridIcon size={18} />
 	</button>
 </div>
 

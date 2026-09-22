@@ -12,6 +12,7 @@
 	import { createSWR } from '$lib/swr.svelte';
 	import FlashcardGame from '$lib/FlashcardGame.svelte';
 	import Flag from '$lib/Flag.svelte';
+	import { Bell, BellOff, Layers, X } from 'lucide-svelte';
 	import { getLevel, getAvatar, xpProgressPct } from '$lib/flashcard-levels';
 	import ChatBubble from './components/ChatBubble.svelte';
 	import ChatInput from './components/ChatInput.svelte';
@@ -804,7 +805,7 @@
 						onclick={notifPerm === 'granted' ? unsubscribeNotifications : subscribeNotifications}
 						title={notifPerm === 'granted' ? 'Désactiver les notifications' : 'Activer les notifications'}
 					>
-						{notifPerm === 'granted' ? '🔔' : '🔕'}
+						{#if notifPerm === 'granted'}<Bell size={18} />{:else}<BellOff size={18} />{/if}
 					</button>
 				{/if}
 			</div>
@@ -815,7 +816,7 @@
 			</div>
 			<button class="fc-badge-btn" onclick={() => showFlashcards = true} aria-label="Flashcards" title="Flashcards · Nv.{chatLevel.level}">
 				<div class="fc-badge-icon-wrap">
-					<span class="fc-badge-icon">🎴</span>
+					<span class="fc-badge-icon"><Layers size={16} /></span>
 					<span class="fc-badge-lvl">{chatLevel.level}</span>
 				</div>
 				<span class="fc-badge-avatar">{chatAvatar}</span>
@@ -904,7 +905,7 @@
 				<div class="lessons-panel" onclick={(e) => e.stopPropagation()} role="dialog">
 					<div class="lessons-header">
 						<span class="lessons-title">📖 {ui.lessonsTitle}</span>
-						<button class="lessons-close" onclick={() => showLessons = false}>✕</button>
+						<button class="lessons-close" onclick={() => showLessons = false} aria-label="Fermer"><X size={18} /></button>
 					</div>
 					<div class="lessons-body">
 						{#if lessonsLoading}
@@ -1278,13 +1279,7 @@
 		perspective: 400px;
 	}
 	.fc-badge-icon {
-		font-size: 1rem;
-		display: block;
-		animation: fc-card-flip 5s ease-in-out infinite;
-	}
-	@keyframes fc-card-flip {
-		0%, 70%, 100% { transform: rotateY(0deg); }
-		80%            { transform: rotateY(180deg); }
+		display: flex;
 	}
 	.fc-badge-lvl {
 		position: absolute;

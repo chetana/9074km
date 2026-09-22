@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
+	import { X } from 'lucide-svelte';
 	import { getAudioCache, setAudioCache } from '$lib/audioCache';
 	import {
 		type Lesson, type Exercise, sameSentence, normalizeAnswer, shuffle,
@@ -224,7 +225,7 @@
 	<div class="lp-panel" style="--lvl-color:{levelColor}" transition:fly={{ y: 30, duration: 280 }}>
 		<!-- En-tête -->
 		<div class="lp-top">
-			<button class="lp-close" onclick={onClose} aria-label="Fermer">✕</button>
+			<button class="lp-close" onclick={onClose} aria-label="Fermer"><X size={18} /></button>
 			{#if phase === 'play'}
 				<div class="lp-bar"><div class="lp-bar-fill" style="width:{playPct}%"></div></div>
 				<span class="lp-count">{idx + 1}/{total}</span>

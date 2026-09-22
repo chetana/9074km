@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Flag from '$lib/Flag.svelte';
+	import LangTag from '$lib/LangTag.svelte';
 	import type { GeminiSuggestion } from '$lib/api';
 
 	interface Props {
@@ -23,9 +23,9 @@
 	<div class="suggestion">
 		<p class="suggestion-question">{suggestion.question}</p>
 		<p class="suggestion-corrected">"{suggestion.corrected}"</p>
-		{#if suggestion.fr}<p class="suggestion-translation"><span class="transl-flag"><Flag lang="fr" size="sm" /></span>{suggestion.fr}</p>{/if}
-		{#if suggestion.en}<p class="suggestion-translation"><span class="transl-flag"><Flag lang="en" size="sm" /></span>{suggestion.en}</p>{/if}
-		{#if suggestion.kh}<p class="suggestion-translation"><span class="transl-flag"><Flag lang="kh" size="sm" /></span>{suggestion.kh}</p>{/if}
+		{#if suggestion.fr}<p class="suggestion-translation" lang="fr"><span class="transl-tag"><LangTag lang="fr" /></span>{suggestion.fr}</p>{/if}
+		{#if suggestion.en}<p class="suggestion-translation" lang="en"><span class="transl-tag"><LangTag lang="en" /></span>{suggestion.en}</p>{/if}
+		{#if suggestion.kh}<p class="suggestion-translation" lang="km"><span class="transl-tag"><LangTag lang="kh" /></span>{suggestion.kh}</p>{/if}
 		{#if suggestion.lessons?.length}
 			{#each suggestion.lessons as l}
 				<p class="suggestion-lesson"><s>{l.original}</s> → <strong>{l.corrected}</strong> — {l.explanation}</p>
@@ -68,8 +68,16 @@
 		color: var(--lavender-text);
 	}
 	.suggestion-corrected { font-size: var(--fs-base); color: var(--text); }
-	.suggestion-translation { font-size: var(--fs-sm); color: var(--muted); font-style: italic; }
-	.transl-flag { font-style: normal; flex-shrink: 0; font-size: 0.75em; }
+	.suggestion-translation {
+		font-size: var(--fs-base);
+		color: var(--muted-text);
+		line-height: 1.5;
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-1);
+	}
+	.suggestion-translation[lang="km"] { line-height: var(--lh-kh); }
+	.transl-tag { flex-shrink: 0; }
 	.suggestion-lesson {
 		font-size: var(--fs-sm);
 		color: var(--text-secondary);
