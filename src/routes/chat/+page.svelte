@@ -14,6 +14,7 @@
 	import Flag from '$lib/Flag.svelte';
 	import { Bell, BellOff, Layers, X, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import { getLevel, getAvatar, xpProgressPct } from '$lib/flashcard-levels';
+	import { groupMessages } from '$lib/chat/group';
 	import ChatBubble from './components/ChatBubble.svelte';
 	import ChatInput from './components/ChatInput.svelte';
 	import SuggestionCard from './components/SuggestionCard.svelte';
@@ -49,6 +50,9 @@
 	let messages = $derived.by(() => swrMessages.data);
 	let chatXp = $derived.by(() => swrXp.data);
 	let loadingMessages = $derived(swrMessages.loading && messages.length === 0);
+	// Regroupement des messages consécutifs du même auteur — un seul avatar/horodatage par
+	// groupe (plan de modernisation P7, 22/09/2026).
+	let messageGroups = $derived(groupMessages(messages));
 
 	let inputText = $state('');
 	let sending = $state(false);
@@ -838,51 +842,48 @@
 				</div>
 			{/if}
 
-			{#each messages as msg (msg.id)}
-				<div class="msg-wrap">
-					<ChatBubble
-						{msg}
-						isMine={msg.author === firstName}
-						isSelected={selectedMsg === msg.id}
-						isPending={msg.id.startsWith('temp-')}
-						isSpeaking={speakingMsgId === msg.id}
-						{userLang}
-						imageUrl={msg.image ? imageUrls[msg.image] : undefined}
-						onSelect={() => selectMsg(msg.id)}
-						onCopy={copySelected}
-						onSpeak={speakSelected}
-						onDelete={deleteSelected}
-						onDeselect={() => selectedMsg = null}
-						{fmtTime}
-						{fmtTimeKH}
-						{isChet}
-					/>
-					<!-- Réactions existantes -->
-					{#if reactions[msg.id] && REACTION_EMOJIS.some(e => (reactions[msg.id][e]?.length ?? 0) > 0)}
-						<div class="reaction-row" class:mine={msg.author === firstName}>
-							{#each REACTION_EMOJIS as emoji}
-								{#if reactions[msg.id][emoji]?.length > 0}
-									<button
-										class="reaction-pill"
-										class:reacted={reactions[msg.id][emoji]?.includes(firstName)}
-										onclick={() => toggleReaction(msg.id, emoji)}
-									>{emoji} {reactions[msg.id][emoji].length}</button>
-								{/if}
-							{/each}
+			{#each messageGroups as group (group[0].id)}
+				<div class="msg-group">
+					{#each group as msg, i (msg.id)}
+						<div class="msg-wrap">
+							<ChatBubble
+								{msg}
+								isMine={msg.author === firstName}
+								isSelected={selectedMsg === msg.id}
+								isPending={msg.id.startsWith('temp-')}
+								isSpeaking={speakingMsgId === msg.id}
+								{userLang}
+								imageUrl={msg.image ? imageUrls[msg.image] : undefined}
+								isFirstInGroup={i === 0}
+								isLastInGroup={i === group.length - 1}
+								reactionEmojis={REACTION_EMOJIS}
+								reacted={(emoji) => reactions[msg.id]?.[emoji]?.includes(firstName) ?? false}
+								onSelect={() => selectMsg(msg.id)}
+								onDeselect={() => selectedMsg = null}
+								onReact={(emoji) => toggleReaction(msg.id, emoji)}
+								onCopy={copySelected}
+								onSpeak={speakSelected}
+								onDelete={deleteSelected}
+								{fmtTime}
+								{fmtTimeKH}
+								{isChet}
+							/>
+							<!-- Réactions déjà posées — sous la dernière bulle du groupe (plan P7) -->
+							{#if i === group.length - 1 && reactions[msg.id] && REACTION_EMOJIS.some(e => (reactions[msg.id][e]?.length ?? 0) > 0)}
+								<div class="reaction-row" class:mine={msg.author === firstName}>
+									{#each REACTION_EMOJIS as emoji}
+										{#if reactions[msg.id][emoji]?.length > 0}
+											<button
+												class="reaction-pill"
+												class:reacted={reactions[msg.id][emoji]?.includes(firstName)}
+												onclick={() => toggleReaction(msg.id, emoji)}
+											>{emoji} {reactions[msg.id][emoji].length}</button>
+										{/if}
+									{/each}
+								</div>
+							{/if}
 						</div>
-					{/if}
-					<!-- Picker réactions si message sélectionné -->
-					{#if selectedMsg === msg.id && !msg.id.startsWith('temp-')}
-						<div class="reaction-picker" class:mine={msg.author === firstName}>
-							{#each REACTION_EMOJIS as emoji}
-								<button
-									class="reaction-pick-btn"
-									class:reacted={reactions[msg.id]?.[emoji]?.includes(firstName)}
-									onclick={() => { toggleReaction(msg.id, emoji); selectedMsg = null; }}
-								>{emoji}</button>
-							{/each}
-						</div>
-					{/if}
+					{/each}
 				</div>
 			{/each}
 		</div>
@@ -991,6 +992,14 @@
 	/* ── Chat header ── */
 	.msg-wrap { display: contents; }
 
+	/* Groupe de messages consécutifs du même auteur — le gap intra-groupe est plus serré que
+	   l'espacement entre deux groupes distincts (plan de modernisation P7, 22/09/2026). */
+	.msg-group {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+
 	.reaction-row {
 		display: flex;
 		flex-wrap: wrap;
@@ -1015,25 +1024,6 @@
 	.reaction-pill:hover { transform: scale(1.12); }
 	.reaction-pill.reacted { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
 
-	.reaction-picker {
-		display: flex;
-		gap: 4px;
-		padding: 0.2rem 0.6rem 0.4rem;
-		justify-content: flex-start;
-		animation: fadeIn 0.12s ease;
-	}
-	.reaction-picker.mine { justify-content: flex-end; }
-	.reaction-pick-btn {
-		font-size: 1.3rem;
-		padding: 0.15rem 0.25rem;
-		border-radius: 8px;
-		border: none;
-		background: color-mix(in srgb, var(--card) 90%, transparent);
-		cursor: pointer;
-		transition: transform 0.12s, background 0.15s;
-	}
-	.reaction-pick-btn:hover { transform: scale(1.2); }
-	.reaction-pick-btn.reacted { background: color-mix(in srgb, var(--accent) 25%, transparent); }
 	@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
 	.chat-header {

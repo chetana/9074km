@@ -1,7 +1,8 @@
 <script lang="ts">
 	import Flag from '$lib/Flag.svelte';
 	import LangTag from '$lib/LangTag.svelte';
-	import { Volume2, Mic as MicIcon, Trash2, X } from 'lucide-svelte';
+	import BubbleMenu from './BubbleMenu.svelte';
+	import { Mic as MicIcon, ChevronDown } from 'lucide-svelte';
 	import type { ChatMessage } from '$lib/api';
 
 	interface Props {
@@ -12,19 +13,25 @@
 		isSpeaking: boolean;
 		userLang: 'fr' | 'kh';
 		imageUrl?: string;
+		isFirstInGroup: boolean;
+		isLastInGroup: boolean;
+		reactionEmojis: string[];
+		reacted: (emoji: string) => boolean;
 		onSelect: () => void;
+		onDeselect: () => void;
+		onReact: (emoji: string) => void;
 		onCopy: () => void;
 		onSpeak: (lang: 'fr' | 'en' | 'kh') => void;
 		onDelete: () => void;
-		onDeselect: () => void;
 		fmtTime: (ts: string) => string;
 		fmtTimeKH: (ts: string) => string;
 		isChet: (name: string) => boolean;
 	}
 
 	let {
-		msg, isMine, isSelected, isPending, isSpeaking, userLang,
-		imageUrl, onSelect, onCopy, onSpeak, onDelete, onDeselect,
+		msg, isMine, isSelected, isPending, isSpeaking, userLang, imageUrl,
+		isFirstInGroup, isLastInGroup, reactionEmojis, reacted,
+		onSelect, onDeselect, onReact, onCopy, onSpeak, onDelete,
 		fmtTime, fmtTimeKH, isChet
 	}: Props = $props();
 
@@ -39,28 +46,55 @@
 			.filter((l) => l !== aLang && msg[l])
 			.sort((a, b) => (a === userLang ? -1 : b === userLang ? 1 : 0))
 	);
+
+	// Traductions repliées par défaut — révélées au tap plutôt que toutes empilées visuellement
+	// (plan de modernisation P7, maquette bubbles-states.html, section 1).
+	let showTranslations = $state(false);
+	const toggleLangLabel = (l: 'fr' | 'en' | 'kh') => (l === 'kh' ? 'ខ្មែរ' : l.toUpperCase());
+
+	// Menu contextuel unique au long-press, remplace la colonne de 6 boutons + la rangée de
+	// réactions séparée (section 3 de la maquette). ~450ms, annulé au déplacement/relâchement.
+	let pressTimer: ReturnType<typeof setTimeout> | null = null;
+	let pressStart = { x: 0, y: 0 };
+	const MOVE_TOLERANCE = 10;
+
+	function onPointerDown(e: PointerEvent) {
+		pressStart = { x: e.clientX, y: e.clientY };
+		if (pressTimer) clearTimeout(pressTimer);
+		pressTimer = setTimeout(() => { pressTimer = null; onSelect(); }, 450);
+	}
+	function onPointerMove(e: PointerEvent) {
+		if (!pressTimer) return;
+		if (Math.abs(e.clientX - pressStart.x) > MOVE_TOLERANCE || Math.abs(e.clientY - pressStart.y) > MOVE_TOLERANCE) {
+			clearTimeout(pressTimer);
+			pressTimer = null;
+		}
+	}
+	function cancelPress() {
+		if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+	}
 </script>
 
-<div class="bubble-wrapper" class:mine={isMine} class:selected={isSelected} class:is-pending={isPending || isSpeaking}>
-	{#if isSelected && isMine}
-		<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
-			<button class="act-btn copy" onclick={onCopy} aria-label="Copier">{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}</button>
-			<div class="act-row">
-				<button class="act-btn" onclick={() => onSpeak('fr')} aria-label="FR"><Volume2 size={14} /><LangTag lang="fr" /></button>
-				<button class="act-btn" onclick={() => onSpeak('en')} aria-label="EN"><Volume2 size={14} /><LangTag lang="en" /></button>
-				<button class="act-btn" onclick={() => onSpeak('kh')} aria-label="KH"><Volume2 size={14} /><LangTag lang="kh" /></button>
-			</div>
-			<div class="act-row">
-				<button class="act-btn delete" onclick={onDelete} aria-label="Supprimer"><Trash2 size={16} /></button>
-				<button class="act-btn close" onclick={onDeselect} aria-label="Fermer"><X size={16} /></button>
-			</div>
-		</div>
+<div class="bubble-wrapper" class:mine={isMine} class:is-pending={isPending || isSpeaking}>
+	{#if !isMine && isFirstInGroup}
+		<span class="author-label">{msg.author}</span>
 	{/if}
-	<div class="bubble-row" class:mine={isMine} onclick={onSelect} role="button" tabindex="0">
-		{#if !isMine}
-			<span class="author-label">{msg.author}</span>
-		{/if}
-		<div class="bubble" class:mine={isMine}>
+	<div class="bubble-anchor">
+		<div
+			class="bubble"
+			class:mine={isMine}
+			class:tail={isLastInGroup}
+			class:selected={isSelected}
+			onpointerdown={onPointerDown}
+			onpointermove={onPointerMove}
+			onpointerup={cancelPress}
+			onpointercancel={cancelPress}
+			oncontextmenu={(e) => e.preventDefault()}
+			role="button"
+			tabindex="0"
+			aria-haspopup="true"
+			aria-expanded={isSelected}
+		>
 			{#if isPending || isSpeaking}
 				<div class="magic-loader">
 					<span class="magic-sparkle">✨</span>
@@ -76,59 +110,68 @@
 				{/if}
 			{/if}
 			{#if msg.fr || msg.en || msg.kh}
-				<div class="bubble-translations">
+				<div class="bubble-i18n">
 					<p class="bubble-translation first" lang={htmlLang(aLang)}><span class="transl-tag"><LangTag lang={aLang} /></span>{msg.text}</p>
-					{#each otherTranslations as l (l)}
-						<p class="bubble-translation" lang={htmlLang(l)}><span class="transl-tag"><LangTag lang={l} /></span>{msg[l]}</p>
-					{/each}
+					{#if otherTranslations.length > 0}
+						<button
+							class="i18n-toggle"
+							type="button"
+							aria-expanded={showTranslations}
+							onclick={(e) => { e.stopPropagation(); showTranslations = !showTranslations; }}
+						>
+							{#if showTranslations}
+								{userLang === 'kh' ? 'លាក់ការបកប្រែ' : 'Masquer les traductions'}
+							{:else}
+								{userLang === 'kh' ? 'មើលជា' : 'Voir en'} {otherTranslations.map(toggleLangLabel).join(' · ')}
+							{/if}
+							<ChevronDown size={11} class="chev" style={showTranslations ? 'transform:rotate(180deg)' : ''} />
+						</button>
+						{#if showTranslations}
+							<div class="i18n-more">
+								{#each otherTranslations as l (l)}
+									<p class="bubble-translation" lang={htmlLang(l)}><span class="transl-tag"><LangTag lang={l} /></span>{msg[l]}</p>
+								{/each}
+							</div>
+						{/if}
+					{/if}
 				</div>
 			{:else}
 				<p class="bubble-text">{msg.text}</p>
 				{#if legacy}
-					<div class="bubble-translations">
+					<div class="bubble-i18n">
 						<p class="bubble-translation">{legacy}</p>
 					</div>
 				{/if}
 			{/if}
-			<span class="bubble-time"><Flag lang="fr" size="sm" /> {fmtTime(msg.ts)} · <Flag lang="kh" size="sm" /> {fmtTimeKH(msg.ts)}</span>
+			{#if isLastInGroup}
+				<span class="bubble-time"><Flag lang="fr" size="sm" /> {fmtTime(msg.ts)} · <Flag lang="kh" size="sm" /> {fmtTimeKH(msg.ts)}</span>
+			{/if}
 		</div>
+
+		{#if isSelected}
+			<BubbleMenu
+				align={isMine ? 'right' : 'left'}
+				emojis={reactionEmojis}
+				{reacted}
+				canDelete={isMine}
+				{userLang}
+				{onReact}
+				{onSpeak}
+				{onCopy}
+				onDelete={() => { onDelete(); onDeselect(); }}
+			/>
+		{/if}
 	</div>
-	{#if isSelected && !isMine}
-		<div class="inline-actions" onclick={(e) => e.stopPropagation()}>
-			<button class="act-btn copy" onclick={onCopy} aria-label="Copier">{userLang === 'kh' ? '📋 ចម្លង' : '📋 Copier'}</button>
-			<div class="act-row">
-				<button class="act-btn" onclick={() => onSpeak('fr')} aria-label="FR"><Volume2 size={14} /><LangTag lang="fr" /></button>
-				<button class="act-btn" onclick={() => onSpeak('en')} aria-label="EN"><Volume2 size={14} /><LangTag lang="en" /></button>
-				<button class="act-btn" onclick={() => onSpeak('kh')} aria-label="KH"><Volume2 size={14} /><LangTag lang="kh" /></button>
-			</div>
-			<div class="act-row">
-				<button class="act-btn close" onclick={onDeselect} aria-label="Fermer"><X size={16} /></button>
-			</div>
-		</div>
-	{/if}
 </div>
 
 <style>
 	.bubble-wrapper {
 		display: flex;
-		align-items: center;
-		gap: var(--space-2);
+		flex-direction: column;
 		width: 100%;
 	}
-	.bubble-wrapper.mine { justify-content: flex-end; }
-	.bubble-wrapper:not(.mine) { justify-content: flex-start; }
-
-	.bubble-wrapper > .bubble-row {
-		transition: transform 0.25s cubic-bezier(0.34, 1.2, 0.64, 1);
-		cursor: pointer;
-	}
-	.bubble-wrapper.selected.mine > .bubble-row { transform: translateX(6px); }
-	.bubble-wrapper.selected:not(.mine) > .bubble-row { transform: translateX(-6px); }
-
-	.bubble-wrapper.selected .bubble {
-		outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
-		outline-offset: 2px;
-	}
+	.bubble-wrapper.mine { align-items: flex-end; }
+	.bubble-wrapper:not(.mine) { align-items: flex-start; }
 
 	.bubble-wrapper.is-pending {
 		opacity: 0.7;
@@ -141,46 +184,35 @@
 		50% { transform: scale(0.98); opacity: 0.5; }
 	}
 
-	.bubble-row {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 2px;
+	.bubble-anchor {
+		position: relative;
 		max-width: 80%;
-		animation: msg-in-left 0.32s cubic-bezier(0.34, 1.4, 0.64, 1);
-	}
-	.bubble-row.mine {
-		animation: msg-in-right 0.32s cubic-bezier(0.34, 1.4, 0.64, 1);
-		align-items: flex-end;
-	}
-
-	@keyframes msg-in-left {
-		from { opacity: 0; transform: translateX(-14px) translateY(8px) scale(0.97); }
-		to   { opacity: 1; transform: none; }
-	}
-	@keyframes msg-in-right {
-		from { opacity: 0; transform: translateX(14px) translateY(8px) scale(0.97); }
-		to   { opacity: 1; transform: none; }
 	}
 
 	.author-label {
 		font-size: var(--fs-xs);
 		color: var(--muted);
 		padding-left: var(--space-2);
+		margin-bottom: 2px;
 	}
 
 	.bubble {
 		background: linear-gradient(160deg, var(--surface), color-mix(in srgb, var(--accent) 6%, var(--surface)) 85%);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-xl);
-		border-top-left-radius: 8px;
+		border-top-left-radius: var(--radius-xl);
 		padding: var(--space-3) var(--space-4);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
 		position: relative;
 		box-shadow: var(--shadow-sm);
+		cursor: pointer;
+		animation: msg-in-left 0.32s cubic-bezier(0.34, 1.4, 0.64, 1);
 	}
+	/* Seule la dernière bulle d'un groupe garde la "queue" (coin moins arrondi) — les autres sont
+	   uniformément arrondies (regroupement, plan de modernisation P7, 22/09/2026). */
+	.bubble:not(.mine).tail { border-top-left-radius: 8px; }
 	.bubble.mine {
 		background: linear-gradient(
 			150deg,
@@ -190,21 +222,38 @@
 		);
 		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 		border-radius: var(--radius-xl);
-		border-top-right-radius: 8px;
+		border-top-right-radius: var(--radius-xl);
 		box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 		color: var(--on-accent);
+		animation: msg-in-right 0.32s cubic-bezier(0.34, 1.4, 0.64, 1);
 	}
+	.bubble.mine.tail { border-top-right-radius: 8px; }
+
+	.bubble.selected {
+		outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+		outline-offset: 2px;
+	}
+
 	.bubble.mine .bubble-text,
 	.bubble.mine .bubble-translation.first {
 		color: var(--on-accent);
 	}
 	.bubble.mine .bubble-translation,
-	.bubble.mine .bubble-time {
+	.bubble.mine .bubble-time,
+	.bubble.mine .i18n-toggle {
 		color: color-mix(in srgb, var(--on-accent) 75%, transparent);
 	}
-	.bubble.mine .bubble-translations,
 	.bubble.mine .bubble-translation.first {
 		border-color: color-mix(in srgb, var(--on-accent) 18%, transparent);
+	}
+
+	@keyframes msg-in-left {
+		from { opacity: 0; transform: translateX(-14px) translateY(8px) scale(0.97); }
+		to   { opacity: 1; transform: none; }
+	}
+	@keyframes msg-in-right {
+		from { opacity: 0; transform: translateX(14px) translateY(8px) scale(0.97); }
+		to   { opacity: 1; transform: none; }
 	}
 
 	.source-badge {
@@ -249,10 +298,7 @@
 		word-break: break-word;
 	}
 
-	.bubble-translations {
-		margin-top: var(--space-2);
-		padding-top: var(--space-2);
-		border-top: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+	.bubble-i18n {
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
@@ -262,9 +308,6 @@
 		font-weight: 500;
 		color: var(--text);
 		line-height: 1.55;
-		padding-bottom: var(--space-2);
-		border-bottom: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
-		margin-bottom: 2px;
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-1);
@@ -286,6 +329,30 @@
 	}
 	.transl-tag {
 		flex-shrink: 0;
+	}
+
+	.i18n-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		align-self: flex-start;
+		font-size: var(--fs-xs);
+		font-weight: 600;
+		color: var(--muted-text);
+	}
+	.i18n-toggle :global(.chev) {
+		transition: transform 0.2s ease;
+	}
+
+	.i18n-more {
+		padding-top: var(--space-2);
+		border-top: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	.bubble.mine .i18n-more {
+		border-top-color: color-mix(in srgb, var(--on-accent) 18%, transparent);
 	}
 
 	.bubble-time {
@@ -313,49 +380,4 @@
 		justify-content: center;
 		color: var(--muted);
 	}
-
-	/* ── Actions inline ── */
-	.inline-actions {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		animation: fade-in-actions 0.2s ease forwards;
-		flex-shrink: 0;
-	}
-	@keyframes fade-in-actions {
-		from { opacity: 0; transform: scale(0.85); }
-		to   { opacity: 1; transform: scale(1); }
-	}
-	.act-row { display: flex; gap: 4px; }
-	.act-btn {
-		width: 2.6rem;
-		height: 2.6rem;
-		border-radius: var(--radius-sm);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 1rem;
-		flex-shrink: 0;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		transition: transform 0.1s;
-		cursor: pointer;
-	}
-	.act-btn:active { transform: scale(0.85); }
-	.act-btn.copy {
-		width: auto;
-		min-width: 5.5rem;
-		height: 2.6rem;
-		border-radius: var(--radius-xl);
-		padding: 0 var(--space-3);
-		font-size: 0.85rem;
-		font-weight: 600;
-		background: color-mix(in srgb, var(--accent) 12%, var(--card));
-		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-		color: var(--accent-text);
-		white-space: nowrap;
-	}
-	.act-btn.delete { background: color-mix(in srgb, #e53935 12%, var(--card)); }
-	.act-btn.close { color: var(--muted); font-size: 0.85rem; }
 </style>

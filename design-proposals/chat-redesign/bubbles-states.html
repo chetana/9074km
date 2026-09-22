@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>lys — Bulles de chat, référence des états</title>
+<meta name="description" content="Catalogue de référence des états de bulle de chat manquants de la maquette pastel de lys (trilingue, regroupement, menu long-press, réactions, image, vocal, envoi) — base pour l'implémentation Svelte.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Khmer:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+
+<style>
+  /* ============================================================
+     TOKENS — copiés tel quel depuis index.html (même maquette,
+     même système). Ne pas réinventer une nouvelle palette ici.
+     ============================================================ */
+  :root{
+    --bg:            #FFF8F0;
+    --bg-deep:       #FFF1E4;
+    --surface:       #FFFFFF;
+    --surface-2:     #FFF1F5;
+    --raised:        #FFEDE0;
+    --raised-2:      #FFE2CE;
+
+    --rose:          #FFC2D1;
+    --rose-deep:     #FF8FA6;
+    --accent:        #FF9EB3;
+    --accent-warm:   #FF7A93;
+    --accent-deep:   #E85F7E;
+    --accent-tint:   rgba(255, 158, 179, 0.14);
+    --on-accent:     #5A2536;
+
+    --lavender:      #E4DAF8;
+    --lavender-deep: #B7A3E8;
+    --mint:          #CDF3E3;
+    --mint-deep:     #7DD9B6;
+    --peach:         #FFE0BE;
+
+    --gold:          #FFC978;
+    --gold-deep:     #F2A54A;
+
+    --paris-top: #CDEAFB; --paris-mid: #FDF1DE; --paris-bot: #FFD9A0;
+    --kp-top:    #FCEFD8; --kp-mid:    #FFD9B8; --kp-bot:    #FFB88C;
+
+    --text:            #4A3438;
+    --text-secondary:  #7A6064;
+    --muted:           #B79FA4;
+    --border:          rgba(255, 143, 166, 0.30);
+    --border-soft:     rgba(74, 52, 56, 0.08);
+
+    --lavender-text: #5B4A8A;
+    --on-lavender:   #2E2145;
+    --gold-text:     #8A5410;
+    --muted-text:    #6E585C;
+    --accent-text:   #B83A5C;
+    --muted-glyph:   #9B8288;
+
+    --moon-occulter: #332B5E;
+
+    --shadow-xs:     0 1px 3px rgba(74, 52, 56, 0.07);
+    --shadow-sm:     0 3px 8px rgba(74, 52, 56, 0.09);
+    --shadow-md:     0 6px 16px rgba(74, 52, 56, 0.10);
+    --shadow-rose:   0 6px 14px rgba(255, 122, 147, 0.30);
+    --shadow-lavender: 0 6px 14px rgba(183, 163, 232, 0.28);
+    --shadow-gold:   0 4px 10px rgba(242, 165, 74, 0.28);
+    --shadow-lift:   var(--shadow-xs);
+    --shadow-soft:   var(--shadow-md);
+
+    --font-display: 'Fredoka', ui-rounded, 'Baloo 2', sans-serif;
+    --font-body: 'Noto Sans', 'Noto Sans Khmer', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    --radius-bubble: 26px;
+    --radius-card: 24px;
+    --radius-pill: 999px;
+  }
+
+  *{ box-sizing: border-box; }
+  html, body{
+    margin: 0; padding: 0;
+    background: var(--bg-deep);
+    color: var(--text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection{ background: var(--accent-tint); color: var(--accent-deep); }
+
+  /* Bilinguisme — jamais d'italique sur le khmer (pas d'italique réelle
+     dans Noto Sans Khmer, l'oblique synthétique abîme les diacritiques) */
+  .khmer, [lang="km"]{ font-style: normal !important; }
+
+  /* Garde-fou : plusieurs composants ci-dessous mettent `display: flex`
+     sur des éléments togglés via l'attribut `hidden` (.i18n-more,
+     .bubble-menu). Sans cette règle, `display:flex` bat le UA stylesheet
+     `[hidden]{display:none}` par spécificité égale + ordre de cascade, et
+     les deux états "replié"/"menu fermé" ne se distinguent jamais de
+     leurs pendants ouverts — bug trouvé en évaluation (attempt 1). */
+  [hidden]{ display: none !important; }
+
+  /* ============================================================
+     STAGE — contexte desktop autour de la maquette mobile
+     ============================================================ */
+  .stage{
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px;
+    background:
+      radial-gradient(circle at 18% 8%, rgba(255, 194, 209, 0.35), transparent 45%),
+      radial-gradient(circle at 84% 88%, rgba(196, 220, 245, 0.30), transparent 50%),
+      var(--bg-deep);
+    position: relative;
+    overflow: hidden;
+  }
+  .stage::before{
+    content: "";
+    position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(74,52,56,0.045) 1px, transparent 1px);
+    background-size: 26px 26px;
+    mask-image: radial-gradient(circle at 50% 40%, black, transparent 70%);
+    pointer-events: none;
+  }
+  .stage-label{
+    position: fixed;
+    left: 24px; bottom: 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    z-index: 5;
+  }
+  .stage-label b{ color: var(--text-secondary); font-weight: 500; }
+
+  /* ============================================================
+     PHONE FRAME — identique à index.html
+     ============================================================ */
+  .phone{
+    width: 402px;
+    max-width: 100%;
+    height: 852px;
+    max-height: 92vh;
+    border-radius: 46px;
+    padding: 12px;
+    background: linear-gradient(160deg, #FFF3E6, #FFE2CE 60%);
+    box-shadow:
+      var(--shadow-md),
+      0 0 0 1px rgba(255,255,255,0.6) inset,
+      0 24px 40px -20px rgba(255, 158, 179, 0.30);
+    position: relative;
+  }
+  .phone-notch{
+    position: absolute;
+    top: 12px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 26px;
+    background: #4A3438;
+    border-radius: 0 0 18px 18px;
+    z-index: 30;
+  }
+  .screen{
+    position: relative;
+    width: 100%; height: 100%;
+    border-radius: 34px;
+    overflow: hidden;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    isolation: isolate;
+  }
+  .screen::before{
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 140% 60% at 50% -10%, rgba(255, 217, 179, 0.35), transparent 55%),
+      radial-gradient(ellipse 100% 40% at 90% 100%, rgba(228, 218, 248, 0.30), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ============================================================
+     SKY — mécanisme identique à index.html / Sky.svelte, valeurs
+     et code inchangés. Reste visible en transparence derrière le
+     header et le composer (voile clair, pas un fond opaque).
+     ============================================================ */
+  .sky{ position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .sky-gradient{ position: absolute; inset: 0; opacity: 0.92; }
+  .sky-layer{ position: absolute; inset: 0; transition: background 4s ease-in-out; }
+  .sky-layer.paris{ background: linear-gradient(to bottom, var(--paris-top) 0%, var(--paris-mid) 45%, var(--paris-bot) 78%, transparent 100%); }
+  .sky-layer.kp{
+    background: linear-gradient(to bottom, var(--kp-top) 0%, var(--kp-mid) 45%, var(--kp-bot) 78%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 15%, black 85%);
+    mask-image: linear-gradient(to right, transparent 15%, black 85%);
+  }
+  .sky-veil{
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg) 88%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 18%, transparent) 30%,
+      color-mix(in srgb, var(--bg) 14%, transparent) 62%,
+      color-mix(in srgb, var(--bg) 80%, transparent) 100%
+    );
+  }
+  .horizon{
+    position: absolute; left: 0; right: 0; bottom: 30%;
+    height: 1px;
+    background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.7) 50%, transparent 100%);
+  }
+  .sun-glow{
+    position: absolute; top: 16%; left: 74%;
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, rgba(255,255,255,0.9), rgba(255,214,150,0.55) 45%, rgba(255,214,150,0) 72%);
+    opacity: 1;
+    transition: opacity 3s ease;
+  }
+  .sky.is-night .sun-glow{ opacity: 0; }
+  .sky-moon{
+    position: absolute; top: 14%; left: 72%;
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #F5EFFF, #DCCFF2);
+    box-shadow: 0 0 22px 6px rgba(220, 206, 242, 0.5);
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 3s ease;
+  }
+  .sky.is-night .sky-moon{ opacity: 1; }
+  .sky-moon .moon-shadow{
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: var(--moon-occulter);
+    transition: transform 3s ease;
+  }
+  .sky-stars{ position: absolute; inset: 0; opacity: 0; transition: opacity 3s ease; }
+  .sky.is-night .sky-stars{ opacity: 0.9; }
+  .star{
+    position: absolute; width: 2px; height: 2px; border-radius: 50%;
+    background: #FFFFFF;
+    animation: twinkle 2.6s ease-in-out infinite;
+  }
+  @keyframes twinkle{ 0%, 100%{ opacity: 0.35; } 50%{ opacity: 1; } }
+
+  /* ============================================================
+     STATUS BAR
+     ============================================================ */
+  .statusbar{
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 26px 4px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    position: relative; z-index: 2;
+    flex-shrink: 0;
+  }
+  .statusbar .dots{ display:flex; gap: 4px; align-items: center; }
+  .statusbar .bars{ display:flex; align-items:flex-end; gap: 2px; height: 10px; }
+  .statusbar .bars span{ width: 3px; background: var(--text); border-radius: 1px; }
+  .statusbar .bars span:nth-child(1){ height: 40%; }
+  .statusbar .bars span:nth-child(2){ height: 60%; }
+  .statusbar .bars span:nth-child(3){ height: 80%; }
+  .statusbar .bars span:nth-child(4){ height: 100%; }
+
+  /* ============================================================
+     HEADER — version simplifiée (pas de date-nav/XP ici, ce n'est
+     pas l'écran de chat réel mais un catalogue d'états), même
+     langage visuel (avatar, hauteur, transparence sur le ciel).
+     ============================================================ */
+  .chat-header{
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 18px 12px;
+    position: relative; z-index: 2;
+    flex-shrink: 0;
+  }
+  .avatar{
+    --size: 42px;
+    width: var(--size); height: var(--size);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--on-accent);
+    background: linear-gradient(150deg, var(--rose) 0%, var(--accent) 65%, var(--accent-warm) 100%);
+    box-shadow: var(--shadow-rose), 0 0 0 2px rgba(255,255,255,0.7);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .avatar.small{ --size: 26px; font-size: 11px; }
+  .avatar.medium{ font-size: 16px; }
+  .header-title{ display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .header-title-main{
+    font-family: var(--font-display);
+    font-size: 15px; font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.01em;
+  }
+  .header-title-sub{
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    letter-spacing: 0.03em;
+  }
+
+  /* ============================================================
+     CATALOG — zone scrollable (remplace .messages sur cette page :
+     un catalogue d'états plutôt qu'un fil de conversation unique)
+     ============================================================ */
+  .catalog{
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 16px 20px;
+    display: flex;
+    flex-direction: column;
+    position: relative; z-index: 1;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 18px);
+    mask-image: linear-gradient(to bottom, transparent 0, black 18px);
+  }
+  .catalog::-webkit-scrollbar{ display: none; }
+
+  .catalog-intro{
+    margin: 8px 2px 6px;
+    padding: 13px 14px;
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
+    border: 1px solid var(--border-soft);
+  }
+  .catalog-intro p{
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+  }
+  .catalog-intro code{
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    background: var(--raised);
+    padding: 1px 5px;
+    border-radius: 5px;
+    color: var(--text);
+  }
+
+  .state-section{ margin: 12px 2px 4px; }
+  .state-section:first-of-type{ margin-top: 14px; }
+  .state-divider{
+    height: 1px;
+    margin: 0 0 16px;
+    background: linear-gradient(90deg, transparent, var(--border-soft), transparent);
+  }
+  /* Carte translucide protégeant le titre + la note explicative — sans
+     elle, ce texte se peint directement sur le ciel animé et devient
+     illisible/collisionne avec la lune la nuit (même traitement que
+     .catalog-intro, trouvé manquant ici en évaluation attempt 1). */
+  .state-header{
+    padding: 10px 12px 12px;
+    margin-bottom: 8px;
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
+  }
+  .state-head{
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 5px;
+  }
+  .state-num{
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--accent-text);
+    background: var(--raised);
+    border-radius: 50%;
+    width: 21px; height: 21px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .state-title{
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 14.5px;
+    color: var(--text);
+  }
+  .state-note{
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    margin: 0 0 0 29px;
+  }
+  .state-note b{ color: var(--text); font-weight: 600; }
+  .state-note code{
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    background: var(--raised);
+    padding: 1px 5px;
+    border-radius: 5px;
+    color: var(--text);
+  }
+  .tag-caption{
+    display: inline-flex;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    color: var(--text-secondary);
+    background: var(--raised);
+    padding: 3px 9px;
+    border-radius: var(--radius-pill);
+    margin: 0 0 8px 29px;
+  }
+  .state-header + .tag-caption{ margin-top: 4px; }
+
+  /* ============================================================
+     MESSAGES — bulles simples, copiées telles quelles de index.html
+     ============================================================ */
+  .msg-row{ display: flex; gap: 8px; margin-bottom: 14px; }
+  .msg-row.from-them{ justify-content: flex-start; }
+  .msg-row.from-me{ justify-content: flex-end; }
+  .msg-row.from-them .avatar{ margin-top: 20px; }
+  .msg-col{ display: flex; flex-direction: column; max-width: 78%; }
+  .msg-row.from-me .msg-col{ align-items: flex-end; }
+  .msg-row.from-them .msg-col{ align-items: flex-start; }
+  .msg-meta{
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin: 0 6px 5px;
+    letter-spacing: 0.02em;
+  }
+  .msg-meta b{ color: var(--text); font-weight: 600; }
+
+  .bubble{
+    position: relative;
+    padding: 11px 15px;
+    font-size: 15px;
+    line-height: 1.48;
+    border-radius: var(--radius-bubble);
+    word-wrap: break-word;
+    box-shadow: var(--shadow-lift);
+  }
+  .msg-row.from-them .bubble,
+  .msg-group.from-them .bubble{
+    background: linear-gradient(160deg, var(--surface), var(--surface-2) 85%);
+    color: var(--text);
+    border: 1px solid var(--border-soft);
+    border-top-left-radius: 8px;
+    box-shadow: var(--shadow-sm);
+  }
+  .msg-row.from-me .bubble,
+  .msg-group.from-me .bubble{
+    background: linear-gradient(150deg, var(--rose) 0%, var(--accent) 68%, var(--accent-warm) 100%);
+    color: var(--on-accent);
+    border-top-right-radius: 8px;
+    box-shadow: var(--shadow-rose), inset 0 1px 0 rgba(255,255,255,0.45);
+  }
+  /* opacité laissée à 0.9 volontairement (pas 0.72) : c'est la valeur du
+     pattern déjà validé dans index.html, choisie précisément parce que
+     0.6 mesurait 3.83:1 de contraste (sous le seuil WCAG) — descendre
+     l'opacité ré-ouvrirait ce bug. Le signal "en cours d'envoi" repose
+     sur le spinner + le libellé "Envoi…", pas sur le fondu seul ; voir
+     la note de la section 6. */
+  .msg-row.pending .bubble{ opacity: 0.9; box-shadow: none; }
+  .msg-row.pending .msg-meta{ display: flex; align-items: center; gap: 5px; justify-content: flex-end; width: 100%; }
+  .pending-icon{
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid var(--muted);
+    border-top-color: transparent;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+
+  .reactions{ display: flex; gap: 5px; margin-top: 6px; }
+  .reaction-pill{
+    display: flex; align-items: center; gap: 4px;
+    padding: 5px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s ease;
+    box-shadow: var(--shadow-xs);
+    position: relative;
+  }
+  .reaction-pill::after{ content: ""; position: absolute; inset: -8px; }
+  .reaction-pill:hover{ transform: translateY(-2px) scale(1.06); background: var(--raised); }
+  .reaction-pill:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+
+  /* ============================================================
+     MESSAGE GROUPS — nouveau : 2-3 bulles consécutives du même
+     auteur, un seul avatar + un seul horodatage pour tout le groupe.
+     ============================================================ */
+  .msg-group{ display: flex; gap: 8px; margin-bottom: 16px; }
+  .msg-group.from-them{ justify-content: flex-start; align-items: flex-end; }
+  .msg-group.from-me{ justify-content: flex-end; }
+  .msg-group .avatar{ margin-bottom: 2px; }
+  .msg-group .msg-col{ display: flex; flex-direction: column; gap: 3px; max-width: 78%; }
+  .msg-group.from-me .msg-col{ align-items: flex-end; }
+  .msg-group.from-them .msg-col{ align-items: flex-start; }
+  .msg-group .msg-meta{ margin: 0 6px 4px; }
+  .msg-group .group-time{ margin: 5px 6px 0; }
+  .msg-group.from-them .bubble.tail{ border-top-left-radius: var(--radius-bubble); border-bottom-left-radius: 8px; }
+  .msg-group.from-me .bubble.tail{ border-top-right-radius: var(--radius-bubble); border-bottom-right-radius: 8px; }
+  .msg-group.from-them .bubble:not(.tail){ border-top-left-radius: var(--radius-bubble); }
+  .msg-group.from-me .bubble:not(.tail){ border-top-right-radius: var(--radius-bubble); }
+
+  /* ============================================================
+     TRILINGUE — étiquette courte + révélation au tap
+     ============================================================ */
+  .i18n-primary{ display: flex; gap: 8px; align-items: baseline; }
+  .lang-tag{
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(74,52,56,0.09);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    position: relative;
+    top: -1px;
+  }
+  .msg-row.from-me .lang-tag,
+  .msg-group.from-me .lang-tag{ background: rgba(90,37,54,0.14); color: var(--on-accent); }
+  .lang-tag.lang-tag-kh{ font-family: 'Noto Sans Khmer', var(--font-body); text-transform: none; font-size: 12px; line-height: 1.3; padding: 1px 6px; }
+  .i18n-text.khmer{ line-height: 1.6; }
+
+  .i18n-toggle{
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 8px;
+    padding: 5px 2px;
+    background: none; border: none;
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    position: relative;
+  }
+  .msg-row.from-me .i18n-toggle,
+  .msg-group.from-me .i18n-toggle{ color: var(--on-accent); opacity: 0.82; }
+  .i18n-toggle::after{ content: ""; position: absolute; inset: -8px; }
+  .i18n-toggle .chev{ transition: transform 0.2s ease; flex-shrink: 0; }
+  .i18n-toggle[aria-expanded="true"] .chev{ transform: rotate(180deg); }
+
+  .i18n-more{
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(74,52,56,0.12);
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .msg-row.from-me .i18n-more,
+  .msg-group.from-me .i18n-more{ border-top-color: rgba(90,37,54,0.18); }
+  .i18n-line{ display: flex; gap: 8px; align-items: baseline; }
+  .i18n-line .i18n-text{ font-size: 13.5px; line-height: 1.45; }
+  .i18n-line .i18n-text.khmer{ font-size: 14.5px; line-height: 1.6; }
+
+  /* ============================================================
+     MENU LONG-PRESS — un seul menu regroupant répondre/traduire,
+     écouter (fr/en/kh), réagir, copier, supprimer.
+     ============================================================ */
+  /* Pas de scrim rectangulaire ici (testé et retiré en évaluation
+     attempt 1 : un cadre gris à coins arrondis autour de la section lit
+     comme une carte, pas comme "le reste de l'écran s'efface"). Sur une
+     page catalogue, l'anneau --accent-deep + l'ombre du menu suffisent à
+     montrer l'ancrage sans introduire un rectangle qui concurrence les
+     galets pastel du reste de la page. */
+  .menu-stage{ position: relative; }
+  .menu-stage .menu-anchor{ position: relative; z-index: 5; }
+  .longpress-target{ cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: pan-y; transition: box-shadow 0.15s ease; }
+  .longpress-target:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 3px; }
+  .menu-stage.open .longpress-target{ box-shadow: 0 0 0 3px var(--accent-deep), var(--shadow-sm); }
+
+  .bubble-menu{
+    position: relative;
+    z-index: 6;
+    margin: 10px 0 2px 34px;
+    max-width: 82%;
+    background: var(--surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-soft);
+    padding: 8px;
+    display: flex; flex-direction: column; gap: 2px;
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+    animation: menuPop 0.18s cubic-bezier(.16,1,.3,1) forwards;
+  }
+  @keyframes menuPop{ to{ opacity: 1; transform: translateY(0) scale(1); } }
+
+  .menu-emoji-row{
+    display: flex; justify-content: space-between;
+    padding: 4px 4px 8px;
+    border-bottom: 1px solid var(--border-soft);
+    margin-bottom: 4px;
+  }
+  .menu-emoji{
+    width: 34px; height: 34px; border-radius: 50%;
+    border: none; background: none;
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s ease;
+  }
+  .menu-emoji:hover{ background: var(--raised); transform: translateY(-2px) scale(1.08); }
+  .menu-emoji:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+
+  .menu-item{
+    display: flex; align-items: center; gap: 10px;
+    width: 100%;
+    padding: 10px 8px;
+    background: none; border: none;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--text);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease;
+  }
+  .menu-item svg{ width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.75; flex-shrink: 0; color: var(--text-secondary); }
+  .menu-item:hover{ background: var(--raised); }
+  .menu-item:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: -2px; }
+  .menu-item.danger{ color: var(--accent-deep); }
+  .menu-item.danger svg{ color: var(--accent-deep); }
+
+  .menu-listen{ display: flex; align-items: center; justify-content: space-between; padding: 8px; border-radius: 12px; }
+  .menu-listen-label{ display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text); }
+  .menu-listen-label svg{ width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.75; color: var(--text-secondary); flex-shrink: 0; }
+  .menu-listen-langs{ display: flex; gap: 5px; }
+  .menu-lang-btn{
+    font-family: var(--font-display);
+    font-size: 11px; font-weight: 600;
+    padding: 5px 9px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-soft);
+    background: var(--raised);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .menu-lang-btn:hover{ background: var(--accent-tint); color: var(--accent-deep); }
+  .menu-lang-btn:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+  .menu-lang-btn.kh{ font-family: 'Noto Sans Khmer', var(--font-body); font-size: 12.5px; }
+
+  /* ============================================================
+     BULLE IMAGE / BULLE VOCALE
+     ============================================================ */
+  .bubble-image{ padding: 5px; }
+  .image-placeholder{
+    width: 210px; max-width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: calc(var(--radius-bubble) - 5px);
+    background: linear-gradient(135deg, var(--peach), var(--lavender) 130%);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary);
+  }
+  .bubble-voice{ display: flex; align-items: center; gap: 9px; min-width: 188px; }
+  .voice-play{
+    width: 30px; height: 30px; border-radius: 50%;
+    border: none; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .msg-group.from-them .voice-play{ background: var(--accent-tint); color: var(--accent-deep); }
+  .msg-group.from-me .voice-play{ background: rgba(255,255,255,0.35); color: var(--on-accent); }
+  .voice-play:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+  .voice-wave{ flex: 1; display: flex; align-items: center; gap: 2px; height: 22px; }
+  .voice-wave span{ width: 3px; border-radius: 2px; background: currentColor; opacity: 0.75; display: block; }
+  .msg-group.from-them .voice-wave{ color: var(--accent-deep); }
+  .msg-group.from-me .voice-wave{ color: var(--on-accent); }
+  .voice-duration{ font-family: var(--font-mono); font-size: 11px; flex-shrink: 0; }
+  .msg-group.from-them .voice-duration{ color: var(--text-secondary); }
+  .msg-group.from-me .voice-duration{ color: var(--on-accent); opacity: 0.85; }
+
+  /* ============================================================
+     COMPOSER — copié tel quel (décoratif ici, non fonctionnel :
+     démontre que le ciel reste visible en transparence derrière).
+     ============================================================ */
+  .composer{
+    flex-shrink: 0;
+    padding: 10px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+    position: relative; z-index: 2;
+    background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg) 55%, transparent) 30%, color-mix(in srgb, var(--bg) 88%, transparent) 55%);
+    backdrop-filter: blur(14px);
+  }
+  .composer-row{
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    background: var(--raised);
+    border: 1px solid var(--border-soft);
+    border-radius: 26px;
+    padding: 6px 6px 6px 8px;
+    box-shadow: var(--shadow-sm);
+  }
+  .composer-row .field{ flex: 1; min-height: 34px; display: flex; align-items: center; }
+  .composer-row input[type="text"]{
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    padding: 6px 4px;
+  }
+  .composer-row input[type="text"]::placeholder{ color: var(--muted-text); }
+  .composer-btn{
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s ease, transform 0.15s ease, color 0.2s ease;
+  }
+  .composer-btn svg{ display: block; stroke: currentColor; }
+  .composer-btn:hover{ background: var(--raised-2); color: var(--text); }
+  .composer-btn:active{ transform: scale(0.9); }
+  .composer-btn:focus-visible{ outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+  .composer-btn.send{
+    background: linear-gradient(150deg, var(--rose), var(--accent-warm));
+    color: var(--on-accent);
+    box-shadow: var(--shadow-rose);
+  }
+  .composer-btn.send:hover{ filter: brightness(1.05); }
+
+  /* ============================================================
+     RESPONSIVE — collapse plein écran identique à index.html
+     ============================================================ */
+  @media (max-width: 460px){
+    .stage{ padding: 0; }
+    .phone{ width: 100vw; height: 100dvh; max-height: none; border-radius: 0; padding: 0; box-shadow: none; }
+    .phone-notch{ display: none; }
+    .screen{ border-radius: 0; height: 100dvh; }
+    .stage-label{ display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <div class="phone">
+    <div class="phone-notch"></div>
+    <div class="screen" id="screen">
+
+      <div class="sky" id="sky" aria-hidden="true">
+        <div class="sky-gradient" id="skyGradient">
+          <div class="sky-layer paris"></div>
+          <div class="sky-layer kp"></div>
+        </div>
+        <div class="sky-stars" id="skyStars"></div>
+        <div class="sky-moon">
+          <div class="moon-shadow" id="moonShadow"></div>
+        </div>
+        <div class="sun-glow"></div>
+        <div class="horizon"></div>
+        <div class="sky-veil"></div>
+      </div>
+
+      <div class="statusbar">
+        <span>9:41</span>
+        <div class="dots" aria-hidden="true">
+          <div class="bars"><span></span><span></span><span></span><span></span></div>
+        </div>
+      </div>
+
+      <header class="chat-header">
+        <div class="avatar medium" aria-hidden="true">C</div>
+        <div class="header-title">
+          <span class="header-title-main">Bulles de chat</span>
+          <span class="header-title-sub">Référence des états — 9074 km</span>
+        </div>
+      </header>
+
+      <main class="catalog" aria-label="Catalogue des états de bulle">
+
+        <div class="catalog-intro">
+          <p>États absents de <code>index.html</code> mais présents dans l'app réelle. Mêmes tokens, mêmes polices, même ciel — base de référence pour porter ces états en Svelte.</p>
+        </div>
+
+        <!-- ============================================================
+             1 — MESSAGE TRILINGUE
+             ============================================================ -->
+        <section class="state-section" id="s1">
+          <div class="state-header">
+            <div class="state-head"><span class="state-num">1</span><span class="state-title">Message trilingue</span></div>
+            <p class="state-note">La langue affichée en clair est toujours celle du <b>lecteur</b>, jamais un ordre figé "français d'abord". Les 2 autres langues restent repliées derrière un tap — étiquette typographique courte (<code>FR</code> / <code>EN</code> / <code>ខ្មែរ</code>), jamais un drapeau : un drapeau signale un pays, pas une langue.</p>
+          </div>
+
+          <span class="tag-caption">Vue de Chet (lecteur = FR) — replié</span>
+          <div class="msg-row from-them">
+            <span class="avatar small" title="Lys">L</span>
+            <div class="msg-col">
+              <span class="msg-meta"><b>Lys</b> · 09:14</span>
+              <div class="bubble bubble-i18n">
+                <div class="i18n-primary">
+                  <span class="lang-tag">FR</span>
+                  <span class="i18n-text">Aujourd'hui je veux manger du porc grillé, tu peux en acheter au marché ? 🍖</span>
+                </div>
+                <button class="i18n-toggle" type="button" data-i18n-toggle aria-expanded="false">
+                  <span data-i18n-label>Voir en EN · ខ្មែរ</span>
+                  <svg class="chev" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="i18n-more" hidden>
+                  <div class="i18n-line"><span class="lang-tag">EN</span><span class="i18n-text">Today I want to eat grilled pork, can you get some at the market? 🍖</span></div>
+                  <div class="i18n-line"><span class="lang-tag lang-tag-kh" lang="km">ខ្មែរ</span><span class="i18n-text khmer" lang="km">ថ្ងៃនេះអូនចង់ញ៉ាំសាច់ជ្រូកអាំង តើបងអាចទិញនៅផ្សារបានទេ? 🍖</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <span class="tag-caption">Même bulle, tapée — déployé</span>
+          <div class="msg-row from-them">
+            <span class="avatar small" title="Lys">L</span>
+            <div class="msg-col">
+              <span class="msg-meta"><b>Lys</b> · 09:14</span>
+              <div class="bubble bubble-i18n">
+                <div class="i18n-primary">
+                  <span class="lang-tag">FR</span>
+                  <span class="i18n-text">Aujourd'hui je veux manger du porc grillé, tu peux en acheter au marché ? 🍖</span>
+                </div>
+                <button class="i18n-toggle" type="button" data-i18n-toggle aria-expanded="true">
+                  <span data-i18n-label>Masquer les traductions</span>
+                  <svg class="chev" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="i18n-more">
+                  <div class="i18n-line"><span class="lang-tag">EN</span><span class="i18n-text">Today I want to eat grilled pork, can you get some at the market? 🍖</span></div>
+                  <div class="i18n-line"><span class="lang-tag lang-tag-kh" lang="km">ខ្មែរ</span><span class="i18n-text khmer" lang="km">ថ្ងៃនេះអូនចង់ញ៉ាំសាច់ជ្រូកអាំង តើបងអាចទិញនៅផ្សារបានទេ? 🍖</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <span class="tag-caption">Vue de Lys (lecteur = ខ្មែរ) — même message, primaire différent</span>
+          <div class="msg-row from-me">
+            <div class="msg-col">
+              <span class="msg-meta">09:16</span>
+              <div class="bubble bubble-i18n">
+                <div class="i18n-primary">
+                  <span class="lang-tag lang-tag-kh" lang="km">ខ្មែរ</span>
+                  <span class="i18n-text khmer" lang="km">បាទ! ចាំបងទៅផ្សារវិញ បងទិញឲ្យ 😊</span>
+                </div>
+                <button class="i18n-toggle" type="button" data-i18n-toggle aria-expanded="false">
+                  <span data-i18n-label>Voir en FR · EN</span>
+                  <svg class="chev" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="i18n-more" hidden>
+                  <div class="i18n-line"><span class="lang-tag">FR</span><span class="i18n-text">Oui bien sûr ! Je passe au marché après le boulot 😊</span></div>
+                  <div class="i18n-line"><span class="lang-tag">EN</span><span class="i18n-text">Yes of course! I'll stop by the market after work 😊</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <div class="state-divider"></div>
+
+        <!-- ============================================================
+             2 — REGROUPEMENT DE MESSAGES CONSÉCUTIFS
+             ============================================================ -->
+        <section class="state-section" id="s2">
+          <div class="state-header">
+            <div class="state-head"><span class="state-num">2</span><span class="state-title">Regroupement de messages consécutifs</span></div>
+            <p class="state-note">2 à 3 bulles du même auteur envoyées à quelques minutes d'écart : <b>un seul avatar</b> et <b>un seul horodatage</b> pour tout le groupe, pas un par bulle.</p>
+          </div>
+
+          <div class="msg-group from-them">
+            <span class="avatar small" title="Lys">L</span>
+            <div class="msg-col">
+              <span class="msg-meta"><b>Lys</b></span>
+              <div class="bubble">Tu as bien mangé ce midi ?</div>
+              <div class="bubble">Moi j'ai pris du <span class="khmer" lang="km">នំបញ្ចុក</span> avec ma sœur</div>
+              <div class="bubble tail">c'était trop bon 🍜</div>
+              <span class="msg-meta group-time">09:02 – 09:04</span>
+            </div>
+          </div>
+
+          <div class="msg-group from-me">
+            <div class="msg-col">
+              <div class="bubble">Pas encore, je finis une réunion 😅</div>
+              <div class="bubble tail">j'y vais dans 10 min promis</div>
+              <span class="msg-meta group-time">09:05</span>
+            </div>
+          </div>
+        </section>
+        <div class="state-divider"></div>
+
+        <!-- ============================================================
+             3 — MENU CONTEXTUEL AU LONG-PRESS
+             ============================================================ -->
+        <section class="state-section" id="s3">
+          <div class="state-header">
+            <div class="state-head"><span class="state-num">3</span><span class="state-title">Menu contextuel au long-press</span></div>
+            <p class="state-note">Un seul menu, ancré à la bulle, regroupe répondre/traduire, écouter (fr/en/kh), réagir, copier, supprimer — remplace la colonne de 6 boutons + la rangée de réactions séparée de l'implémentation actuelle. <b>Appui long (~450ms) sur la bulle ci-dessous</b> pour l'ouvrir (clic simple en aperçu desktop).</p>
+          </div>
+
+          <div class="menu-stage" id="menuStage">
+            <div class="msg-row from-them menu-anchor">
+              <span class="avatar small" title="Lys">L</span>
+              <div class="msg-col">
+                <span class="msg-meta"><b>Lys</b> · 09:21</span>
+                <div class="bubble longpress-target" id="longpressTarget" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">
+                  <span class="khmer" lang="km">ចាស! ត្រូវហើយ</span> 😄 tu progresses vite dis donc
+                </div>
+              </div>
+            </div>
+
+            <div class="bubble-menu" id="bubbleMenu" role="menu" aria-label="Actions sur le message" hidden>
+              <div class="menu-emoji-row" role="group" aria-label="Réagir">
+                <button class="menu-emoji" type="button" aria-label="Réagir cœur">❤️</button>
+                <button class="menu-emoji" type="button" aria-label="Réagir rire">😄</button>
+                <button class="menu-emoji" type="button" aria-label="Réagir surprise">😮</button>
+                <button class="menu-emoji" type="button" aria-label="Réagir triste">😢</button>
+                <button class="menu-emoji" type="button" aria-label="Réagir pouce">👍</button>
+              </div>
+              <button class="menu-item" type="button" role="menuitem">
+                <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v3"/></svg>
+                Répondre / traduire
+              </button>
+              <div class="menu-listen">
+                <span class="menu-listen-label">
+                  <svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2" y="14" width="5" height="7" rx="2"/><rect x="17" y="14" width="5" height="7" rx="2"/></svg>
+                  Écouter
+                </span>
+                <div class="menu-listen-langs">
+                  <button class="menu-lang-btn" type="button">FR</button>
+                  <button class="menu-lang-btn" type="button">EN</button>
+                  <button class="menu-lang-btn kh" type="button" lang="km">ខ្មែរ</button>
+                </div>
+              </div>
+              <button class="menu-item" type="button" role="menuitem">
+                <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+                Copier
+              </button>
+              <button class="menu-item danger" type="button" role="menuitem">
+                <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </section>
+        <div class="state-divider"></div>
+
+        <!-- ============================================================
+             4 — RÉACTIONS DÉJÀ POSÉES
+             ============================================================ -->
+        <section class="state-section" id="s4">
+          <div class="state-header">
+            <div class="state-head"><span class="state-num">4</span><span class="state-title">Réactions déjà posées</span></div>
+            <p class="state-note">Petites pastilles emoji compactes sous la <b>dernière bulle du groupe</b>, pas une rangée de gros boutons.</p>
+          </div>
+
+          <div class="msg-group from-them">
+            <span class="avatar small" title="Lys">L</span>
+            <div class="msg-col">
+              <span class="msg-meta"><b>Lys</b></span>
+              <div class="bubble">Regarde ce que j'ai cuisiné aujourd'hui !</div>
+              <div class="bubble tail">tu me manques 🥲</div>
+              <div class="reactions">
+                <button type="button" class="reaction-pill">❤️ 2</button>
+                <button type="button" class="reaction-pill">😍 1</button>
+              </div>
+              <span class="msg-meta group-time">18:40</span>
+            </div>
+          </div>
+        </section>
+        <div class="state-divider"></div>
+
+        <!-- ============================================================
+             5 — BULLE IMAGE / BULLE VOCALE
+             ============================================================ -->
+        <section class="state-section" id="s5">
+          <div class="state-header">
+            <div class="state-head"><span class="state-num">5</span><span class="state-title">Bulle image et bulle vocale</span></div>
+            <p class="state-note">Même système d'avatar / regroupement / horodatage que le texte — pas de logique de lecture audio réelle ici, juste l'apparence.</p>
+          </div>
+
+          <div class="msg-group from-them">
+            <span class="avatar small" title="Lys">L</span>
+            <div class="msg-col">
+              <span class="msg-meta"><b>Lys</b></span>
+              <div class="bubble bubble-image">
+                <div class="image-placeholder" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect>
+                    <circle cx="8.5" cy="10" r="1.5" fill="currentColor" stroke="none"></circle>
+                    <path d="M4 16.5 9 12l3 3 3.5-4L20 16"></path>
+                  </svg>
+                </div>
+              </div>
+              <div class="bubble bubble-voice tail">
+                <button class="voice-play" type="button" aria-label="Écouter le message vocal">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <div class="voice-wave" aria-hidden="true">
+                  <span style="height:35%"></span><span style="height:70%"></span><span style="height:50%"></span>
+                  <span style="height:90%"></span><span style="height:40%"></span><span style="height:65%"></span>
+                  <span style="height:30%"></span><span style="height:75%"></span><span style="height:55%"></span>
+                  <span style="height:45%"></span>
+                </div>
+                <span class="voice-duration">0:18</span>
+              </div>
+              <span class="msg-meta group-time">19:02 – 19:03</span>
+            </div>
+          </div>
+        </section>
+        <div class="state-divider"></div>
+
+        <!-- ============================================================
+             6 — MESSAGE EN COURS D'ENVOI
+             ============================================================ -->
+        <section class="state-section" id="s6">
+          <div class="state-header">
+            <div class="state-head"><span class="state-num">6</span><span class="state-title">Message en cours d'envoi</span></div>
+            <p class="state-note">Pattern déjà existant dans <code>index.html</code>, conservé tel quel : bulle légèrement estompée + indicateur de progression discret — l'estompage à lui seul est volontairement discret, la lecture repose surtout sur le spinner + « Envoi… », ne pas remonter l'opacité en le portant en Svelte.</p>
+          </div>
+
+          <div class="msg-row from-me pending">
+            <div class="msg-col">
+              <span class="msg-meta"><span class="pending-icon" aria-hidden="true"></span> Envoi…</span>
+              <div class="bubble">Presque à la maison, j'arrive dans 5 min 🏍️</div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      <footer class="composer">
+        <div class="composer-row">
+          <button class="composer-btn emoji" type="button" aria-label="Ouvrir le sélecteur d'émojis">😊</button>
+          <button class="composer-btn image" type="button" aria-label="Envoyer une image">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect>
+              <circle cx="8.5" cy="10" r="1.5" fill="currentColor" stroke="none"></circle>
+              <path d="M4 16.5 9 12l3 3 3.5-4L20 16"></path>
+            </svg>
+          </button>
+          <div class="field">
+            <input type="text" placeholder="Écris un mot doux… ✍️" aria-label="Message">
+          </div>
+          <button class="composer-btn mic" type="button" aria-label="Enregistrer une note vocale" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+              <path d="M6 11a6 6 0 0 0 12 0"></path>
+              <path d="M12 17v3"></path>
+              <path d="M9 20h6"></path>
+            </svg>
+          </button>
+          <button class="composer-btn send" type="button" aria-label="Envoyer le message">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 12h15"></path>
+              <path d="M13 6l6 6-6 6"></path>
+            </svg>
+          </button>
+        </div>
+      </footer>
+
+    </div>
+  </div>
+
+  <div class="stage-label">lys · <b>bulles de chat — référence des états</b> (compagnon de index.html)</div>
+</div>
+
+<script>
+  // ============================================================
+  // SKY MECHANISM — copié tel quel depuis index.html / Sky.svelte.
+  // ============================================================
+  (function(){
+    var skyEl = document.getElementById('sky');
+    var skyGradient = document.getElementById('skyGradient');
+    var starsEl = document.getElementById('skyStars');
+    var moonShadow = document.getElementById('moonShadow');
+
+    var PARIS_STOPS = [
+      {h:0,  top:'#4E4785', mid:'#5E4C8E', bot:'#6B4D78', night:true},
+      {h:3,  top:'#524B89', mid:'#635193', bot:'#714E76', night:true},
+      {h:6,  top:'#BEDBF4', mid:'#F7E3CE', bot:'#FFCE9E', night:false},
+      {h:9,  top:'#C7E7FC', mid:'#FDF1DE', bot:'#FFE2B8', night:false},
+      {h:12, top:'#CDEAFB', mid:'#FDF6E8', bot:'#FFE9C6', night:false},
+      {h:15, top:'#CDEAFB', mid:'#FDF1DE', bot:'#FFD9A0', night:false},
+      {h:18, top:'#E7C9EC', mid:'#FBD8C8', bot:'#FFBE95', night:false},
+      {h:21, top:'#6E62A0', mid:'#7B5CA0', bot:'#93597E', night:true},
+      {h:24, top:'#4E4785', mid:'#5E4C8E', bot:'#6B4D78', night:true}
+    ];
+    var KP_STOPS = [
+      {h:0,  top:'#4A3E82', mid:'#6A4180', bot:'#7C4462', night:true},
+      {h:3,  top:'#4F4288', mid:'#714488', bot:'#8B4A64', night:true},
+      {h:6,  top:'#F9D9C4', mid:'#FFC9A0', bot:'#FFAE78', night:false},
+      {h:9,  top:'#FCE6D2', mid:'#FFDDB2', bot:'#FFC292', night:false},
+      {h:12, top:'#FCEFD8', mid:'#FFE4BC', bot:'#FFC89C', night:false},
+      {h:15, top:'#FCEFD8', mid:'#FFD9B8', bot:'#FFB88C', night:false},
+      {h:18, top:'#FBC9D6', mid:'#FFB9A8', bot:'#FF9A78', night:false},
+      {h:21, top:'#7256A0', mid:'#96468C', bot:'#B14E6C', night:true},
+      {h:24, top:'#4A3E82', mid:'#6A4180', bot:'#7C4462', night:true}
+    ];
+
+    function hex2rgb(hex){
+      var n = parseInt(hex.slice(1), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    function rgb2hex(rgb){
+      return '#' + rgb.map(function(v){
+        var c = Math.round(Math.max(0, Math.min(255, v))).toString(16);
+        return c.length < 2 ? '0' + c : c;
+      }).join('');
+    }
+    function mixHex(h1, h2, t){
+      var a = hex2rgb(h1), b = hex2rgb(h2);
+      return rgb2hex([
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t
+      ]);
+    }
+    function skyForHour(stops, hour){
+      for(var i = 0; i < stops.length - 1; i++){
+        var a = stops[i], b = stops[i + 1];
+        if(hour >= a.h && hour <= b.h){
+          var t = (hour - a.h) / (b.h - a.h);
+          return {
+            top: mixHex(a.top, b.top, t),
+            mid: mixHex(a.mid, b.mid, t),
+            bot: mixHex(a.bot, b.bot, t),
+            night: t < 0.5 ? a.night : b.night
+          };
+        }
+      }
+      return stops[0];
+    }
+    function hourInZone(tz){
+      var parts = new Intl.DateTimeFormat('fr-FR', {
+        timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(new Date());
+      var h = 0, m = 0;
+      parts.forEach(function(p){
+        if(p.type === 'hour') h = parseInt(p.value, 10);
+        if(p.type === 'minute') m = parseInt(p.value, 10);
+      });
+      return h + m / 60;
+    }
+    function moonPhase(date){
+      var synodic = 29.530588853;
+      var knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
+      var days = (date.getTime() - knownNewMoon) / 86400000;
+      var phase = (days % synodic) / synodic;
+      return phase < 0 ? phase + 1 : phase;
+    }
+
+    (function seedStars(){
+      if(!starsEl) return;
+      var positions = [
+        [8,14],[18,8],[27,20],[34,6],[42,16],[52,10],[61,22],[70,7],
+        [78,17],[86,11],[15,28],[47,26],[65,30],[90,24]
+      ];
+      positions.forEach(function(pos, i){
+        var s = document.createElement('span');
+        s.className = 'star';
+        s.style.left = pos[0] + '%';
+        s.style.top = pos[1] + '%';
+        s.style.animationDelay = (i * 0.18) + 's';
+        starsEl.appendChild(s);
+      });
+    })();
+
+    function applySky(){
+      var now = new Date();
+      var paris = skyForHour(PARIS_STOPS, hourInZone('Europe/Paris'));
+      var kp = skyForHour(KP_STOPS, hourInZone('Asia/Phnom_Penh'));
+
+      if(skyGradient){
+        skyGradient.style.setProperty('--paris-top', paris.top);
+        skyGradient.style.setProperty('--paris-mid', paris.mid);
+        skyGradient.style.setProperty('--paris-bot', paris.bot);
+        skyGradient.style.setProperty('--kp-top', kp.top);
+        skyGradient.style.setProperty('--kp-mid', kp.mid);
+        skyGradient.style.setProperty('--kp-bot', kp.bot);
+      }
+      if(skyEl) skyEl.classList.toggle('is-night', paris.night || kp.night);
+      if(moonShadow){
+        var offset = (0.5 - moonPhase(now)) * 130;
+        moonShadow.style.transform = 'translateX(' + offset.toFixed(0) + '%)';
+      }
+    }
+
+    applySky();
+    setInterval(applySky, 60000);
+  })();
+</script>
+<script>
+  // ============================================================
+  // ÉTAT 1 — révélation des traductions au tap
+  // ============================================================
+  (function(){
+    document.querySelectorAll('[data-i18n-toggle]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var bubble = btn.closest('.bubble-i18n');
+        var more = bubble.querySelector('.i18n-more');
+        var label = btn.querySelector('[data-i18n-label]');
+        var expanded = btn.getAttribute('aria-expanded') === 'true';
+        btn.setAttribute('aria-expanded', String(!expanded));
+        more.hidden = expanded;
+        if(label){
+          label.textContent = expanded ? label.dataset.collapsedText || 'Voir les traductions' : 'Masquer les traductions';
+        }
+      });
+      // Mémorise le libellé "replié" d'origine pour pouvoir y revenir.
+      var label = btn.querySelector('[data-i18n-label]');
+      if(label && btn.getAttribute('aria-expanded') === 'false'){
+        label.dataset.collapsedText = label.textContent;
+      }
+    });
+  })();
+
+  // ============================================================
+  // ÉTAT 3 — menu contextuel au long-press (démonstration seulement,
+  // pas une implémentation de production)
+  // ============================================================
+  (function(){
+    var target = document.getElementById('longpressTarget');
+    var menu = document.getElementById('bubbleMenu');
+    var stage = document.getElementById('menuStage');
+    if(!target || !menu || !stage) return;
+
+    var timer = null;
+    var startX = 0, startY = 0;
+    var MOVE_TOLERANCE = 10;
+
+    function openMenu(){
+      menu.hidden = false;
+      stage.classList.add('open');
+      target.setAttribute('aria-expanded', 'true');
+    }
+    function closeMenu(){
+      menu.hidden = true;
+      stage.classList.remove('open');
+      target.setAttribute('aria-expanded', 'false');
+    }
+    function cancelTimer(){
+      if(timer){ clearTimeout(timer); timer = null; }
+    }
+
+    target.addEventListener('pointerdown', function(e){
+      startX = e.clientX; startY = e.clientY;
+      cancelTimer();
+      timer = setTimeout(openMenu, 450);
+    });
+    target.addEventListener('pointermove', function(e){
+      if(!timer) return;
+      if(Math.abs(e.clientX - startX) > MOVE_TOLERANCE || Math.abs(e.clientY - startY) > MOVE_TOLERANCE){
+        cancelTimer();
+      }
+    });
+    target.addEventListener('pointerup', cancelTimer);
+    target.addEventListener('pointerleave', cancelTimer);
+    target.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+    target.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        if(menu.hidden) openMenu(); else closeMenu();
+      }
+    });
+
+    document.addEventListener('pointerdown', function(e){
+      if(!menu.hidden && !menu.contains(e.target) && e.target !== target){
+        closeMenu();
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>
