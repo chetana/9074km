@@ -3,7 +3,7 @@
 	import { userStore } from '$lib/auth';
 	import { DAYS_FR, DAYS_KH, MONTHS_FR } from '$lib/i18n';
 	import { createSWR } from '$lib/swr.svelte';
-	import DayFlower from './DayFlower.svelte';
+	import DayTile from './DayTile.svelte';
 
 	interface Props {
 		year: string;
@@ -63,28 +63,36 @@
 	);
 
 	let countsMap = $state<Record<string, number>>({});
+	let thumbsMap = $state<Record<string, string | null>>({});
 	let error = $derived(swr.error ? String(swr.error) : null);
 
 	let items = $derived(
 		days.map((dd) => ({
 			dd,
 			label: dayLabel(dd),
-			// Si pas de préfixe GCS pour ce jour → 0 fichiers (bud), sinon on attend le count
+			// Si pas de préfixe GCS pour ce jour → 0 fichiers (vide), sinon on attend le count
 			fileCount: daysWithPrefix.has(dd) ? (countsMap[dd] ?? null) : 0,
+			thumb: thumbsMap[dd] ?? null,
 			isToday: isTodayDay(dd),
 			isWeekend: isWeekendDay(dd),
 		}))
 	);
 
 	$effect(() => {
-		// Ne charge les counts que pour les jours qui ont un préfixe
+		// Ne charge les counts que pour les jours qui ont un préfixe — une seule requête sert à la
+		// fois le compte ET la vignette (premier média du jour), pas d'appel réseau en plus pour
+		// la photo de couverture du jour (plan de modernisation P6, 23/09/2026).
 		const toFetch = days.filter((dd) => daysWithPrefix.has(dd));
 		toFetch.forEach(async (dd) => {
 			if (countsMap[dd] !== undefined) return;
 			try {
 				const r = await listObjects(`${year}/${month}/${dd}/`);
-				const count = r.items.filter((item) => isMediaFile(item.name)).length;
-				countsMap[dd] = count;
+				const media = r.items.filter((item) => isMediaFile(item.name)).map((item) => item.name);
+				countsMap[dd] = media.length;
+				// La vignette doit être une image — og-image (sharp) ne sait pas resizer une vidéo.
+				// La dernière photo du jour plutôt que la première (demandé par Chetana, 23/09/2026).
+				const images = media.filter((name) => /\.(jpe?g|png|webp|gif|heic)$/i.test(name));
+				thumbsMap[dd] = images[images.length - 1] ?? null;
 			} catch { /* count reste null */ }
 		});
 	});
@@ -99,7 +107,7 @@
 		<h2>{monthLabelFull}</h2>
 		<p class="subtitle">
 			{#if items.length > 0}
-				{items.filter(i => (i.fileCount ?? 0) > 0).length} jours fleuris · {items.length} au total
+				{items.filter(i => (i.fileCount ?? 0) > 0).length} jours avec photos · {items.length} au total
 			{:else}
 				Un mois vide pour l'instant
 			{/if}
@@ -125,12 +133,12 @@
 	{:else}
 		<div class="grid">
 			{#each items as item, i}
-				<DayFlower
+				<DayTile
 					dd={item.dd}
 					label={item.label}
 					fileCount={item.fileCount}
+					thumb={item.thumb}
 					isToday={item.isToday}
-					isWeekend={item.isWeekend}
 					index={i}
 					onSelect={() => onSelect(item.dd)}
 				/>

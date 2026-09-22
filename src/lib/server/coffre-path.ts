@@ -35,3 +35,10 @@ export function isMediaFile(key: string): boolean {
 	const filename = key.split('/').pop() ?? ''
 	return filename !== '' && !COFFRE_META_FILES.includes(filename)
 }
+
+// Pour une VIGNETTE (cover année/mois, thumbnail jour) : og-image (sharp) sait redimensionner une
+// image, pas une vidéo — un fichier vidéo choisi comme couverture ferait planter le rendu.
+const IMAGE_EXT = /\.(jpe?g|png|webp|gif|heic)$/i
+export function isImageFile(key: string): boolean {
+	return IMAGE_EXT.test(key)
+}

@@ -61,4 +61,12 @@ describe('GET /api/coffre/cover', () => {
 		const body = await res.json()
 		expect(body.cover).toBeNull()
 	})
+
+	it('ignore les vidéos (og-image/sharp ne sait pas les redimensionner)', async () => {
+		files.set('2026/09/25/clip.mp4', '')
+		files.set('2026/09/22/photo.jpg', '')
+		const res = await GET(fakeEvent({ prefix: '2026/09/' }))
+		const body = await res.json()
+		expect(body.cover).toBe('2026/09/22/photo.jpg')
+	})
 })

@@ -2,7 +2,7 @@ import { error, json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { requireAuth } from '$lib/server/auth'
 import { getGcsBucket } from '$lib/server/gcs'
-import { isValidCoverPrefix, isMediaFile } from '$lib/server/coffre-path'
+import { isValidCoverPrefix, isImageFile } from '$lib/server/coffre-path'
 
 // Couverture d'une année ou d'un mois pour YearList/MonthList — le fichier média le plus récent
 // sous ce préfixe (les clés S3 YYYY/MM/DD/nom trient déjà chronologiquement en ordre lexical).
@@ -26,7 +26,7 @@ export const GET: RequestHandler = async (event) => {
 
   const cover = files
     .map(f => f.name as string)
-    .filter(isMediaFile)
+    .filter(isImageFile)
     .sort()
     .pop() ?? null
 
