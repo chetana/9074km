@@ -13,28 +13,31 @@
 	/**
 	 * Retourne un dégradé selon l'heure d'un fuseau horaire.
 	 * Décompose le ciel en 4 couches (haut → bas).
+	 * Palette pastel (redesign 22/09/2026) : les tranches de nuit ne descendent
+	 * plus dans le noir/bleu marine dramatique, mais dans un violet/prune doux
+	 * — cohérent avec le reste du thème même après le coucher du soleil.
 	 */
 	function skyGradient(hour: number): { top: string; mid: string; bot: string; label: string } {
 		// Aube : 5-8h
 		if (hour >= 5 && hour < 8)
-			return { top: '#1a1e4a', mid: '#6d5b8a', bot: '#f3a68a', label: 'aube' };
+			return { top: '#8E86C8', mid: '#D9A9C4', bot: '#FFCBA8', label: 'aube' };
 		// Matin clair : 8-11h
 		if (hour >= 8 && hour < 11)
-			return { top: '#8fc5e8', mid: '#c9e5f4', bot: '#fef4e3', label: 'matin' };
+			return { top: '#9FCBEF', mid: '#D6ECF8', bot: '#FFF6E8', label: 'matin' };
 		// Midi : 11-15h
 		if (hour >= 11 && hour < 15)
-			return { top: '#5fa8d8', mid: '#a8d4ef', bot: '#e8f3fb', label: 'midi' };
+			return { top: '#8FC2E8', mid: '#C9E6F5', bot: '#F3FAFD', label: 'midi' };
 		// Après-midi doré : 15-18h
 		if (hour >= 15 && hour < 18)
-			return { top: '#78a8cc', mid: '#e8b87a', bot: '#f4d9a8', label: 'après-midi' };
+			return { top: '#9BC4DE', mid: '#F2CB93', bot: '#FCE7BE', label: 'après-midi' };
 		// Crépuscule : 18-20h
 		if (hour >= 18 && hour < 20)
-			return { top: '#3d2b5a', mid: '#b8647a', bot: '#f2a068', label: 'crépuscule' };
+			return { top: '#7A6BA8', mid: '#D98FA3', bot: '#F5B583', label: 'crépuscule' };
 		// Soir : 20-22h
 		if (hour >= 20 && hour < 22)
-			return { top: '#1a1536', mid: '#3d2b5a', bot: '#5a3c6e', label: 'soir' };
-		// Nuit : 22-5h
-		return { top: '#050812', mid: '#0d1428', bot: '#1a1f3a', label: 'nuit' };
+			return { top: '#5E4E85', mid: '#7A5B8E', bot: '#9C7599', label: 'soir' };
+		// Nuit : 22-5h — violet/prune doux plutôt que le noir/bleu marine d'origine
+		return { top: '#3F3868', mid: '#584876', bot: '#6E5680', label: 'nuit' };
 	}
 
 	// Phase lunaire (calcul simplifié basé sur la date)

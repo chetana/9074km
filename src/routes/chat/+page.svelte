@@ -1203,6 +1203,9 @@
 		background: color-mix(in srgb, var(--accent) 50%, transparent);
 	}
 
+	/* Fond translucide : `.page` laisse le ciel (Sky.svelte) transparaître
+	   derrière, sa luminosité varie avec l'heure — un texte sans cadre propre
+	   deviendrait illisible selon le moment de la journée. */
 	.empty {
 		flex: 1;
 		display: flex;
@@ -1211,7 +1214,10 @@
 		justify-content: center;
 		gap: var(--space-2);
 		color: var(--muted);
-		padding-top: 20vh;
+		padding: var(--space-6) var(--space-4);
+		margin: auto var(--space-4);
+		background: color-mix(in srgb, var(--surface) 85%, transparent);
+		border-radius: var(--radius-xl);
 	}
 
 	.empty-icon { font-size: 3rem; }
