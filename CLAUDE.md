@@ -32,8 +32,17 @@ Application de couple : Chet (Paris 🇫🇷) + Lys (Phnom Penh 🇰🇭) — 9 
   `git ... commit`) : bloque le commit si `svelte-check --threshold error` échoue. Doit rester en
   **LF** (`.gitattributes` force `*.sh text eol=lf`) — il a tourné cassé en CRLF pendant des mois
   sans jamais bloquer un seul commit, personne ne s'en était rendu compte.
-- **`deploy.sh`** lance aussi `svelte-check` avant de builder l'image — un échec de type arrête le
-  déploiement avant de pousser en prod.
+- **`deploy.sh`** lance aussi `svelte-check` + `vitest` avant de builder l'image — un échec arrête
+  le déploiement avant de pousser en prod.
+- **CI GitHub Actions** (`.github/workflows/ci.yml`, `check` : `npm run check` + `npm run test`) —
+  signal visible sur chaque push/PR, pas un gate qui bloque un merge (repo perso, un seul dev).
+  Volontairement **sans Playwright ni `eval:translate`** : ces deux-là tapent de vraies
+  infra/secrets (S3, Postgres, Logto, GLM/Vertex) et coûtent de vrais appels — à lancer à la main,
+  jamais avec de vrais secrets exposés à un repo public.
+- **Skill `/pre-deploy`** (`.claude/skills/pre-deploy/SKILL.md`) — checklist d'auto-vérification
+  (pas un agent) à parcourir avant `/deploy` : quels tests/scripts relancer selon les fichiers
+  touchés (traduction → `eval:translate`, layout/CSS → smoke test nav-dock, auth-gate → smoke test
+  auth-gate, nouvelle route publique → validation de path).
 - Avant de considérer un changement "fini" : `npm run check` doit être à 0 erreur. Les warnings a11y
   préexistants (FabUpload, FileViewer, DayFiles, fiancailles) sont connus, pas bloquants.
 
@@ -205,10 +214,15 @@ OpenCode, Vertex, Logto...).
 ## Workflow dev
 
 ```bash
-npm run dev      # http://localhost:5173
-npm run build    # build production
-npm run preview  # preview build local
-npm run check    # svelte-check — doit être à 0 erreur avant de committer
+npm run dev            # http://localhost:5173
+npm run build          # build production
+npm run preview        # preview build local
+npm run check          # svelte-check — doit être à 0 erreur avant de committer
+npm run test           # vitest — unitaire/intégration, mocké, aucun secret requis
+npm run test:e2e       # playwright — smoke tests (e2e/), tape un vrai serveur dev + vraies infra,
+                       # jamais en CI. Voir e2e/README.md.
+npm run eval:translate # rejoue les cas de régression de traduction + réplique de vrais messages
+                       # (--replay N), coûte de vrais appels GLM/Gemini, jamais en CI.
 ```
 
 ## Archive Flutter

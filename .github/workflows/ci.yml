@@ -1,0 +1,25 @@
+name: CI
+
+# Signal visible pré-déploiement, pas un gate qui bloque un merge (repo perso, un seul dev).
+# Volontairement PAS de Playwright ici : les smoke tests (e2e/) tapent un vrai serveur dev
+# backé par de vraies secrets (S3, Postgres, Logto, GLM/Vertex) — à lancer à la main
+# (npm run test:e2e), jamais avec de vrais secrets exposés à un repo public. Idem pour
+# scripts/eval-translate.mjs (coûte de vrais appels GLM). check + vitest suffisent : ce
+# sont les deux garde-fous que deploy.sh fait déjà tourner avant de builder l'image.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test
