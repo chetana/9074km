@@ -172,11 +172,16 @@
 		box-shadow: var(--shadow-sm);
 	}
 	.bubble.mine {
-		background: linear-gradient(150deg, var(--accent) 0%, var(--accent) 68%, var(--accent-warm) 100%);
-		border: none;
+		background: linear-gradient(
+			150deg,
+			color-mix(in srgb, var(--accent) 45%, white) 0%,
+			color-mix(in srgb, var(--accent) 55%, white) 68%,
+			color-mix(in srgb, var(--accent-warm) 45%, white) 100%
+		);
+		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 		border-radius: var(--radius-xl);
 		border-top-right-radius: 8px;
-		box-shadow: var(--shadow-accent), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+		box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 		color: var(--on-accent);
 	}
 	.bubble.mine .bubble-text,
