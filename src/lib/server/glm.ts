@@ -33,6 +33,7 @@ export const GLM_ADAPT = `
 - CORRIGE d'abord les fautes/tournures du français source avant de traduire — ne traduis jamais les maladresses lettre à lettre.
 - N'AJOUTE AUCUN mot absent du message source : pas de "ឥឡូវនេះ"(maintenant), pas de vocatif "អូន"/"បង"/"ម៉ែ" qui ne serait pas dans le français, aucun titre inventé type "ទឹកមុត".
 - Vocabulaire khmer ORAL à privilégier (registre couple, Phnom Penh) : "aller" → "តោះ" ; "être fatigué" → "ហត់" (réserve "អស់កម្លាំង" au sens physique fort) ; "ça va mieux" → "ធូរជាងមុន" ; "content de savoir" → "អរហ្នឹង".
+- LEXIQUE MÉDICAL (fautes réelles observées le 22/09 — vérifiées avec un locuteur natif) : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" (jamais "អាឡែស៊ី", "អាឡែក" ni aucune autre variante inventée) ; "sésame" → TOUJOURS "ល្ង" (jamais "ស៊ីម៉េ" ni "ស្នេហ៍" qui veut dire "amour" — confusion grave déjà produite).
 - Le message traduit doit sonner comme si le couple lui-même écrivait en khmer, pas comme du français traduit.
 `
 export function glmEnabled(): boolean {
