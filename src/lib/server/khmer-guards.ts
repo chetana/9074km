@@ -123,4 +123,6 @@ export function termsEchoed(t: { kh: string; terms: TranslateTerm[] }): boolean 
 export const GLOSSARY_LINES = `- allergie/allergique → អាលែកហ្ស៊ី
 - sésame → ល្ង
 - acidulé/aigre (goût) → ជូរ
-- bleu (couleur) → ខៀវ`
+- bleu (couleur) → ខៀវ
+- "il faut que" (obligation) → ត្រូវ / ត្រូវតែ (jamais "បាត់បង់" qui veut dire "perdre")
+- "mes/tes parents" (registre oral, intime) → ប៉ាម៉ាក់ (jamais "មាតាបិតា", trop formel/littéraire — réservé aux textes officiels)`
