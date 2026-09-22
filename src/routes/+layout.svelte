@@ -9,11 +9,7 @@
 	import { APP_VERSION } from '$lib/version';
 	import { unreadCount } from '$lib/unreadStore';
 	import Sky from '$lib/Sky.svelte';
-	import HorlogeIcon from '$lib/icons/HorlogeIcon.svelte';
-	import ChatIcon from '$lib/icons/ChatIcon.svelte';
-	import CoffreIcon from '$lib/icons/CoffreIcon.svelte';
-	import ApprendreIcon from '$lib/icons/ApprendreIcon.svelte';
-	import type { Component } from 'svelte';
+	import { Clock, MessageCircle, Vault, BookOpen } from 'lucide-svelte';
 
 	let { data, children } = $props();
 
@@ -82,12 +78,12 @@
 		} catch { /* hors-ligne ou erreur réseau → on ignore */ }
 	}
 
-	type Tab = { path: string; Icon: Component<{ active?: boolean; size?: number }>; label: string; kh: string };
+	type Tab = { path: string; Icon: typeof Clock; label: string; kh: string };
 	const tabs: Tab[] = [
-		{ path: '/horloge',   Icon: HorlogeIcon,   label: 'Horloge',   kh: 'នាឡិកា' },
-		{ path: '/chat',      Icon: ChatIcon,      label: 'Chat',      kh: 'ជជែក'   },
-		{ path: '/coffre',    Icon: CoffreIcon,    label: 'Coffre',    kh: 'ប្រអប់'  },
-		{ path: '/apprendre', Icon: ApprendreIcon, label: 'Apprendre', kh: 'រៀន'    },
+		{ path: '/horloge',   Icon: Clock,         label: 'Horloge',   kh: 'នាឡិកា' },
+		{ path: '/chat',      Icon: MessageCircle, label: 'Chat',      kh: 'ជជែក'   },
+		{ path: '/coffre',    Icon: Vault,         label: 'Coffre',    kh: 'ប្រអប់'  },
+		{ path: '/apprendre', Icon: BookOpen,      label: 'Apprendre', kh: 'រៀន'    },
 	];
 
 	const currentPath = $derived($page.url.pathname);
@@ -120,13 +116,15 @@
 					onclick={() => goto(tab.path)}
 				>
 					<span class="dock-icon" style="position:relative">
-						<tab.Icon active={active} size={28} />
+						<tab.Icon size={24} strokeWidth={1.75} />
 						{#if tab.path === '/chat' && !active && $unreadCount > 0}
 							<span class="unread-badge">{$unreadCount > 9 ? '9+' : $unreadCount}</span>
 						{/if}
 					</span>
-					<span class="dock-label">{tab.label}</span>
-					{#if active}<span class="dock-cursor">▸</span>{/if}
+					<span class="dock-label">
+						{tab.label}
+						<span class="dock-label-kh" lang="km">{tab.kh}</span>
+					</span>
 				</button>
 			{/each}
 		</nav>
@@ -235,12 +233,23 @@
 	   comme seul moyen d'atténuer un libellé finit toujours par casser le
 	   contraste selon le fond. */
 	.dock-label {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.05rem;
 		font-size: 0.6rem;
 		font-weight: 500;
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
 		color: var(--muted);
 		transition: color 0.2s, font-weight 0.2s;
+	}
+
+	.dock-label-kh {
+		font-size: 0.65rem;
+		text-transform: none;
+		letter-spacing: normal;
+		color: inherit;
 	}
 
 	.dock-tab.active .dock-label {
@@ -266,37 +275,15 @@
 		pointer-events: none;
 	}
 
-	/* Curseur de sélection style RPG */
-	.dock-cursor {
-		position: absolute;
-		left: 4px;
-		top: 50%;
-		transform: translateY(-50%);
-		font-size: 0.6rem;
-		color: var(--accent);
-		animation: cursor-blink 1s step-end infinite;
-		filter: drop-shadow(0 0 3px var(--accent));
-	}
-
-	@keyframes cursor-blink {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0; }
-	}
-
-	/* Version badge — fond plein foncé, pas un ton clair sur clair : le
-	   premier essai (fond blanc/bordure rose pâle à 10px) était quasi
-	   invisible en vrai malgré un contraste "mesurable" correct, vérifié
-	   via capture d'écran réelle. */
+	/* Version badge — mono discret : la pastille sticker (.dock-tab.active .dock-icon) est
+	   l'unique indicateur d'état actif du dock, ce badge n'a plus besoin d'attirer l'œil. */
 	.dock-version {
-		font-size: 0.7rem;
+		font-size: 0.6rem;
 		font-family: 'Courier New', monospace;
-		font-weight: 700;
-		color: #FFF8F0;
-		background: var(--text);
-		border-radius: var(--radius-full);
-		padding: 2px 10px 3px;
+		font-weight: 600;
+		color: var(--muted-glyph);
 		margin-bottom: 4px;
-		letter-spacing: 0.08em;
+		letter-spacing: 0.06em;
 		user-select: none;
 	}
 </style>

@@ -360,22 +360,16 @@
 
 	.map-together {
 		font-weight: 600;
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 
 	.map-heart {
-		color: var(--accent);
-		animation: heartbeat 2s ease-in-out infinite;
-	}
-
-	@keyframes heartbeat {
-		0%, 100% { transform: scale(1);   opacity: 0.6; }
-		50%       { transform: scale(1.4); opacity: 1;   }
+		color: var(--accent-text);
 	}
 
 	.map-offset {
 		font-weight: 700;
-		color: var(--accent);
+		color: var(--accent-text);
 		background: color-mix(in srgb, var(--accent) 12%, transparent);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
@@ -506,7 +500,7 @@
 	}
 
 	.bridge {
-		color: var(--accent);
+		color: var(--accent-text);
 		font-size: 0.85rem;
 		opacity: 0.65;
 		animation: bridge-pulse 2.4s ease-in-out infinite;
@@ -531,17 +525,10 @@
 	.time {
 		font-size: clamp(3.2rem, 15vw, 5rem);
 		font-weight: 200;
-		color: var(--accent);
+		color: var(--accent-text);
 		font-variant-numeric: tabular-nums;
 		letter-spacing: -0.01em;
 		line-height: 1;
-		animation: pulse-text 2s ease-in-out infinite;
-		text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
-	}
-
-	@keyframes pulse-text {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.7; }
 	}
 
 	.dates {

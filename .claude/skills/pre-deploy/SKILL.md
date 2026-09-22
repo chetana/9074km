@@ -28,6 +28,13 @@ ne pas déployer "pour voir".
 - [ ] Si le schéma JSON de sortie a changé : l'ordre des clés reste `lang → terms → en → kh → fr`
       (le modèle doit s'engager sur `terms` avant de rédiger)
 
+## Si un fichier `.svelte` affichant du khmer a changé (plan de modernisation, 22/09/2026)
+
+- [ ] Pas de `font-style: italic` sur du texte khmer, `lang="km"` posé dessus
+- [ ] Taille ≥ `--fs-base` (13px), `line-height: var(--lh-kh)` (1.6)
+- [ ] Jamais `--accent` en couleur de texte — `--accent-text` (alias `--accent-deep`)
+- [ ] Une seule atténuation visuelle (couleur `--muted` OU `opacity`, jamais les deux)
+
 ## Si `+layout.svelte`, `Sky.svelte` ou `app.css` a changé (CSS global, dock, header)
 
 - [ ] Vérifié visuellement (Chrome/DevTools ou capture d'écran réelle) — pas juste "ça a l'air

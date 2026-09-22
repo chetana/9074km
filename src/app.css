@@ -16,6 +16,13 @@
 	--text-secondary: #7A6064;
 	--muted:         #856870;
 	--border: rgba(255, 143, 166, 0.30);
+	--border-soft: rgba(255, 143, 166, 0.18);
+	--surface-2: #FFF3EA;   /* galet intermédiaire entre --surface et --raised */
+	/* Alias explicites — évite de reposer par erreur --accent (surface) en couleur de texte,
+	   piège vécu le 22/09/2026 sur l'heure de l'horloge/l'année du coffre (contraste ~2:1). */
+	--accent-text: var(--accent-deep);
+	--muted-text: var(--muted);
+	--muted-glyph: #A98E95;   /* icônes inactives — pas du texte */
 
 	/* ── Accents additionnels (badge XP, carte de suggestion IA) ── */
 	--lavender:      #E4DAF8;
@@ -27,6 +34,10 @@
 	--gold-text:     #7A4A0E;
 	--shadow-lavender: 0 6px 14px rgba(183, 163, 232, 0.28);
 	--shadow-gold:     0 4px 10px rgba(242, 165, 74, 0.28);
+	--mint:      #D9F2E6;
+	--mint-text: #2F6B52;
+	--peach:      #FFE3D1;
+	--peach-text: #8A4A2B;
 
 	/* ── Espacements ── */
 	--space-1: 0.25rem;   /* 4px  */
@@ -49,11 +60,15 @@
 	--fs-3xl:  1.375rem;   /* 22px */
 
 	/* ── Rayons ── */
-	--radius-sm:  0.625rem;  /* 10px */
+	--radius-sm:  0.625rem;  /* 10px — réservé aux chips/inputs, pas aux cartes */
 	--radius-md:  1rem;      /* 16px */
 	--radius-xl:  1.5rem;    /* 24px */
 	--radius-2xl: 2rem;      /* 32px */
+	--radius-pebble: 1.625rem; /* 26px — "galet" pastel des cartes (maquette chat-redesign) */
 	--radius-full: 9999px;
+
+	/* ── Khmer ── */
+	--lh-kh: 1.6; /* diacritiques empilés du khmer : jamais moins, jamais d'italique synthétique */
 
 	/* ── Ombres — courtes et douces, esprit "autocollant", jamais de halo dramatique ── */
 	--shadow-sm:     0 2px 6px rgba(74,52,56,0.07);
@@ -110,6 +125,16 @@ input,
 textarea {
 	font: inherit;
 	color: inherit;
+}
+
+/* Khmer traité comme langue première partout, pas une langue secondaire échappée en petit/italique
+   — Noto Sans Khmer n'a pas d'italique réelle, l'oblique synthétique abîme les diacritiques
+   empilés. Cette règle globale rattrape les oublis ; les remplacements ciblés (tailles, couleurs,
+   ordre des langues) se font fichier par fichier. */
+:lang(km),
+.kh {
+	font-style: normal;
+	line-height: var(--lh-kh);
 }
 
 /* Un seul thème pastel clair, plus de bascule selon prefers-color-scheme ni de

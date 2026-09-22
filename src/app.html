@@ -3,8 +3,10 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-		<meta name="theme-color" content="#1A1520" media="(prefers-color-scheme: dark)" />
-		<meta name="theme-color" content="#FFF5F7" media="(prefers-color-scheme: light)" />
+		<!-- Un seul thème pastel clair, toujours actif (voir app.css) : une seule theme-color,
+		     jamais de variante sombre — sinon la barre système passe noire au-dessus d'une app
+		     crème quand le téléphone est en mode sombre (bug vécu le 22/09/2026). -->
+		<meta name="theme-color" content="#FFF8F0" />
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

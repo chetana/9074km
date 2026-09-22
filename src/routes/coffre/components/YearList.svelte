@@ -118,7 +118,7 @@
 	.year {
 		font-size: var(--fs-xl);
 		font-weight: 700;
-		color: var(--accent);
+		color: var(--accent-text);
 		flex: 1;
 	}
 
@@ -169,7 +169,7 @@
 		padding: var(--space-2) var(--space-4);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 
 	.empty {

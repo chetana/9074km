@@ -313,7 +313,7 @@
 
 	.fg-level-info { display: flex; flex-direction: column; gap: 0.2rem; }
 
-	.fg-level-title { font-size: 0.78rem; font-weight: 700; color: var(--accent); }
+	.fg-level-title { font-size: 0.78rem; font-weight: 700; color: var(--accent-text); }
 
 	.fg-xp-bar, .fg-xp-bar-done {
 		height: 5px; background: color-mix(in srgb, var(--accent) 15%, transparent);
@@ -404,7 +404,7 @@
 
 	.fg-flag  { font-size: 1.4rem; }
 	.fg-word  { font-size: 1.4rem; font-weight: 700; color: var(--text); text-align: center; line-height: 1.3; }
-	.fg-phonetic { font-size: 0.72rem; color: var(--accent); font-style: italic; opacity: 0.8; text-align: center; }
+	.fg-phonetic { font-size: 0.72rem; color: var(--accent-text); font-style: italic; opacity: 0.8; text-align: center; }
 	.fg-sub   { font-size: 0.68rem; color: var(--muted); font-style: italic; }
 	.fg-hint  { font-size: 0.65rem; color: var(--muted); margin-top: 0.15rem; }
 
@@ -449,10 +449,10 @@
 		animation: level-up 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
 	}
 
-	.fg-done-title { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+	.fg-done-title { font-size: 1.1rem; font-weight: 700; color: var(--accent-text); }
 
 	.fg-xp-gained {
-		font-size: 1.5rem; font-weight: 800; color: var(--accent);
+		font-size: 1.5rem; font-weight: 800; color: var(--accent-text);
 		display: flex; align-items: center; gap: 0.5rem;
 		animation: bounce-in 0.45s 0.1s cubic-bezier(0.34, 1.5, 0.64, 1) both;
 	}
@@ -474,7 +474,7 @@
 		margin-top: 0.25rem; padding: 0.55rem 1.4rem;
 		background: color-mix(in srgb, var(--accent) 15%, transparent);
 		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-		border-radius: 2rem; color: var(--accent); font-weight: 600; font-size: 0.88rem;
+		border-radius: 2rem; color: var(--accent-text); font-weight: 600; font-size: 0.88rem;
 		transition: background 0.15s, transform 0.12s;
 	}
 	.fg-restart:hover  { background: color-mix(in srgb, var(--accent) 25%, transparent); }

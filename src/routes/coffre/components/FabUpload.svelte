@@ -114,7 +114,7 @@
 
 	.fab.busy {
 		background: var(--card);
-		color: var(--accent);
+		color: var(--accent-text);
 		border: 1.5px solid var(--accent);
 		cursor: default;
 		width: auto;
@@ -194,7 +194,7 @@
 		border-radius: var(--radius-md);
 		border: 1px solid var(--border);
 		background: color-mix(in srgb, var(--accent) 12%, transparent);
-		color: var(--accent);
+		color: var(--accent-text);
 		font-size: var(--fs-sm);
 		font-weight: 600;
 		white-space: nowrap;

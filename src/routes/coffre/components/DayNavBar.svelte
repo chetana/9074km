@@ -43,7 +43,7 @@ interface Props {
 
 	.nav-btn {
 		font-size: 1.5rem;
-		color: var(--accent);
+		color: var(--accent-text);
 		width: var(--btn-icon);
 		height: var(--btn-icon);
 		display: flex;
@@ -80,6 +80,6 @@ interface Props {
 	}
 
 	.grid-btn:hover {
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 </style>

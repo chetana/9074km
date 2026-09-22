@@ -89,7 +89,7 @@
 
 	.chip.active {
 		border-color: var(--accent);
-		color: var(--accent);
+		color: var(--accent-text);
 		position: relative;
 	}
 
@@ -137,13 +137,13 @@
 	}
 
 	.chip.today:not(.active) .day-num {
-		color: var(--accent);
+		color: var(--accent-text);
 		opacity: 0.7;
 	}
 
 	.today-dot {
 		font-size: 6px;
-		color: var(--accent);
+		color: var(--accent-text);
 		line-height: 1;
 	}
 </style>

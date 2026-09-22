@@ -218,7 +218,7 @@
 		align-items: center;
 		gap: 6px;
 		font-size: var(--fs-xs);
-		color: var(--accent);
+		color: var(--accent-text);
 		font-weight: 600;
 		margin-bottom: 4px;
 	}
@@ -340,7 +340,7 @@
 		font-weight: 600;
 		background: color-mix(in srgb, var(--accent) 12%, var(--card));
 		border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-		color: var(--accent);
+		color: var(--accent-text);
 		white-space: nowrap;
 	}
 	.act-btn.delete { background: color-mix(in srgb, #e53935 12%, var(--card)); }

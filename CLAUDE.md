@@ -90,9 +90,25 @@ src/
   ne pas les réintroduire).
 - **Convention fichiers S3** : `YYYY/MM/DD/filename`
 - **Fichiers méta** : `note.txt`, `meta.json`, `reactions.json` — filtrés de la grille
-- **Bilinguisme** : FR + Khmer partout dans l'UI
+- **Bilinguisme** : FR + Khmer partout dans l'UI. Le khmer est une langue **première**, jamais
+  secondaire (plan de modernisation P0/P1, 22/09/2026) :
+  - **jamais `--accent` (#FF9EB3) en couleur de texte** — c'est une couleur de surface. Texte
+    accentué = `--accent-text` (alias de `--accent-deep`). Piège vécu : l'heure de l'horloge,
+    l'année du coffre, plusieurs boutons/badges avaient un texte rose sur blanc à ~2:1 de contraste.
+  - **jamais `font-style: italic` sur du khmer** — Noto Sans Khmer n'a pas d'italique réelle,
+    l'oblique synthétique abîme les diacritiques empilés. Une règle globale
+    `:lang(km), .kh { font-style: normal; line-height: var(--lh-kh) }` rattrape les oublis, mais
+    mettre `lang="km"` sur tout texte khmer rendu.
+  - taille khmer ≥ `--fs-base` (13px), jamais `--fs-xs`/`--fs-sm` ; `--lh-kh: 1.6` minimum.
+  - une seule atténuation visuelle (couleur `--muted` OU `opacity`, jamais les deux empilées).
 - **Polices** : Inter + Fredoka (titres/labels) + Noto Sans Khmer — Google Fonts, chargées dans
   `src/app.html`
+- **Iconographie** : `lucide-svelte` uniquement (stroke 1.75-2, `size` en px) — plus d'emoji comme
+  icône système (🔔, 🎴, glyphes unicode ◂▸...) ni de SVG custom animés en boucle. Les emojis
+  restent légitimes comme **contenu** (réactions de chat, `i18n.ts`), jamais comme icône d'action.
+- **Motion** : au changement d'état uniquement, jamais d'animation `infinite` ambiante — Sky est la
+  seule "vie" permanente de l'écran. Piège vécu : plusieurs `animation: ... infinite` cumulées
+  (pulse de l'heure, cœurs volants, icônes du dock) sur un même écran.
 
 ## Navigation — Floating dock 3D
 
