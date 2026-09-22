@@ -15,7 +15,13 @@ const LOGTO_COOKIE = 'logtoCookies'
 // voire déclencherait des appels Vertex coûteux si le chemin scanné touche /api/chat/*.
 // Fenêtre glissante en mémoire, perdue au scale-to-zero (sans gravité pour une garde anti-abus).
 const RL_WINDOW_MS = 60_000
-const RL_MAX = 120 // 120 req/min/IP : large pour un humain, borne un bot
+// Relevé 120 → 600 req/min/IP le 23/09/2026 : ce seuil n'avait pas suivi la même relecture que
+// le rate-limit Cloudflare (20 → 100 → 500 → 5000 req/10s, chet-workspace/ARCHITECTURE.md Fix #7),
+// et était devenu le plus restrictif des deux — les vignettes photo du Coffre (une requête
+// og-image + une listObjects par jour affiché, ~60/mois consulté) déclenchaient des 429 en
+// navigation normale (plusieurs mois consultés en moins d'une minute). Reste une vraie borne
+// anti-bot en profondeur (défense en couches derrière Cloudflare), juste plus généreuse.
+const RL_MAX = 600
 const rlHits = new Map<string, number[]>()
 const rateLimit: Handle = ({ event, resolve }) => {
 	if (event.url.pathname.startsWith('/_app/')) return resolve(event) // assets statiques immuables

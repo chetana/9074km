@@ -60,24 +60,47 @@ src/
     thumbnailer.ts      — Thumbnail vidéo via HTMLVideoElement
     semaphore.ts        — Queue async (max 3 signed URL fetches)
     i18n.ts             — Labels FR + Khmer, COUPLE_START, STATUS, REACTIONS
+    sky.ts              — Mécanisme pur du ciel Paris/Phnom Penh (paliers 3h interpolés en
+                          continu, phase lunaire) — extrait de Sky.svelte, testé, réutilisé par
+                          l'horloge pour ses cartes "fenêtres sur le ciel local"
+    LangTag.svelte      — Étiquette typographique de langue (FR/EN/ខ្មែរ) — remplace Flag.svelte
+                          comme marqueur de LANGUE (Flag reste pour un LIEU : horloge, double
+                          horodatage Paris/PP du chat)
+    BottomSheet.svelte  — Sheet claire avec poignée (voile clair, pas de backdrop noir),
+                          généralisée depuis Apprendre — coffre (upload) l'utilise aussi
+    chat/group.ts       — groupMessages() : regroupe les messages consécutifs du même auteur
+                          (<5min d'écart) sous un seul avatar/horodatage
     server/
       auth.ts           — Vérification token (backend)
       gcs.ts            — Bucket S3 + signed URLs (PUT/GET) — nom hérité de GCS, c'est du S3
+      coffre-path.ts    — Validation pure des path/prefix S3 coffre (isValidCoffrePath/Prefix,
+                          isValidCoverPrefix, isMediaFile, isImageFile) — bucket partagé avec
+                          chat/apprendre/translation-issues, jamais de path/prefix libre
       vertex.ts         — Traduction (translate/suggest/transcribe) + leçons/grading
       glm.ts            — Adaptateur GLM-5.3-flash (OpenCode Go), moteur principal pas cher
+      khmer-guards.ts   — Fonctions pures de traduction (validation, anti-corruption, prompts)
       translation-issues.ts — journal S3 des incidents de traduction détectés automatiquement
+      rate-limit.ts     — Décision pure de rate-limit (fenêtre glissante), utilisée par hooks.server.ts
   routes/
-    +layout.svelte        — Floating dock 3D (Horloge | Chat | Coffre | Apprendre — 4 tabs)
-    horloge/+page.svelte   — Double horloge Paris / Phnom Penh
+    +layout.svelte        — Floating dock (Horloge | Chat | Coffre | Apprendre — 4 tabs, bilingue
+                            FR+khmer sur les labels), icônes lucide, Sky visible en transparence
+    horloge/+page.svelte   — Double horloge Paris / Phnom Penh, cartes = fenêtres sur le ciel local
     coffre/+page.svelte    — Auth gate + navigation hiérarchique
-    coffre/components/     — Breadcrumb, YearList, MonthList, DayList, DayNavBar, DaysChipBar,
-                             NoteField, FileTile, FabUpload, FileViewer, DayFiles
-    chat/+page.svelte      — Chat temps réel : texte 📝, image 📷, vocal 🎤
-    apprendre/              — Moteur d'apprentissage FLE (leçons générées, correction IA)
+    coffre/components/     — Breadcrumb (titre contextuel + retour), YearList/MonthList (photo de
+                            couverture en fond de carte), DayList/DayTile (vignette photo du jour,
+                            appareil photo barré si vide — remplace l'ancien DayFlower), DayNavBar,
+                            DaysChipBar, NoteField, FileTile, FabUpload (BottomSheet), FileViewer,
+                            DayFiles
+    chat/+page.svelte      — Chat : texte, image, vocal, messages regroupés (chat/group.ts)
+    chat/components/       — ChatBubble (trilingue repliable, tap ouvre BubbleMenu), BubbleMenu
+                            (réagir/écouter/copier/supprimer, remplace l'ancienne colonne de
+                            boutons), ChatInput, SuggestionCard, ChatToast
+    apprendre/              — Moteur d'apprentissage FLE (leçons générées, correction IA), pastel
     api/
       chat/               — messages.ts, suggest.ts, transcribe.ts, lessons.ts
-      coffre/             — list.ts, sign-upload.ts, sign-download.ts, delete.ts, preview.ts,
-                            og-image.ts, note.ts, meta.ts, reactions.ts
+      coffre/             — list.ts, cover.ts (photo de couverture année/mois), sign-upload.ts,
+                            sign-download.ts, delete.ts, preview.ts, og-image.ts, note.ts,
+                            meta.ts, reactions.ts
 ```
 
 ## Conventions
@@ -163,6 +186,13 @@ appelait un getter générique typé `unknown | null` dans `localCache.ts` — 2
 - **XP/flashcards** : `swrXp` (SWR sur `/api/flashcards/progress`) — pour rafraîchir après une
   action côté flashcards, utiliser `swrXp.refresh()` (pas une fonction `loadChatXp` qui n'a jamais
   existé — bug réel trouvé le 22/09, `ReferenceError` au close du panneau flashcards).
+- **Bulles** (`ChatBubble.svelte`, refonte 23/09/2026) : messages regroupés par `chat/group.ts`
+  (même auteur, <5min d'écart → un seul avatar/horodatage). Traductions secondaires repliées par
+  défaut, révélées au tap (langue du lecteur affichée en premier, jamais un ordre FR figé). Le tap
+  sur la bulle ouvre `BubbleMenu.svelte` (réagir/écouter/copier/supprimer) — **au tap direct, pas
+  au long-press** (testé en long-press ~450ms pendant la refonte, repassé au tap sur demande
+  explicite de Chetana : un tap simple ne faisait rien d'autre avant, plus intuitif à l'usage).
+  Fermeture du menu au tap ailleurs dans la liste ou après une action.
 
 ### Race condition auth
 `auth.init()` n'est **pas awaité** dans le layout. Ne jamais appeler `loadDate()` dans `onMount`.
