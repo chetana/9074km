@@ -1,5 +1,5 @@
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
@@ -27,5 +27,9 @@ export default defineConfig({
 				{ src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs', dest: './' },
 			]
 		})
-	]
+	],
+	test: {
+		environment: 'node',
+		include: ['src/**/*.test.ts'],
+	},
 });

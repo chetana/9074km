@@ -24,6 +24,12 @@ if ! npx svelte-check --threshold error > /dev/null 2>&1; then
   exit 1
 fi
 
+echo "→ vitest"
+if ! npx vitest run 2>&1 | tail -10; then
+  echo "❌ des tests échouent — déploiement annulé. Corrige avant de relancer deploy.sh."
+  exit 1
+fi
+
 # 1. Bump version.ts (patch +1) — n'écrit que si pas en dry-run
 VER=$(DRY=$DRYENV node -e '
   const fs=require("fs"); const p="src/lib/version.ts";

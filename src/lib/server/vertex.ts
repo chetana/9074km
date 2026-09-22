@@ -2,6 +2,14 @@ import { createSign } from 'crypto'
 import { env } from '$env/dynamic/private'
 import { glmEnabled, chatGo, GLM_ADAPT } from './glm'
 import { logTranslationIssue } from './translation-issues'
+import {
+	type Translations, type TranslateTerm, type LessonItem, type GeminiSuggestion,
+	MAX_OUTPUT_CEILING, translateBudget, splitIntoChunks,
+	containsForeignScript, containsGluedLatin, cleanKhmer, detectIsChet,
+	pickTranslation, pickSuggestion, termsEchoed, GLOSSARY_LINES,
+} from './khmer-guards'
+
+export type { Translations, GeminiSuggestion, LessonItem, TranslateTerm }
 
 function parseServiceAccountJson(raw: string): Record<string, string> {
   // gcloud --env-vars-file YAML uses single-quoted strings where \n is literal backslash+n.
@@ -57,8 +65,6 @@ function geminiEndpoint(project: string, model: string, location: string): strin
   return `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`
 }
 
-const MAX_OUTPUT_CEILING = 8192
-
 async function geminiRequest(systemInstruction: string, parts: object[], maxTokens = 300, models: readonly string[] = GEMINI_MODELS): Promise<string> {
   const token = await getAccessToken()
   const project = env.VERTEX_PROJECT_ID ?? 'cykt-399216'
@@ -96,31 +102,6 @@ async function geminiRequest(systemInstruction: string, parts: object[], maxToke
     }
   }
   throw lastError ?? new Error('All Gemini models failed')
-}
-
-// Budget de sortie proportionnel à l'entrée : une traduction en 3 langues (dont le khmer,
-// gourmand en tokens) fait ~1 token de sortie par caractère d'entrée ; on prend large.
-function translateBudget(text: string, factor = 4): number {
-  return Math.min(MAX_OUTPUT_CEILING, Math.max(1024, Math.ceil(text.length * factor)))
-}
-
-// Découpe un texte long aux frontières de phrase (fr/en/kh), morceaux <= maxLen.
-function splitIntoChunks(text: string, maxLen: number): string[] {
-  if (text.length <= maxLen) return [text]
-  const sentences = text.match(/[^.!?…។\n]+[.!?…។\n]*/g) ?? [text]
-  const chunks: string[] = []
-  let cur = ''
-  for (const s of sentences) {
-    if (cur && cur.length + s.length > maxLen) { chunks.push(cur); cur = '' }
-    if (s.length > maxLen) {
-      if (cur) { chunks.push(cur); cur = '' }
-      for (let i = 0; i < s.length; i += maxLen) chunks.push(s.slice(i, i + maxLen))
-    } else {
-      cur += s
-    }
-  }
-  if (cur) chunks.push(cur)
-  return chunks
 }
 
 async function callGemini(prompt: string, maxTokens = 300, models: readonly string[] = GEMINI_MODELS): Promise<string> {
@@ -167,39 +148,8 @@ const STRONG_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'] as const
 // Les leçons/grading restent sur GEMINI_MODELS (lite, pas cher, non sensible au registre intime).
 const COUPLE_MODELS = ['gemini-3.6-flash', 'gemini-2.5-flash'] as const
 
-// Le khmer et le thaï se ressemblent : les petits modèles glissent parfois vers le thaï.
-// Scripts qui n'ont RIEN à faire dans un texte khmer et déclenchent un re-roll sur le modèle fort.
-// Couvre : thaï, indien (devanagari/bengali/tamoul), chinois+japonais (CJK+kana), coréen (hangul),
-// arabe, cyrillique, hébreu. Le khmer (U+1780–17FF), le latin, les chiffres, la ponctuation et les
-// emoji restent autorisés. Remplace l'ancien contrôle « thaï seulement » (Lys voyait passer du
-// chinois/indien que le filet ne rattrapait pas).
-const FOREIGN_SCRIPT =
-  /[฀-๿ऀ-ॿঀ-৿஀-௿一-鿿㐀-䶿぀-ヿ가-힯ᄀ-ᇿ؀-ۿЀ-ӿ֐-׿]/
-function containsForeignScript(s?: string): boolean {
-  return FOREIGN_SCRIPT.test(s ?? '')
-}
-
-// Corruption détectée le 22/09/2026 sur "boutons" → "បុortonexus" : du latin collé
-// SANS espace à du khmer (signature d'un mot halluciné/tronqué en cours de génération).
-// Un vrai nom propre latin dans une phrase khmère est toujours séparé par une espace
-// ("iPhone", "WhatsApp") — cette adjacence directe khmer↔latin n'arrive jamais en usage normal.
-const GLUED_LATIN = /[ក-៿][A-Za-z]{2,}|[A-Za-z]{2,}[ក-៿]/
-function containsGluedLatin(s?: string): boolean {
-  return GLUED_LATIN.test(s ?? '')
-}
-
-// Retire les gloses de romanisation latine insérées à tort dans le khmer (ex "កែ (kê)" → "កែ").
-// Ne matche que des parenthèses ne contenant QUE du latin/ponctuation (jamais du khmer).
-function cleanKhmer(kh?: string): string {
-  return (kh ?? '')
-    .replace(/\s*[（(][A-Za-zÀ-ÿ0-9'’ .,:;\/-]+[)）]/g, '')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim()
-}
-
 function coupleContext(author?: string): string {
-  const normalized = author?.normalize('NFD').replace(/[\u0300-\u036f]/g, '') ?? ''
-  const isChet = author ? /^(chet|chetana)$/i.test(normalized) : null
+  const isChet = detectIsChet(author)
   const authorLine = isChet === true
     ? `⚠️ AUTEUR DE CE MESSAGE = CHET (un HOMME). RÈGLE PRIORITAIRE SUR TOUT : quand il dit "je/moi/j'" → en khmer TOUJOURS "បង"(bang), JAMAIS "អូន"(oun) ; quand il dit "tu/toi" (il parle à Lys) → "អូន"(oun). Accord MASCULIN. Ne te laisse JAMAIS influencer par le contenu du message (même s'il parle de beauté, de visage, de choses "féminines") ni par les messages précédents pour choisir le pronom de l'auteur : c'est CHET qui écrit, donc son "je" = "បង".`
     : isChet === false
@@ -221,18 +171,6 @@ RENDU DES PRONOMS EN FRANÇAIS ET ANGLAIS (le point le plus important) :
 - INTERDIT ABSOLU : tout autre système d'écriture — pas un seul caractère thaï (ไทย), chinois/japonais (中文/日本語), coréen (한국어), indien/devanagari (हिन्दी), arabe (العربية) ni cyrillique. Uniquement du khmer.
 - INTERDIT : toute romanisation / phonétique en lettres latines entre parenthèses dans le khmer. Écris "កែ", JAMAIS "កែ (kê)". Le khmer doit être pur, sans transcription latine.`.trim()
 }
-
-export interface Translations { fr: string; en: string; kh: string; lang?: string }
-interface TranslateTerm { src: string; kh: string }
-
-// Glossaire cible UNIQUEMENT (jamais les formes fautives) : un petit modèle a du mal à pondérer
-// une négation ("jamais X") — une chaîne présente dans le prompt devient plus probable en sortie,
-// pas moins. La détection des formes fautives est le rôle du code (containsForeignScript,
-// containsGluedLatin, termsEchoed), pas du prompt. Revu le 22/09 suite à une revue de prompt.
-const GLOSSARY_LINES = `- allergie/allergique → អាលែកហ្ស៊ី
-- sésame → ល្ង
-- acidulé/aigre (goût) → ជូរ
-- bleu (couleur) → ខៀវ`
 
 // Invariant (system) : contexte couple, règles, glossaire, schéma JSON — ne change que selon
 // l'auteur (2 variantes), donc cacheable côté GLM. Le message lui-même vit dans buildTranslateUser.
@@ -272,31 +210,6 @@ function buildTranslateUser(text: string, previousMessage?: string): string {
     ? `CONVERSATION RÉCENTE (contexte pour lever les ambiguïtés de sujet, de genre et d'intention — chaque ligne = "auteur: message") :\n${previousMessage}\n\n`
     : ''
   return `${ctxLine}Message : "${text}"`
-}
-
-// Validation de forme (D) : rejette un JSON qui a l'air valide mais qui ne l'est pas — champ
-// manquant/vide, placeholder du schéma recopié tel quel, ou kh identique à fr/en (non-traduction).
-// Pick explicite des clés : n'importe quelle clé en plus renvoyée par le modèle est ignorée.
-function pickTranslation(raw: string): Translations & { terms: TranslateTerm[] } {
-  const t = JSON.parse(raw)
-  if (typeof t.kh !== 'string' || !t.kh.trim()) throw new Error('champ kh manquant/vide')
-  if (typeof t.fr !== 'string' || !t.fr.trim()) throw new Error('champ fr manquant/vide')
-  if (typeof t.en !== 'string' || !t.en.trim()) throw new Error('champ en manquant/vide')
-  if (t.kh === 'អត្ថបទជាភាសាខ្មែរ' || t.fr === 'texte en français' || t.en === 'text in English') {
-    throw new Error('placeholder du schéma recopié tel quel')
-  }
-  if (t.kh === t.fr || t.kh === t.en) throw new Error('kh identique à fr/en — probable non-traduction')
-  const lang = t.lang === 'fr' || t.lang === 'en' || t.lang === 'kh' ? t.lang : ''
-  const terms: TranslateTerm[] = Array.isArray(t.terms)
-    ? t.terms.filter((x: any) => x && typeof x.src === 'string' && typeof x.kh === 'string')
-    : []
-  return { fr: t.fr, en: t.en, kh: t.kh, lang, terms }
-}
-
-// Si le modèle s'est engagé sur un terme difficile (glossaire), sa traduction annoncée doit
-// réapparaître dans le khmer final — sinon c'est le signe d'une génération qui a divergé en route.
-function termsEchoed(t: { kh: string; terms: TranslateTerm[] }): boolean {
-  return t.terms.every(term => term.kh && t.kh.includes(term.kh))
 }
 
 async function attemptTranslate(
@@ -381,12 +294,6 @@ async function translateInChunks(text: string, author?: string, previousMessage?
   }
 }
 
-export interface LessonItem { original: string; corrected: string; explanation: string }
-
-export interface GeminiSuggestion {
-  corrected: string; fr: string; en: string; kh: string; lang: string; question: string; lessons?: LessonItem[]
-}
-
 function buildSuggestSystem(authorLang: 'fr' | 'kh'): string {
   const author = authorLang === 'fr' ? 'Chet' : 'Lys'
   const context = authorLang === 'kh'
@@ -433,23 +340,6 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown), avec CES clés DANS CET
 function buildSuggestUser(text: string, previousMessage?: string): string {
   const ctxLine = previousMessage ? `MESSAGE PRÉCÉDENT (contexte) : "${previousMessage}"\n\n` : ''
   return `${ctxLine}Message : "${text}"`
-}
-
-function pickSuggestion(raw: string): GeminiSuggestion & { terms: TranslateTerm[] } {
-  const s = JSON.parse(raw)
-  if (typeof s.kh !== 'string' || !s.kh.trim()) throw new Error('champ kh manquant/vide')
-  if (typeof s.fr !== 'string' || !s.fr.trim()) throw new Error('champ fr manquant/vide')
-  if (typeof s.en !== 'string' || !s.en.trim()) throw new Error('champ en manquant/vide')
-  if (typeof s.corrected !== 'string' || !s.corrected.trim()) throw new Error('champ corrected manquant/vide')
-  if (s.kh === 'អត្ថបទជាភាសាខ្មែរ' || s.fr === 'texte en français' || s.en === 'text in English') {
-    throw new Error('placeholder du schéma recopié tel quel')
-  }
-  const lang = s.lang === 'fr' || s.lang === 'en' || s.lang === 'kh' ? s.lang : ''
-  const terms: TranslateTerm[] = Array.isArray(s.terms)
-    ? s.terms.filter((x: any) => x && typeof x.src === 'string' && typeof x.kh === 'string')
-    : []
-  const lessons = Array.isArray(s.lessons) ? s.lessons as LessonItem[] : undefined
-  return { corrected: s.corrected, fr: s.fr, en: s.en, kh: s.kh, lang, question: s.question ?? '', lessons, terms }
 }
 
 export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh', previousMessage?: string): Promise<GeminiSuggestion> {
