@@ -270,17 +270,19 @@
 		50% { opacity: 0; }
 	}
 
-	/* Version badge */
+	/* Version badge — fond plein foncé, pas un ton clair sur clair : le
+	   premier essai (fond blanc/bordure rose pâle à 10px) était quasi
+	   invisible en vrai malgré un contraste "mesurable" correct, vérifié
+	   via capture d'écran réelle. */
 	.dock-version {
-		font-size: 0.65rem;
+		font-size: 0.7rem;
 		font-family: 'Courier New', monospace;
-		font-weight: 600;
-		color: var(--text-secondary);
-		background: var(--surface);
-		border: 1px solid var(--border);
+		font-weight: 700;
+		color: #FFF8F0;
+		background: var(--text);
 		border-radius: var(--radius-full);
-		padding: 1px 8px 2px;
-		margin-bottom: 3px;
+		padding: 2px 10px 3px;
+		margin-bottom: 4px;
 		letter-spacing: 0.08em;
 		user-select: none;
 	}
