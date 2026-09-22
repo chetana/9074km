@@ -214,7 +214,7 @@
 		{/if}
 	{:else}
 		<!-- Header -->
-		<header class="header">
+		<header class="header glass">
 			<Breadcrumb
 				{year} {month} {day}
 				fileCount={dayFileCount}
@@ -383,11 +383,6 @@
 		flex-shrink: 0;
 		position: relative;
 		z-index: 2;
-		background: color-mix(in srgb, var(--surface) 88%, transparent);
-		border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-		backdrop-filter: blur(14px) saturate(1.2);
-		-webkit-backdrop-filter: blur(14px) saturate(1.2);
-		box-shadow: 0 1px 12px color-mix(in srgb, var(--accent) 8%, transparent);
 	}
 
 	.header-actions {

@@ -1,128 +1,73 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { skyAt, hourInZone, moonPhase } from './sky';
 
-	// Temps réel des deux côtés (Paris + Phnom Penh)
+	// Mécanisme porté de la maquette (design-proposals/chat-redesign/index.html) le 22/09/2026 —
+	// plan de modernisation P2. AVANT : un seul dégradé horizontal appliqué à la bande du haut +
+	// un mix 70/30 fixe pour le bas, `background-blend-mode: screen` qui délavait les pastels, pas
+	// de voile de lisibilité (compensé depuis par 4 recettes de glassmorphism différentes sur
+	// header/composer/dock). APRÈS : deux dégradés VERTICAUX pleine hauteur superposés (celui de
+	// Phnom Penh masqué en dégradé horizontal transparent→opaque), un voile crème qui fond le ciel
+	// dans --bg en haut/bas pour garder le contenu lisible SANS que chaque élément ait besoin de
+	// son propre fond translucide, et une interpolation continue par paliers de 3h (plus de saut
+	// de couleur à chaque heure ronde malgré la transition CSS de 4s).
 	let now = $state(new Date());
 
 	let interval: ReturnType<typeof setInterval>;
 	onMount(() => {
-		interval = setInterval(() => (now = new Date()), 60_000); // refresh chaque minute
+		interval = setInterval(() => (now = new Date()), 60_000);
 	});
 	onDestroy(() => clearInterval(interval));
 
-	/**
-	 * Retourne un dégradé selon l'heure d'un fuseau horaire.
-	 * Décompose le ciel en 4 couches (haut → bas).
-	 * Palette pastel (redesign 22/09/2026) : les tranches de nuit ne descendent
-	 * plus dans le noir/bleu marine dramatique, mais dans un violet/prune doux
-	 * — cohérent avec le reste du thème même après le coucher du soleil.
-	 */
-	function skyGradient(hour: number): { top: string; mid: string; bot: string; label: string } {
-		// Aube : 5-8h
-		if (hour >= 5 && hour < 8)
-			return { top: '#8E86C8', mid: '#D9A9C4', bot: '#FFCBA8', label: 'aube' };
-		// Matin clair : 8-11h
-		if (hour >= 8 && hour < 11)
-			return { top: '#9FCBEF', mid: '#D6ECF8', bot: '#FFF6E8', label: 'matin' };
-		// Midi : 11-15h
-		if (hour >= 11 && hour < 15)
-			return { top: '#8FC2E8', mid: '#C9E6F5', bot: '#F3FAFD', label: 'midi' };
-		// Après-midi doré : 15-18h
-		if (hour >= 15 && hour < 18)
-			return { top: '#9BC4DE', mid: '#F2CB93', bot: '#FCE7BE', label: 'après-midi' };
-		// Crépuscule : 18-20h
-		if (hour >= 18 && hour < 20)
-			return { top: '#7A6BA8', mid: '#D98FA3', bot: '#F5B583', label: 'crépuscule' };
-		// Soir : 20-22h
-		if (hour >= 20 && hour < 22)
-			return { top: '#5E4E85', mid: '#7A5B8E', bot: '#9C7599', label: 'soir' };
-		// Nuit : 22-5h — violet/prune doux plutôt que le noir/bleu marine d'origine
-		return { top: '#3F3868', mid: '#584876', bot: '#6E5680', label: 'nuit' };
-	}
+	const parisHour = $derived(hourInZone('Europe/Paris', now));
+	const kpHour = $derived(hourInZone('Asia/Phnom_Penh', now));
 
-	// Phase lunaire (calcul simplifié basé sur la date)
-	function moonPhase(date: Date): number {
-		const y = date.getFullYear();
-		const m = date.getMonth() + 1;
-		const d = date.getDate();
-		// Référence : 2000-01-06 = nouvelle lune
-		const jd = 367 * y - Math.floor(7 * (y + Math.floor((m + 9) / 12)) / 4) + Math.floor(275 * m / 9) + d - 730531.5;
-		const synodic = 29.53059;
-		const phase = (jd % synodic) / synodic;
-		return phase; // 0 = new, 0.5 = full
-	}
+	const paris = $derived(skyAt(parisHour, 'paris'));
+	const kp = $derived(skyAt(kpHour, 'kp'));
 
-	// Heure Paris
-	const parisHour = $derived.by(() => {
-		const paris = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(now);
-		return parseInt(paris, 10);
-	});
-
-	// Heure Phnom Penh
-	const kpHour = $derived.by(() => {
-		const kp = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Phnom_Penh', hour: 'numeric', hour12: false }).format(now);
-		return parseInt(kp, 10);
-	});
-
-	const parisGrad = $derived(skyGradient(parisHour));
-	const kpGrad = $derived(skyGradient(kpHour));
+	const isNight = $derived(paris.night || kp.night);
+	const isDay = $derived(!isNight);
 
 	const phase = $derived(moonPhase(now));
-	const isNight = $derived(parisHour < 6 || parisHour >= 20 || kpHour < 6 || kpHour >= 20);
+	// Décalage horizontal de l'occulteur de phase : 0/1 = nouvelle lune (disque plein occulté),
+	// 0.5 = pleine lune (occulteur hors du disque).
+	const moonShadowOffset = $derived((0.5 - phase) * 130);
 
-	// Ombre lune : left=-1 (croissant droit), right=+1 (croissant gauche), 0 = pleine
-	const moonShadow = $derived.by(() => {
-		// 0 (new) → 0.5 (full) → 1 (new again)
-		if (phase < 0.5) return 1 - phase * 2; // croissant décroissant
-		return -((phase - 0.5) * 2); // croissant croissant
-	});
-	const moonVisible = $derived(phase > 0.03 && phase < 0.97);
-
-	// 60 étoiles positionnées aléatoirement (stable entre renders via seed)
-	const stars = Array.from({ length: 60 }, (_, i) => ({
-		x: ((i * 37) % 100),
-		y: ((i * 53) % 60), // étoiles seulement dans la moitié haute
-		size: 0.3 + ((i * 13) % 10) / 10,
-		delay: (i * 17) % 50,
-	}));
+	// 14 étoiles à positions stables (pas de recalcul à chaque tick, seule l'opacité globale
+	// bouge selon isNight) — la maquette en utilise 14, l'implémentation précédente en avait 60.
+	const STAR_POS: [number, number][] = [
+		[8, 14], [18, 8], [27, 20], [34, 6], [42, 16], [52, 10], [61, 22], [70, 7],
+		[78, 17], [86, 11], [15, 28], [47, 26], [65, 30], [90, 24],
+	];
 </script>
 
-<div class="sky" aria-hidden="true">
-	<!-- Dégradé horizontal : Paris (gauche) → Phnom Penh (droite) -->
+<div class="sky" class:is-night={isNight} aria-hidden="true">
 	<div
 		class="sky-gradient"
-		style:--paris-top={parisGrad.top}
-		style:--paris-mid={parisGrad.mid}
-		style:--paris-bot={parisGrad.bot}
-		style:--kp-top={kpGrad.top}
-		style:--kp-mid={kpGrad.mid}
-		style:--kp-bot={kpGrad.bot}
-	></div>
+		style:--paris-top={paris.top}
+		style:--paris-mid={paris.mid}
+		style:--paris-bot={paris.bot}
+		style:--kp-top={kp.top}
+		style:--kp-mid={kp.mid}
+		style:--kp-bot={kp.bot}
+	>
+		<div class="sky-layer paris"></div>
+		<div class="sky-layer kp"></div>
+	</div>
 
-	<!-- Étoiles (visibles surtout la nuit) -->
-	{#if isNight}
-		<div class="stars" style:opacity={isNight ? 0.7 : 0}>
-			{#each stars as s}
-				<span
-					class="star"
-					style:left="{s.x}%"
-					style:top="{s.y}%"
-					style:--size="{s.size}px"
-					style:--delay="{s.delay}00ms"
-				></span>
-			{/each}
-		</div>
-	{/if}
+	<div class="sky-stars">
+		{#each STAR_POS as [x, y], i}
+			<span class="star" style:left="{x}%" style:top="{y}%" style:animation-delay="{i * 0.18}s"></span>
+		{/each}
+	</div>
 
-	<!-- Lune (symbole commun aux 2 fuseaux) -->
-	{#if moonVisible}
-		<div class="moon-wrap">
-			<div class="moon" style:--shadow-x="{moonShadow * 60}%"></div>
-		</div>
-	{/if}
+	<div class="sun-glow" class:hidden={!isDay}></div>
+	<div class="sky-moon">
+		<div class="moon-shadow" style:transform="translateX({moonShadowOffset.toFixed(0)}%)"></div>
+	</div>
 
-	<!-- Ligne d'horizon douce -->
 	<div class="horizon"></div>
+	<div class="sky-veil"></div>
 </div>
 
 <style>
@@ -134,24 +79,41 @@
 		pointer-events: none;
 	}
 
+	/* Deux dégradés VERTICAUX pleine hauteur superposés plutôt qu'un dégradé horizontal limité à
+	   la bande du haut : le blend Paris↔Phnom Penh tient à toutes les hauteurs de l'écran, et les
+	   couches restent opaques (plus de `multiply`/`screen` qui grisait ou délavait les pastels). */
 	.sky-gradient {
 		position: absolute;
 		inset: 0;
-		background:
-			linear-gradient(
-				to right,
-				color-mix(in srgb, var(--paris-top) 85%, var(--kp-top) 15%) 0%,
-				color-mix(in srgb, var(--paris-top) 50%, var(--kp-top) 50%) 50%,
-				color-mix(in srgb, var(--paris-top) 15%, var(--kp-top) 85%) 100%
-			),
-			linear-gradient(
-				to bottom,
-				transparent 0%,
-				color-mix(in srgb, var(--paris-mid) 70%, var(--kp-mid) 30%) 50%,
-				color-mix(in srgb, var(--paris-bot) 70%, var(--kp-bot) 30%) 100%
-			);
-		background-blend-mode: screen;
+		opacity: 0.92;
+	}
+	.sky-layer {
+		position: absolute;
+		inset: 0;
 		transition: background 4s ease-in-out;
+	}
+	.sky-layer.paris {
+		background: linear-gradient(to bottom, var(--paris-top) 0%, var(--paris-mid) 45%, var(--paris-bot) 78%, transparent 100%);
+	}
+	.sky-layer.kp {
+		background: linear-gradient(to bottom, var(--kp-top) 0%, var(--kp-mid) 45%, var(--kp-bot) 78%, transparent 100%);
+		-webkit-mask-image: linear-gradient(to right, transparent 15%, black 85%);
+		mask-image: linear-gradient(to right, transparent 15%, black 85%);
+	}
+
+	/* Voile de lisibilité : fond le ciel dans le crème de l'app en haut/bas pour garder header,
+	   composer et dock lisibles SANS qu'ils aient chacun besoin de leur propre recette de
+	   glassmorphism — un seul point de vérité pour le contraste contenu/ciel. */
+	.sky-veil {
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--bg) 88%, transparent) 0%,
+			color-mix(in srgb, var(--bg) 18%, transparent) 30%,
+			color-mix(in srgb, var(--bg) 14%, transparent) 62%,
+			color-mix(in srgb, var(--bg) 80%, transparent) 100%
+		);
 	}
 
 	.horizon {
@@ -160,58 +122,66 @@
 		right: 0;
 		bottom: 30%;
 		height: 1px;
-		background: linear-gradient(
-			to right,
-			transparent 0%,
-			rgba(255, 255, 255, 0.12) 50%,
-			transparent 100%
-		);
-		box-shadow: 0 0 16px rgba(255, 255, 255, 0.06);
+		background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.7) 50%, transparent 100%);
 	}
 
-	.stars {
+	.sun-glow {
+		position: absolute;
+		top: 16%;
+		left: 74%;
+		width: 90px;
+		height: 90px;
+		border-radius: 50%;
+		background: radial-gradient(circle at 40% 35%, rgba(255,255,255,0.9), rgba(255,214,150,0.55) 45%, rgba(255,214,150,0) 72%);
+		opacity: 1;
+		transition: opacity 3s ease;
+	}
+	.sun-glow.hidden { opacity: 0; }
+
+	.sky-moon {
+		position: absolute;
+		top: 14%;
+		left: 72%;
+		width: 46px;
+		height: 46px;
+		border-radius: 50%;
+		background: linear-gradient(135deg, #F5EFFF, #DCCFF2);
+		box-shadow: 0 0 22px 6px rgba(220, 206, 242, 0.5);
+		overflow: hidden;
+		opacity: 0;
+		transition: opacity 3s ease;
+	}
+	.sky.is-night .sky-moon { opacity: 1; }
+	.moon-shadow {
 		position: absolute;
 		inset: 0;
-		transition: opacity 4s ease-in-out;
+		border-radius: 50%;
+		background: #2A2438;
+		transition: transform 3s ease;
 	}
 
+	.sky-stars {
+		position: absolute;
+		inset: 0;
+		opacity: 0;
+		transition: opacity 3s ease;
+	}
+	.sky.is-night .sky-stars { opacity: 0.9; }
 	.star {
 		position: absolute;
-		width: var(--size);
-		height: var(--size);
-		background: #fff;
+		width: 2px;
+		height: 2px;
 		border-radius: 50%;
-		box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
-		animation: twinkle 3s ease-in-out infinite;
-		animation-delay: var(--delay);
+		background: #FFFFFF;
+		animation: twinkle 2.6s ease-in-out infinite;
 	}
-
 	@keyframes twinkle {
-		0%, 100% { opacity: 0.3; transform: scale(0.8); }
-		50% { opacity: 1; transform: scale(1.2); }
-	}
-
-	.moon-wrap {
-		position: absolute;
-		top: 8%;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 56px;
-		height: 56px;
-	}
-
-	.moon {
-		width: 100%;
-		height: 100%;
-		border-radius: 50%;
-		background: radial-gradient(circle at 30% 30%, #f5f1e6 0%, #e8e0c8 60%, #a89e7c 100%);
-		box-shadow:
-			0 0 24px rgba(245, 241, 230, 0.4),
-			inset var(--shadow-x) 0 0 0 rgba(10, 15, 30, 0.85);
+		0%, 100% { opacity: 0.35; }
+		50%      { opacity: 1; }
 	}
 
 	@media (prefers-reduced-motion: reduce) {
 		.star { animation: none; }
-		.sky-gradient { transition: none; }
+		.sky-layer, .sun-glow, .sky-moon, .sky-stars { transition: none; }
 	}
 </style>

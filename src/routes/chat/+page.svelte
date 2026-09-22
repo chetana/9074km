@@ -789,7 +789,7 @@
 		{/if}
 
 		<!-- ── Header ── -->
-		<header class="chat-header">
+		<header class="chat-header glass">
 			<div class="header-left">
 				<button class="avatar-btn" onclick={() => auth.signOut()} title="Déconnexion">
 					{#if $user?.picture}
@@ -1044,10 +1044,6 @@
 		flex-shrink: 0;
 		position: relative;
 		z-index: 2;
-		background: color-mix(in srgb, var(--bg) 82%, transparent);
-		backdrop-filter: blur(16px);
-		-webkit-backdrop-filter: blur(16px);
-		border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
 	}
 
 	.header-left {

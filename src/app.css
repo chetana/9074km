@@ -127,6 +127,17 @@ textarea {
 	color: inherit;
 }
 
+/* Recette de glassmorphism unique — remplace 4 recettes différentes (header chat, input-bar,
+   header coffre, nav-dock) qui compensaient chacune l'absence du voile de lisibilité de Sky.svelte
+   (porté le 22/09/2026, plan de modernisation P2). Un seul point de vérité pour le contraste
+   contenu/ciel. */
+.glass {
+	background: color-mix(in srgb, var(--bg) 72%, transparent);
+	backdrop-filter: blur(14px);
+	-webkit-backdrop-filter: blur(14px);
+	border-bottom: 1px solid var(--border-soft);
+}
+
 /* Khmer traité comme langue première partout, pas une langue secondaire échappée en petit/italique
    — Noto Sans Khmer n'a pas d'italique réelle, l'oblique synthétique abîme les diacritiques
    empilés. Cette règle globale rattrape les oublis ; les remplacements ciblés (tailles, couleurs,

@@ -106,7 +106,7 @@
 	</main>
 
 	{#if !isGallery}
-	<div class="nav-dock">
+	<div class="nav-dock glass">
 		<nav class="dock-bar">
 			{#each tabs as tab, i}
 				{@const active = $page.url.pathname.startsWith(tab.path)}
@@ -170,16 +170,14 @@
 		align-items: center;
 		gap: 0;
 		padding: 0 var(--space-3) calc(env(safe-area-inset-bottom, 0px) + 8px);
-		background: color-mix(in srgb, var(--bg) 88%, transparent);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
-		border-top: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+		/* .glass (app.css) fournit background+blur+border-bottom — un dock en bas d'écran a besoin
+		   d'une bordure en HAUT, pas en bas : on l'annule et la repose explicitement ici. */
+		border-bottom: none;
+		border-top: 1px solid var(--border-soft);
 		box-shadow: 0 -6px 16px -12px rgba(74, 52, 56, 0.15);
-		/* Sans position+z-index, ce bloc non positionné peignait SOUS .sky
-		   (fixed, z-index:0, blend screen) dans l'ordre d'empilement CSS —
-		   même piège que header/main, corrigé partout sauf ici : tout élément
-		   sombre posé dessus (le badge de version) se retrouvait délavé par
-		   le blend au lieu d'être simplement invisible. */
+		/* Sans position+z-index, ce bloc non positionné peignait SOUS .sky (fixed, z-index:0)
+		   dans l'ordre d'empilement CSS — même piège que header/main, corrigé partout sauf ici :
+		   tout élément sombre posé dessus (le badge de version) se retrouvait délavé. */
 		position: relative;
 		z-index: 1;
 	}

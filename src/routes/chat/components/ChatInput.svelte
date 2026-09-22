@@ -106,7 +106,10 @@
 
 	.input-bar {
 		padding: var(--space-2) var(--space-3) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-		background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg) 55%, transparent) 30%, color-mix(in srgb, var(--bg) 88%, transparent) 55%);
+		/* Même opacité de base que .glass (app.css), mais en dégradé montant depuis transparent :
+		   l'input-bar n'a pas de bord net comme un header, elle se fond dans le fil de discussion
+		   au-dessus. Sky (voile compris) reste visible en transparence dans le dégradé. */
+		background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg) 40%, transparent) 30%, color-mix(in srgb, var(--bg) 72%, transparent) 55%);
 		backdrop-filter: blur(14px);
 		-webkit-backdrop-filter: blur(14px);
 		flex-shrink: 0;
