@@ -33,3 +33,9 @@ envvars.yaml
 app-flutter/
 
 .vercel
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
