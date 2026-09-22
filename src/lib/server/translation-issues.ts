@@ -6,7 +6,7 @@
 import { getGcsBucket } from './gcs'
 
 export interface TranslationIssue {
-	reason: 'foreign_script' | 'glued_latin'
+	reason: 'foreign_script' | 'glued_latin' | 'parse_failure' | 'shape_invalid'
 	sourceText: string
 	author?: string
 	badKh: string

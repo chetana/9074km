@@ -59,7 +59,7 @@ function geminiEndpoint(project: string, model: string, location: string): strin
 
 const MAX_OUTPUT_CEILING = 8192
 
-async function geminiRequest(parts: object[], maxTokens = 300, models: readonly string[] = GEMINI_MODELS): Promise<string> {
+async function geminiRequest(systemInstruction: string, parts: object[], maxTokens = 300, models: readonly string[] = GEMINI_MODELS): Promise<string> {
   const token = await getAccessToken()
   const project = env.VERTEX_PROJECT_ID ?? 'cykt-399216'
   const location = env.VERTEX_LOCATION ?? 'us-central1'
@@ -73,6 +73,7 @@ async function geminiRequest(parts: object[], maxTokens = 300, models: readonly 
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...(systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : {}),
           contents: [{ role: 'user', parts }],
           generationConfig: { temperature: 0.2, maxOutputTokens: budget, thinkingConfig: { thinkingBudget: 0 } },
         }),
@@ -126,6 +127,8 @@ async function callGemini(prompt: string, maxTokens = 300, models: readonly stri
 	// Moteur principal : GLM-5.3-flash via OpenCode Go (même qualité de khmer, ~1/10 du prix).
 	// filet de sécurité : tout échec GLM (quota Go saturé, indispo…) retombe sur Gemini sans
 	// aucun impact utilisateur — d'où le try/catch ignoré ici.
+	// Utilisé par les leçons/grading (prompt unique, pas de split system/user — voir
+	// callGeminiSystem ci-dessous pour la traduction, qui en a besoin).
 	if (glmEnabled()) {
 		try {
 			return await chatGo(`Tu réponds UNIQUEMENT avec un JSON valide (sans markdown).${GLM_ADAPT}`, prompt, maxTokens)
@@ -133,7 +136,26 @@ async function callGemini(prompt: string, maxTokens = 300, models: readonly stri
 			console.warn(`[engine] GLM KO → bascule Gemini (${(e as Error).message})`)
 		}
 	}
-	return geminiRequest([{ text: prompt }], maxTokens, models)
+	return geminiRequest('', [{ text: prompt }], maxTokens, models)
+}
+
+/**
+ * Variante system/user de callGemini, pour la traduction (voir buildTranslateSystem) :
+ * l'invariant (contexte couple, règles, glossaire, schéma JSON) vit dans `system`, ce qui le
+ * rend cacheable côté GLM (x-opencode-session) et évite de le reformuler différemment à chaque
+ * appel. Retourne aussi le moteur réellement utilisé (pour journaliser les incidents sans deviner).
+ */
+async function callGeminiSystem(
+	system: string, user: string, maxTokens = 300, models: readonly string[] = GEMINI_MODELS
+): Promise<{ text: string; engine: 'glm' | 'gemini' }> {
+	if (glmEnabled()) {
+		try {
+			return { text: await chatGo(`${system}\n\n${GLM_ADAPT}`, user, maxTokens), engine: 'glm' }
+		} catch (e) {
+			console.warn(`[engine] GLM KO → bascule Gemini (${(e as Error).message})`)
+		}
+	}
+	return { text: await geminiRequest(system, [{ text: user }], maxTokens, models), engine: 'gemini' }
 }
 
 
@@ -201,12 +223,23 @@ RENDU DES PRONOMS EN FRANÇAIS ET ANGLAIS (le point le plus important) :
 }
 
 export interface Translations { fr: string; en: string; kh: string; lang?: string }
+interface TranslateTerm { src: string; kh: string }
 
-function buildTranslatePrompt(text: string, author?: string, previousMessage?: string): string {
-  const ctxLine = previousMessage ? `\nCONVERSATION RÉCENTE (contexte pour lever les ambiguïtés de sujet, de genre et d'intention — chaque ligne = "auteur: message") :\n${previousMessage}` : ''
+// Glossaire cible UNIQUEMENT (jamais les formes fautives) : un petit modèle a du mal à pondérer
+// une négation ("jamais X") — une chaîne présente dans le prompt devient plus probable en sortie,
+// pas moins. La détection des formes fautives est le rôle du code (containsForeignScript,
+// containsGluedLatin, termsEchoed), pas du prompt. Revu le 22/09 suite à une revue de prompt.
+const GLOSSARY_LINES = `- allergie/allergique → អាលែកហ្ស៊ី
+- sésame → ល្ង
+- acidulé/aigre (goût) → ជូរ
+- bleu (couleur) → ខៀវ`
+
+// Invariant (system) : contexte couple, règles, glossaire, schéma JSON — ne change que selon
+// l'auteur (2 variantes), donc cacheable côté GLM. Le message lui-même vit dans buildTranslateUser.
+function buildTranslateSystem(author?: string): string {
   return `Tu es un assistant de traduction pour un couple : Chet (français) et Lys (cambodgienne).
 
-${coupleContext(author)}${ctxLine}
+${coupleContext(author)}
 
 Rôle : détecter la langue du message, corriger discrètement les fautes, puis traduire dans les 2 autres langues.
 
@@ -215,43 +248,109 @@ Règles impératives :
 - Registre : intime, oral, tendre — jamais formel ni littéraire
 - "គាត់" = il/elle (3ème personne), JAMAIS "tu" — ne jamais confondre avec un interlocuteur direct
 - Khmer oral et informel : ហ្នឹង (ça/ce/là), ម្កេះ (peu/seulement), ក្រ- (pénurie/difficulté ex: ក្រញ៉ាំ = manger peu), ម្ហី/ម្ហេ (comment) — privilégier le sens pragmatique, pas la forme écrite standard
-- Lexique : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" (jamais "អាឡែស៊ី" ni "អាឡែក") ; "sésame" → TOUJOURS "ល្ង" (jamais "ស៊ីម៉េ" ni "ស្នេហ៍" qui veut dire "amour") ; "acidulé/aigre" → "ជូរ" ; "bleu" → "ខៀវ" (jamais tronqué type "ប៊ូ")
-- NE JAMAIS INVERSER LE SENS : "cher"/"pas cher", "oui"/"non", "content"/"pas content" doivent rester dans le bon sens après traduction
-- INTERDIT : alphabet latin collé SANS espace à du khmer au milieu d'un mot (ex "បុortonexus") — signe d'un mot corrompu, jamais un vrai mot khmer
-- Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier le sujet et l'intention
+- N'AJOUTE JAMAIS de sens absent du message source. En particulier, ne SPÉCIALISE jamais un terme vague/générique de la source (ex : "ce que tu as fait", "un truc") avec une interprétation plus précise que le contexte ne justifie pas clairement — et surtout jamais une interprétation physique/sexuelle non explicite dans le français. Reste au même niveau de généralité que l'original en cas de doute.
+- Ne jamais inverser le sens du message : "cher"/"pas cher", "oui"/"non", "content"/"pas content" doivent rester dans le bon sens
+- Pour un terme technique/emprunt sans mot khmer courant et absent du glossaire ci-dessous : translittération khmère usuelle en UN seul mot ; en cas de doute, garde le mot français isolé par des espaces plutôt que d'inventer un mot khmer
+- Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier le sujet et l'intention (jamais pour ajouter un sens absent du message actuel)
 - Anglais simple et naturel (Lys apprend — éviter les expressions idiomatiques complexes)
 - Un vrai prénom collé à un titre (ex "បង Chet" = "Bang Chet") se garde tel quel ; mais "អូន"/"បង" SEULS sont des pronoms → "je/tu" (voir règle pronoms ci-dessus), jamais des noms
 - Le champ de la langue d'origine = le message corrigé tel quel, MÊME personne et MÊME sens (ne le reformule pas, ne change jamais "je" en "il/elle" ni en prénom)
-- "lang" : code de la langue détectée du message original ("fr", "en" ou "kh")
 
-Message : "${text}"
+GLOSSAIRE (mot/notion → khmer à toujours utiliser) :
+${GLOSSARY_LINES}
 
-Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
-{"fr":"texte en français","en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","lang":"code_langue"}`
+Réponds UNIQUEMENT avec un JSON valide (sans markdown), avec CES clés DANS CET ORDRE EXACT :
+{"lang":"code_langue","terms":[{"src":"mot difficile du message","kh":"sa traduction khmère"}],"en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","fr":"texte en français"}
+- "lang" : décide-le en PREMIER — "fr", "en" ou "kh"
+- "terms" : les mots difficiles de CE message (médical, couleur inhabituelle, montant, emprunt) — engage-toi sur leur traduction AVANT de rédiger les phrases ; tableau vide [] si rien de difficile
+- "en" AVANT "kh" : traduis d'abord en anglais (pivot), puis le khmer à partir du sens anglais déjà posé
+- "fr" en dernier : le message corrigé tel quel (même personne, même sens)`.trim()
+}
+
+function buildTranslateUser(text: string, previousMessage?: string): string {
+  const ctxLine = previousMessage
+    ? `CONVERSATION RÉCENTE (contexte pour lever les ambiguïtés de sujet, de genre et d'intention — chaque ligne = "auteur: message") :\n${previousMessage}\n\n`
+    : ''
+  return `${ctxLine}Message : "${text}"`
+}
+
+// Validation de forme (D) : rejette un JSON qui a l'air valide mais qui ne l'est pas — champ
+// manquant/vide, placeholder du schéma recopié tel quel, ou kh identique à fr/en (non-traduction).
+// Pick explicite des clés : n'importe quelle clé en plus renvoyée par le modèle est ignorée.
+function pickTranslation(raw: string): Translations & { terms: TranslateTerm[] } {
+  const t = JSON.parse(raw)
+  if (typeof t.kh !== 'string' || !t.kh.trim()) throw new Error('champ kh manquant/vide')
+  if (typeof t.fr !== 'string' || !t.fr.trim()) throw new Error('champ fr manquant/vide')
+  if (typeof t.en !== 'string' || !t.en.trim()) throw new Error('champ en manquant/vide')
+  if (t.kh === 'អត្ថបទជាភាសាខ្មែរ' || t.fr === 'texte en français' || t.en === 'text in English') {
+    throw new Error('placeholder du schéma recopié tel quel')
+  }
+  if (t.kh === t.fr || t.kh === t.en) throw new Error('kh identique à fr/en — probable non-traduction')
+  const lang = t.lang === 'fr' || t.lang === 'en' || t.lang === 'kh' ? t.lang : ''
+  const terms: TranslateTerm[] = Array.isArray(t.terms)
+    ? t.terms.filter((x: any) => x && typeof x.src === 'string' && typeof x.kh === 'string')
+    : []
+  return { fr: t.fr, en: t.en, kh: t.kh, lang, terms }
+}
+
+// Si le modèle s'est engagé sur un terme difficile (glossaire), sa traduction annoncée doit
+// réapparaître dans le khmer final — sinon c'est le signe d'une génération qui a divergé en route.
+function termsEchoed(t: { kh: string; terms: TranslateTerm[] }): boolean {
+  return t.terms.every(term => term.kh && t.kh.includes(term.kh))
+}
+
+async function attemptTranslate(
+  system: string, user: string, budget: number, models: readonly string[], forceGemini: boolean
+): Promise<{ t: Translations & { terms: TranslateTerm[] }; engine: 'glm' | 'gemini' }> {
+  const { text: raw, engine } = forceGemini
+    ? { text: await geminiRequest(system, [{ text: user }], budget, models), engine: 'gemini' as const }
+    : await callGeminiSystem(system, user, budget, models)
+  const t = pickTranslation(raw)
+  if (!termsEchoed(t)) throw new Error('terme du glossaire annoncé mais absent du khmer final')
+  return { t, engine }
+}
+
+// Chemin unique de traduction avec escalade : tentative légère (GLM/2.5-flash-lite) → si
+// corruption détectée (script étranger/latin collé) OU échec technique/de forme, escalade DIRECTE
+// vers Gemini fort EN BYPASSANT GLM (jamais un simple retry du même moteur, qui reproduirait la
+// même erreur — bug découvert le 22/09 sur "boutons"→latin collé). Si l'escalade échoue aussi,
+// l'appelant (geminiTranslateAll / translateInChunks) décide de la suite plutôt que de renvoyer
+// silencieusement le texte source comme si c'était du khmer (ancien bug : aucune trace en cas
+// d'échec total, l'utilisatrice recevait du français affiché comme "khmer").
+async function translateWithEscalation(
+  text: string, author: string | undefined, previousMessage: string | undefined, budgetFactor = 4
+): Promise<Translations> {
+  const system = buildTranslateSystem(author)
+  const user = buildTranslateUser(text, previousMessage)
+  const budget = translateBudget(text, budgetFactor)
+
+  let light: { t: Translations & { terms: TranslateTerm[] }; engine: 'glm' | 'gemini' } | null = null
+  try {
+    light = await attemptTranslate(system, user, budget, COUPLE_MODELS, false)
+  } catch (e) {
+    console.warn(`[translate] moteur léger échoué (${(e as Error).message}) → escalade Gemini fort`)
+  }
+
+  let badKh = ''
+  let reason: 'foreign_script' | 'glued_latin' | null = null
+  if (light) {
+    reason = containsForeignScript(light.t.kh) ? 'foreign_script' : containsGluedLatin(light.t.kh) ? 'glued_latin' : null
+    if (reason) { badKh = light.t.kh; light = null }
+  }
+  if (light) return { fr: light.t.fr, en: light.t.en, kh: cleanKhmer(light.t.kh), lang: light.t.lang }
+
+  const strong = await attemptTranslate(system, user, budget, STRONG_MODELS, true) // throw si échec total → géré par l'appelant
+  if (reason) void logTranslationIssue({ reason, sourceText: text, author, badKh, fixedKh: strong.t.kh, engine: 'glm' })
+  return { fr: strong.t.fr, en: strong.t.en, kh: cleanKhmer(strong.t.kh), lang: strong.t.lang }
 }
 
 export async function geminiTranslateAll(text: string, author?: string, previousMessage?: string): Promise<Translations> {
-  const prompt = buildTranslatePrompt(text, author, previousMessage)
   try {
-    // 2.5-flash-lite par défaut (pas cher + fiable sur les pronoms, testé 20/20 avec contexte).
-    let t = JSON.parse(await callGemini(prompt, translateBudget(text), COUPLE_MODELS)) as Translations
-    const badKh = t.kh
-    const reason = containsForeignScript(t.kh) ? 'foreign_script' : containsGluedLatin(t.kh) ? 'glued_latin' : null
-    if (reason) {
-      // filet : script étranger ou latin corrompu collé au khmer → re-roll modèle fort.
-      // Appel DIRECT à geminiRequest (jamais callGemini) : sinon, si GLM est actif, le
-      // "re-roll" rappelait GLM en premier — donc une corruption GLM se re-produisait telle
-      // quelle au lieu d'escalader vers Gemini (bug découvert le 22/09 sur "boutons"→latin collé).
-      console.warn('[translate] khmer suspect (script étranger ou latin collé) → re-roll sur Gemini fort (bypass GLM)')
-      t = JSON.parse(await geminiRequest([{ text: prompt }], translateBudget(text), STRONG_MODELS)) as Translations
-      void logTranslationIssue({ reason, sourceText: text, author, badKh, fixedKh: t.kh, engine: glmEnabled() ? 'glm' : 'gemini' })
-    }
-    t.kh = cleanKhmer(t.kh) // retire toute romanisation "(kê)" résiduelle
-    return t
+    return await translateWithEscalation(text, author, previousMessage)
   } catch (e) {
-    // Échec (le plus souvent : message très long → JSON tronqué). On découpe en phrases,
-    // on traduit chaque morceau, et on recolle en UNE traduction complète.
-    console.warn(`[translate] échec en un bloc (${(e as Error).message}) — découpage en morceaux`)
+    // Échec même après escalade Gemini fort (le plus souvent : message très long → JSON tronqué
+    // des deux côtés). On découpe en phrases, on traduit chaque morceau, et on recolle.
+    console.warn(`[translate] échec même après escalade Gemini fort (${(e as Error).message}) — découpage en morceaux`)
     return translateInChunks(text, author, previousMessage)
   }
 }
@@ -262,20 +361,16 @@ async function translateInChunks(text: string, author?: string, previousMessage?
   let ctx = previousMessage
   for (const chunk of chunks) {
     try {
-      const p = buildTranslatePrompt(chunk, author, ctx)
-      let t = JSON.parse(await callGemini(p, translateBudget(chunk), COUPLE_MODELS)) as Translations
-      const badKh = t.kh
-      const reason = containsForeignScript(t.kh) ? 'foreign_script' : containsGluedLatin(t.kh) ? 'glued_latin' : null
-      if (reason) {
-        t = JSON.parse(await geminiRequest([{ text: p }], translateBudget(chunk), STRONG_MODELS)) as Translations
-        void logTranslationIssue({ reason, sourceText: chunk, author, badKh, fixedKh: t.kh, engine: glmEnabled() ? 'glm' : 'gemini' })
-      }
-      t.kh = cleanKhmer(t.kh)
+      const t = await translateWithEscalation(chunk, author, ctx, 4)
       parts.push(t)
       ctx = `${ctx ? ctx + '\n' : ''}${author ?? '?'}: ${chunk}` // enchaîne le contexte pour la cohérence
     } catch (e) {
-      console.warn(`[translate] morceau échoué (${(e as Error).message}) — texte source conservé pour ce bout`)
-      parts.push({ fr: chunk, en: chunk, kh: chunk, lang: '' }) // au pire on garde le texte brut, pas de perte
+      // Dernier recours réel (message très long ET escalade Gemini fort a échoué sur ce
+      // morceau) : on garde le texte source plutôt que de perdre le message, mais on le
+      // journalise désormais — avant, ce cas ne laissait AUCUNE trace (bug du 22/09).
+      console.warn(`[translate] morceau échoué même après escalade (${(e as Error).message}) — texte source conservé pour ce bout`)
+      void logTranslationIssue({ reason: 'parse_failure', sourceText: chunk, author, badKh: '(aucune sortie exploitable)', fixedKh: chunk, engine: 'gemini' })
+      parts.push({ fr: chunk, en: chunk, kh: chunk, lang: '' })
     }
   }
   return {
@@ -292,7 +387,7 @@ export interface GeminiSuggestion {
   corrected: string; fr: string; en: string; kh: string; lang: string; question: string; lessons?: LessonItem[]
 }
 
-export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh', previousMessage?: string): Promise<GeminiSuggestion> {
+function buildSuggestSystem(authorLang: 'fr' | 'kh'): string {
   const author = authorLang === 'fr' ? 'Chet' : 'Lys'
   const context = authorLang === 'kh'
     ? `Lys (femme cambodgienne) écrit à Chet (français). Elle écrit probablement en khmer, parfois en français ou anglais appris.`
@@ -306,12 +401,11 @@ export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh', previ
   const lessonsRule = authorLang === 'kh'
     ? '- lessons : tableau avec une entrée par faute (explanation en khmer simple) — omis si aucune faute'
     : '- lessons : tableau avec une entrée par faute (explanation en français simple) — omis si aucune faute'
-  const ctxLine = previousMessage ? `\nMESSAGE PRÉCÉDENT (contexte) : "${previousMessage}"` : ''
 
-  const prompt = `Tu es un assistant de traduction pour un couple : Chet (français) et Lys (cambodgienne).
+  return `Tu es un assistant de traduction pour un couple : Chet (français) et Lys (cambodgienne).
 ${context}
 
-${coupleContext(author)}${ctxLine}
+${coupleContext(author)}
 
 Rôle : détecter la langue réelle du message, corriger discrètement les fautes, puis traduire dans les 2 autres langues.
 Règles :
@@ -320,29 +414,73 @@ Règles :
 - Registre intime, oral et tendre — jamais formel
 - "គាត់" = il/elle (3ème personne), JAMAIS "tu" — ne jamais confondre avec un interlocuteur direct
 - Khmer oral et informel : ហ្នឹង (ça/là), ម្កេះ (peu/seulement), ក្រ- (pénurie ex: ក្រញ៉ាំ = manger peu), ម្ហី (comment) — sens pragmatique avant forme écrite
-- Lexique : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" (jamais "អាឡែស៊ី" ni "អាឡែក") ; "sésame" → TOUJOURS "ល្ង" (jamais "ស៊ីម៉េ" ni "ស្នេហ៍" qui veut dire "amour") ; "acidulé/aigre" → "ជូរ" ; "bleu" → "ខៀវ" (jamais tronqué type "ប៊ូ")
-- NE JAMAIS INVERSER LE SENS : "cher"/"pas cher", "oui"/"non", "content"/"pas content" doivent rester dans le bon sens après traduction
-- INTERDIT : alphabet latin collé SANS espace à du khmer au milieu d'un mot (ex "បុortonexus") — signe d'un mot corrompu, jamais un vrai mot khmer
+- N'AJOUTE JAMAIS de sens absent du message source, et ne SPÉCIALISE jamais un terme vague/générique avec une interprétation plus précise (surtout physique/sexuelle) que le contexte ne justifie pas
+- Ne jamais inverser le sens du message : "cher"/"pas cher", "oui"/"non", "content"/"pas content" doivent rester dans le bon sens
+- Pour un terme technique/emprunt sans mot khmer courant et absent du glossaire ci-dessous : translittération khmère usuelle en UN seul mot ; en cas de doute, garde le mot français isolé par des espaces plutôt que d'inventer un mot khmer
 - Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier l'intention
 - Si aucune faute, ne mets pas de champ "lessons"
-- "lang" : code de la langue détectée ("fr", "en" ou "kh")
 ${lessonsRule}
 
-Message : "${text}"
+GLOSSAIRE (mot/notion → khmer à toujours utiliser) :
+${GLOSSARY_LINES}
 
-Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
-{"corrected":"message corrigé","fr":"texte en français","en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","lang":"code_langue","question":"${questionHint}"${lessonsHint}}`
+Réponds UNIQUEMENT avec un JSON valide (sans markdown), avec CES clés DANS CET ORDRE EXACT :
+{"lang":"code_langue","terms":[{"src":"mot difficile du message","kh":"sa traduction khmère"}],"en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","fr":"texte en français","corrected":"message corrigé","question":"${questionHint}"${lessonsHint}}
+- "lang" et "terms" d'abord (voir règle ci-dessus), "en" AVANT "kh"
+- "corrected" : le message corrigé tel quel, dans SA langue d'origine`.trim()
+}
 
-  // 2.5-flash-lite (fiable + pas cher) ; re-roll sur modèle fort seulement si thaï. Budget large.
-  let s = JSON.parse(await callGemini(prompt, translateBudget(text, 6), COUPLE_MODELS)) as GeminiSuggestion
-  const badKh = s.kh
-  const reason = containsForeignScript(s.kh) ? 'foreign_script' : containsGluedLatin(s.kh) ? 'glued_latin' : null
-  if (reason) {
-    s = JSON.parse(await geminiRequest([{ text: prompt }], translateBudget(text, 6), STRONG_MODELS)) as GeminiSuggestion
-    void logTranslationIssue({ reason, sourceText: text, author, badKh, fixedKh: s.kh, engine: glmEnabled() ? 'glm' : 'gemini' })
+function buildSuggestUser(text: string, previousMessage?: string): string {
+  const ctxLine = previousMessage ? `MESSAGE PRÉCÉDENT (contexte) : "${previousMessage}"\n\n` : ''
+  return `${ctxLine}Message : "${text}"`
+}
+
+function pickSuggestion(raw: string): GeminiSuggestion & { terms: TranslateTerm[] } {
+  const s = JSON.parse(raw)
+  if (typeof s.kh !== 'string' || !s.kh.trim()) throw new Error('champ kh manquant/vide')
+  if (typeof s.fr !== 'string' || !s.fr.trim()) throw new Error('champ fr manquant/vide')
+  if (typeof s.en !== 'string' || !s.en.trim()) throw new Error('champ en manquant/vide')
+  if (typeof s.corrected !== 'string' || !s.corrected.trim()) throw new Error('champ corrected manquant/vide')
+  if (s.kh === 'អត្ថបទជាភាសាខ្មែរ' || s.fr === 'texte en français' || s.en === 'text in English') {
+    throw new Error('placeholder du schéma recopié tel quel')
+  }
+  const lang = s.lang === 'fr' || s.lang === 'en' || s.lang === 'kh' ? s.lang : ''
+  const terms: TranslateTerm[] = Array.isArray(s.terms)
+    ? s.terms.filter((x: any) => x && typeof x.src === 'string' && typeof x.kh === 'string')
+    : []
+  const lessons = Array.isArray(s.lessons) ? s.lessons as LessonItem[] : undefined
+  return { corrected: s.corrected, fr: s.fr, en: s.en, kh: s.kh, lang, question: s.question ?? '', lessons, terms }
+}
+
+export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh', previousMessage?: string): Promise<GeminiSuggestion> {
+  const author = authorLang === 'fr' ? 'Chet' : 'Lys'
+  const system = buildSuggestSystem(authorLang)
+  const user = buildSuggestUser(text, previousMessage)
+  const budget = translateBudget(text, 6)
+
+  async function attempt(models: readonly string[], forceGemini: boolean): Promise<GeminiSuggestion & { terms: TranslateTerm[] }> {
+    const raw = forceGemini
+      ? await geminiRequest(system, [{ text: user }], budget, models)
+      : (await callGeminiSystem(system, user, budget, models)).text
+    const s = pickSuggestion(raw)
+    if (!termsEchoed(s)) throw new Error('terme du glossaire annoncé mais absent du khmer final')
+    return s
+  }
+
+  let s: GeminiSuggestion & { terms: TranslateTerm[] }
+  let badKh = ''
+  let reason: 'foreign_script' | 'glued_latin' | null = null
+  try {
+    s = await attempt(COUPLE_MODELS, false)
+    reason = containsForeignScript(s.kh) ? 'foreign_script' : containsGluedLatin(s.kh) ? 'glued_latin' : null
+    if (reason) { badKh = s.kh; throw new Error('khmer suspect (script étranger ou latin collé)') }
+  } catch (e) {
+    console.warn(`[suggest] moteur léger échoué ou suspect (${(e as Error).message}) → escalade Gemini fort (bypass GLM)`)
+    s = await attempt(STRONG_MODELS, true)
+    if (reason) void logTranslationIssue({ reason, sourceText: text, author, badKh, fixedKh: s.kh, engine: 'glm' })
   }
   s.kh = cleanKhmer(s.kh)
-  return s
+  return { corrected: s.corrected, fr: s.fr, en: s.en, kh: s.kh, lang: s.lang, question: s.question, lessons: s.lessons }
 }
 
 export async function geminiTts(text: string, lang: 'fr' | 'kh'): Promise<string> {
@@ -387,7 +525,8 @@ ${coupleContext(author)}${ctxLine}
 Règles de traduction :
 - "គាត់" = il/elle (3ème personne), JAMAIS "tu"
 - Khmer oral/informel : ហ្នឹង (ça/là), ម្កេះ (peu/seulement), ក្រ- (pénurie) — sens pragmatique avant forme écrite
-- Lexique : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" ; "sésame" → TOUJOURS "ល្ង" ; "acidulé/aigre" → "ជូរ" ; "bleu" → "ខៀវ"
+- N'ajoute jamais de sens absent de l'audio, et ne spécialise jamais un terme vague avec une interprétation plus précise (surtout physique/sexuelle) non justifiée
+- Glossaire : ${GLOSSARY_LINES.replace(/\n/g, ' ; ').replace(/- /g, '')}
 - Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier le sujet
 - Anglais simple (Lys apprend — éviter les expressions idiomatiques)
 
@@ -396,8 +535,8 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) :
 
   // Longueur du vocal inconnue à l'avance → budget large ; l'auto-retry MAX_TOKENS couvre les longs
   const parts = [{ inlineData: { mimeType, data: audioBase64 } }, { text: prompt }]
-  let r = JSON.parse(await geminiRequest(parts, 2048, COUPLE_MODELS)) as TranscriptionResult // 3.6-flash (khmer le plus naturel)
-  if (containsForeignScript(r.kh) || containsForeignScript(r.text) || containsGluedLatin(r.kh)) r = JSON.parse(await geminiRequest(parts, 2048, STRONG_MODELS)) as TranscriptionResult
+  let r = JSON.parse(await geminiRequest('', parts, 2048, COUPLE_MODELS)) as TranscriptionResult // 3.6-flash (khmer le plus naturel)
+  if (containsForeignScript(r.kh) || containsForeignScript(r.text) || containsGluedLatin(r.kh)) r = JSON.parse(await geminiRequest('', parts, 2048, STRONG_MODELS)) as TranscriptionResult
   r.kh = cleanKhmer(r.kh)
   if (/[ក-៿]/.test(r.text)) r.text = cleanKhmer(r.text) // nettoie seulement si le texte transcrit est khmer
   return r

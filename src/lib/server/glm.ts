@@ -17,9 +17,6 @@ import { env } from '$env/dynamic/private'
 const GO_URL = 'https://opencode.ai/zen/go/v1/chat/completions'
 const GLM_MODEL = 'glm-5.3-flash'
 const MAX_OUTPUT_CEILING = 8192
-// Session stable (et non par message) : tout le système-prompt + contexte couple reste
-// en cache lecture côté Go ($0.03/M) → coût de chaque appel quasi nul.
-const SESSION_ID = 'lys-couple-translate'
 
 /**
  * Directives d'adaptation GLM — dérivées de l'A/B réel GLM vs Gemini-3.6 (scripts/glm-prompt-v2.mjs,
@@ -27,17 +24,20 @@ const SESSION_ID = 'lys-couple-translate'
  * absents du source ("ឥឡូវនេះ", vocatif "អូន"...) ; avec elles il adopte le lexique khmer oral
  * naturel du couple (ហត់/ធូរ/តោះ/អរហ្នឹង) comme Gemini. C'est ce qui transformerait un modèle
  * "traducteur" en adaptateur. Lexque issu des sorties réelles de Gemini-3.6 (référence validée).
+ *
+ * Le lexique, l'anti-inversion de sens et l'anti-latin-collé vivent désormais UNIQUEMENT dans le
+ * prompt partagé (vertex.ts) — retirés d'ici le 22/09 pour ne plus les répéter deux fois avec des
+ * formulations différentes (source de confusion pour un petit modèle). Ce bloc ne garde que ce qui
+ * est spécifique à l'A/B GLM lui-même.
  */
 export const GLM_ADAPT = `
 - Tu n'es PAS Google Translate : adapte le SENS INTENTIONNÉ du message, comme l'écrirait un khmer natif du couple, au naturel.
 - CORRIGE d'abord les fautes/tournures du français source avant de traduire — ne traduis jamais les maladresses lettre à lettre.
 - N'AJOUTE AUCUN mot absent du message source : pas de "ឥឡូវនេះ"(maintenant), pas de vocatif "អូន"/"បង"/"ម៉ែ" qui ne serait pas dans le français, aucun titre inventé type "ទឹកមុត".
 - Vocabulaire khmer ORAL à privilégier (registre couple, Phnom Penh) : "aller" → "តោះ" ; "être fatigué" → "ហត់" (réserve "អស់កម្លាំង" au sens physique fort) ; "ça va mieux" → "ធូរជាងមុន" ; "content de savoir" → "អរហ្នឹង".
-- LEXIQUE (fautes réelles observées le 22/09 — vérifiées avec un locuteur natif) : "allergie/allergique" → TOUJOURS "អាលែកហ្ស៊ី" (jamais "អាឡែស៊ី", "អាឡែក" ni aucune autre variante inventée) ; "sésame" → TOUJOURS "ល្ង" (jamais "ស៊ីម៉េ" ni "ស្នេហ៍" qui veut dire "amour") ; "acidulé/aigre" (goût) → "ជូរ" (jamais inventé/omis) ; "bleu" (couleur) → "ខៀវ" (jamais tronqué type "ប៊ូ").
-- NE JAMAIS INVERSER LE SENS : vérifie que "cher"/"pas cher", "oui"/"non", "content"/"pas content" etc. restent dans le bon sens après traduction — erreur réelle observée le 22/09 ("c'est cher, 12€" traduit en "c'est très bon marché").
-- INTERDIT : mélanger de l'alphabet latin collé SANS espace à du khmer au milieu d'un mot (ex "បុortonexus") — signe d'un mot corrompu/halluciné, jamais un vrai mot khmer.
 - Le message traduit doit sonner comme si le couple lui-même écrivait en khmer, pas comme du français traduit.
 `
+
 export function glmEnabled(): boolean {
 	return env.GLM_ENABLED === '1' && !!env.OPENCODE_API_KEY
 }
