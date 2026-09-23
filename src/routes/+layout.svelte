@@ -151,7 +151,10 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
-		z-index: 1;
+		/* z-index > .nav-dock (1) : à z-index égal l'ordre du DOM fait peindre le dock par-dessus,
+		   y compris par-dessus une sheet plein écran (BottomSheet, FabUpload...) ouverte dans main —
+		   bug remonté par Chetana le 23/09/2026 (dock visible en surimpression sous la fiche leçon). */
+		z-index: 2;
 	}
 
 	.page-wrapper {
