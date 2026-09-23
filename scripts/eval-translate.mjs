@@ -10,7 +10,8 @@
  *
  * Usage :
  *   node --experimental-strip-types scripts/eval-translate.mjs           # cas de régression connus
- *   node --experimental-strip-types scripts/eval-translate.mjs --replay 20   # + N derniers messages réels (jugement humain)
+ *   node --experimental-strip-types scripts/eval-translate.mjs --replay 20   # + N derniers messages réels d'aujourd'hui (jugement humain)
+ *   node --experimental-strip-types scripts/eval-translate.mjs --replay 200 --date 2026-09-22   # idem, un autre jour
  *
  * Lecture seule : aucune écriture, ni en base ni sur S3. À lancer à la main avant tout changement
  * de prompt/modèle dans vertex.ts/glm.ts — jamais en CI (coûte de vrais appels GLM/Gemini).
@@ -125,40 +126,50 @@ async function runRegressionCases() {
 }
 
 // ── replay de vrais messages du bucket (jugement humain, pas de verdict automatique) ──
-async function replayReal(n) {
-	const today = new Date().toISOString().slice(0, 10).replace(/-/g, '/')
-	console.log(`\n${'═'.repeat(78)}\nREPLAY DES ${n} DERNIERS MESSAGES RÉELS (${today}) — jugement humain\n${'═'.repeat(78)}`)
+async function replayReal(n, dateArg) {
+	const day = dateArg ?? new Date().toISOString().slice(0, 10)
+	const path = day.replace(/-/g, '/')
+	console.log(`\n${'═'.repeat(78)}\nREPLAY DES ${n} DERNIERS MESSAGES RÉELS (${day}) — jugement humain\n${'═'.repeat(78)}`)
 	let out
 	try {
 		out = execSync(
-			`aws s3 cp s3://chet-lys-coffre/chat/${today}.json - --endpoint-url ${ENV.S3_ENDPOINT ?? 'https://s3.fr-par.scw.cloud'}`,
+			`aws s3 cp s3://chet-lys-coffre/chat/${path}.json - --endpoint-url ${ENV.S3_ENDPOINT ?? 'https://s3.fr-par.scw.cloud'}`,
 			{ env: { ...process.env, AWS_ACCESS_KEY_ID: ENV.S3_ACCESS_KEY, AWS_SECRET_ACCESS_KEY: ENV.S3_SECRET_KEY }, stdio: ['ignore', 'pipe', 'ignore'] }
 		).toString()
 	} catch {
-		console.log("(aucun message aujourd'hui — relance avec un autre jour si besoin)")
+		console.log(`(aucun message le ${day} — relance avec un autre jour si besoin)`)
 		return
 	}
 	const normAuthor = (a) => (a?.normalize('NFD').replace(/[̀-ͯ]/g, '') ?? '').toLowerCase()
 	const messages = JSON.parse(out)
 		.filter(m => (m.text ?? '').trim().length > 5)
-		.map(m => ({ author: normAuthor(m.author).match(/^(chetana|chet)$/) ? 'Chet' : 'Lys', text: (m.text ?? '').trim(), prodKh: m.kh ?? '' }))
+		.map(m => ({ author: normAuthor(m.author).match(/^(chetana|chet)$/) ? 'Chet' : 'Lys', text: (m.text ?? '').trim(), prodKh: m.kh ?? '', prodFr: m.fr ?? '', prodEn: m.en ?? '' }))
 		.slice(-n)
 
+	let leaks = 0
 	for (const [i, m] of messages.entries()) {
 		const system = buildTranslateSystem(m.author)
 		const user = buildTranslateUser(m.text)
 		const raw = await callGlm(system, user)
 		const kh = cleanKhmer(parseKh(raw))
+		const { fr, en } = parseAll(raw)
+		const leak = /\bbang\b/i.test(fr) || /\bbang\b/i.test(en) || /\boun\b/i.test(fr) || /\boun\b/i.test(en)
+		if (leak) leaks++
 		console.log(`\n${i + 1}. [${m.author}] ${m.text}`)
-		console.log(`   prod : ${m.prodKh}`)
-		console.log(`   éval : ${kh}${kh === m.prodKh ? '  (identique)' : ''}`)
+		console.log(`   prod kh : ${m.prodKh}`)
+		console.log(`   éval kh : ${kh}${kh === m.prodKh ? '  (identique)' : ''}`)
+		console.log(`   éval fr : ${fr}${leak ? '  ⚠️ FUITE bang/oun' : ''}`)
+		console.log(`   éval en : ${en}${leak ? '  ⚠️ FUITE bang/oun' : ''}`)
 	}
+	console.log(`\n${leaks === 0 ? `✅ Aucune fuite "bang"/"oun" littérale sur ${messages.length} messages.` : `❌ ${leaks} fuite(s) "bang"/"oun" détectée(s) sur ${messages.length} messages.`}`)
 }
 
 const replayArgIndex = process.argv.indexOf('--replay')
+const dateArgIndex = process.argv.indexOf('--date')
 const failures = await runRegressionCases()
 if (replayArgIndex !== -1) {
 	const n = parseInt(process.argv[replayArgIndex + 1] || '20', 10)
-	await replayReal(n)
+	const dateArg = dateArgIndex !== -1 ? process.argv[dateArgIndex + 1] : undefined
+	await replayReal(n, dateArg)
 }
 process.exit(failures === 0 ? 0 : 1)
