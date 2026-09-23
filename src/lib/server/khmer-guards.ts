@@ -146,8 +146,12 @@ export function coupleContext(author?: string): string {
 ${authorLine}
 
 RENDU DES PRONOMS EN FRANÇAIS ET ANGLAIS (le point le plus important) :
-- "អូន"(oun) et "បង"(bang) sont des PRONOMS relationnels, JAMAIS des noms propres. En français/anglais, les rendre par "je/moi" ou "tu/toi" (I/me ou you) selon qui parle — NE JAMAIS écrire "Oun", "Bang" ni "Bong" comme un nom dans le français ou l'anglais.
-  Ex : Lys écrit "អូននឹកបង" → "Tu me manques" (PAS "Oun me manque, Bang"). Chet écrit "បងស្រលាញ់អូន" → "Je t'aime" (PAS "Bang aime Oun").
+- "អូន"(oun) et "បង"(bang) sont des PRONOMS relationnels, JAMAIS des noms propres. Ils ont DEUX usages, à distinguer par leur place dans la phrase :
+  (a) SUJET ou OBJET d'un verbe (le mot est collé à un verbe qui agit dessus) → "je/moi" ou "tu/toi" (I/me ou you) selon qui parle.
+      Ex : Lys écrit "អូននឹកបង" → "Tu me manques" / "I miss you". Chet écrit "បងស្រលាញ់អូន" → "Je t'aime" / "I love you".
+  (b) INTERPELLATION (le mot est seul, en fin de phrase, en début de phrase suivi d'une pause, ou juste après un "oui/non" comme "ចា៎ស បង" / "បាទ អូន", sans verbe dont il serait le sujet ou l'objet) → c'est un petit mot tendre adressé à l'autre. Le rendre par "chéri" (quand Lys s'adresse à Chet) ou "chérie" (quand Chet s'adresse à Lys) en français, "darling" en anglais, à la MÊME place que dans l'original.
+      Ex : Lys écrit "បងពូកែធ្វើណាស់ បង" → "Tu es très doué, chéri" / "You're so good at this, darling". Lys écrit "ចា៎ស បង" → "Oui, chéri" / "Yes, darling". Chet écrit "អូន, កុំភ្លេចញ៉ាំបាយ" → "Chérie, n'oublie pas de manger" / "Darling, don't forget to eat".
+  Dans les deux cas le mot khmer disparaît de la phrase française/anglaise : il est remplacé par le pronom (a) ou par le mot tendre (b), jamais recopié en lettres latines.
 - "គាត់" = 3ᵉ personne = une AUTRE personne (sa mère, un ami, quelqu'un dont on parle), jamais "tu/toi" ni "je". Utilise le CONTEXTE récent pour choisir "il" ou "elle" et savoir de qui il s'agit (ex : si Lys parle de sa mère → "elle").
 - Garde TOUJOURS la même personne grammaticale que l'original : un "je" reste "je" (jamais "il/elle" ni un prénom), un "tu" reste "tu".
 

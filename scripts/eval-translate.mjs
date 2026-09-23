@@ -51,6 +51,10 @@ function parseKh(raw) {
 	try { return JSON.parse(raw).kh ?? '' } catch { return raw }
 }
 
+function parseAll(raw) {
+	try { const t = JSON.parse(raw); return { fr: t.fr ?? '', en: t.en ?? '' } } catch { return { fr: '', en: '' } }
+}
+
 // ── cas de régression connus (bugs réels trouvés le 22/09/2026, cf. CLAUDE.md / historique git) ──
 // Chaque cas vérifie une invariance observable dans le khmer produit — pas un jugement subjectif
 // de qualité (ça, c'est le rôle du --replay, lu par un humain).
@@ -90,6 +94,14 @@ const REGRESSION_CASES = [
 		text: "Tu as vu les boutons de ma nouvelle veste ?",
 		check: (kh) => !containsForeignScript(kh) && !containsGluedLatin(kh),
 	},
+	{
+		// Bug réel du 23/09/2026 : "បង" utilisé en interpellation (fin de phrase, pas sujet/objet
+		// d'un verbe) transcrit tel quel ("bang") dans le fr/en au lieu de "chéri(e)"/"darling".
+		name: '"បង" en interpellation → chéri/darling (bug réel, pas Oun/Bang littéral)', author: 'Lys',
+		text: "មើលទៅហួយម៉ែនទែបង បងពូកែធ្វើងាស់ អរគុណណាស់ដែរ",
+		check: () => true, // le vrai check est sur fr/en, voir checkFrEn
+		checkFrEn: (fr, en) => !/\bbang\b/i.test(fr) && !/\bbang\b/i.test(en),
+	},
 ]
 
 async function runRegressionCases() {
@@ -100,11 +112,13 @@ async function runRegressionCases() {
 		const user = buildTranslateUser(c.text)
 		const raw = await callGlm(system, user)
 		const kh = cleanKhmer(parseKh(raw))
-		const ok = c.check(kh)
+		const { fr, en } = parseAll(raw)
+		const ok = c.check(kh) && (c.checkFrEn ? c.checkFrEn(fr, en) : true)
 		if (!ok) failures++
 		console.log(`${ok ? '✅' : '❌'} ${c.name}`)
 		console.log(`   [${c.author}] ${c.text}`)
-		console.log(`   → ${kh || raw}`)
+		console.log(`   → kh: ${kh || raw}`)
+		if (c.checkFrEn) console.log(`   → fr: ${fr}\n   → en: ${en}`)
 	}
 	console.log(`\n${failures === 0 ? '✅ Tous les cas de régression passent.' : `❌ ${failures} cas en échec — lire le prompt/glossaire avant de merger.`}`)
 	return failures
