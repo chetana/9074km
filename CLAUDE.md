@@ -213,9 +213,14 @@ container éveillé, obsolète sur chetbox). Si le service worker a une nouvelle
 
 ## Traduction (GLM + Gemini) — `src/lib/server/vertex.ts` + `glm.ts`
 
-Moteur principal **GLM-5.3-flash** (pas cher), fallback **Gemini** (`gemini-3.6-flash` /
-`gemini-2.5-flash`) sur échec technique ou sortie suspecte. Architecture (refaite le 22/09/2026
-après plusieurs bugs réels — voir historique git pour le détail) :
+Moteur principal **GLM-5.3-flash** (pas cher), fallback **Gemini** (`gemini-3.6-flash` puis
+`gemini-3.5-flash` ; escalade sur `3.5-flash` d'abord) sur échec technique ou sortie suspecte.
+TTS : `gemini-2.5-flash-tts` (GA). Leçons/grading : encore `gemini-2.5-flash-lite` (retiré le
+28/01/2027 — candidat `3.1-flash-lite`, à valider sur la génération de leçons, pas seulement la
+traduction). **Changer de modèle = passer d'abord `scripts/bench-gemini-models.mjs`** (même prompt,
+mêmes garde-fous que la prod, protocole pronoms avec contexte biaisant) — jamais la table de
+migration de Google telle quelle. Architecture (refaite le 22/09/2026 après plusieurs bugs réels —
+voir historique git pour le détail) :
 
 - **System/user séparés** : `buildTranslateSystem(author)` / `buildTranslateUser(text, ctx)` (et
   l'équivalent `buildSuggestSystem`/`buildSuggestUser`) — l'invariant (contexte couple, règles,

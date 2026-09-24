@@ -96,7 +96,7 @@ async function callGemini(token, model, system, user, budget) {
 		if (cand?.finishReason === 'MAX_TOKENS' && budget < 8192) { budget = Math.min(8192, budget * 2); continue }
 		const raw = (cand?.content?.parts?.[0]?.text ?? '').replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
 		const u = d?.usageMetadata ?? {}
-		return { raw, ms: Date.now() - t0, tin: u.promptTokenCount ?? 0, tout: u.candidatesTokenCount ?? 0 }
+		return { raw, finish: cand?.finishReason, ms: Date.now() - t0, tin: u.promptTokenCount ?? 0, tout: u.candidatesTokenCount ?? 0 }
 	}
 	return { error: '429 persistant', ms: Date.now() - t0 }
 }
@@ -113,7 +113,7 @@ async function benchModel(token, model, cases, runs) {
 			if (res.error) { rows.push({ ...row, error: res.error, caseOk: false, guardsOk: false }); continue }
 			let t
 			try { t = pickTranslation(res.raw) } catch (e) {
-				rows.push({ ...row, error: `forme: ${e.message}`, raw: res.raw.slice(0, 300), caseOk: false, guardsOk: false }); continue
+				rows.push({ ...row, error: `forme (fin=${res.finish}): ${e.message}`, raw: res.raw.slice(0, 300), caseOk: false, guardsOk: false }); continue
 			}
 			const flags = {
 				foreign: containsForeignScript(t.kh),

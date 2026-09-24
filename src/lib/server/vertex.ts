@@ -144,13 +144,19 @@ async function callGeminiSystem(
 }
 
 
-// Modèles plus fiables sur le khmer (utilisés en secours si le lite contamine la sortie).
-const STRONG_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'] as const
+// Choix issus de scripts/bench-gemini-models.mjs (24/09/2026, 24 cas × 3 essais, prompt de prod) :
+// 3.6-flash et 3.5-flash à 100 % (pronoms bang/oun avec contexte biaisant compris). 2.5-flash à 97 %
+// (une vraie erreur de pronom sous biais "beauté") et retiré le 31/03/2027. 3.7/3.8-flash écartés
+// pour l'instant : pas meilleurs que 3.6, et réponses coupées en plein JSON avec finishReason STOP
+// (8 à 12 % sur 3.8, pics à 93 s) — à re-tester avec le banc avant tout passage.
 
-// Traductions DU COUPLE (chat/suggest/transcribe) : gemini-3.6-flash (le plus récent, khmer le
-// plus naturel + registre intime bang/oun constant), fallback 2.5-flash. ~€5/mois au volume réel.
+// Secours de l'escalade (sortie khmère corrompue) : 3.5-flash d'abord, pour escalader vers un
+// modèle DIFFÉRENT de COUPLE_MODELS[0] quand GLM est tombé et que 3.6 a produit la sortie fautive.
+const STRONG_MODELS = ['gemini-3.5-flash', 'gemini-3.6-flash'] as const
+
+// Traductions DU COUPLE (chat/suggest/transcribe) : 3.6-flash, le plus rapide du banc (~1,3 s).
 // Les leçons/grading restent sur GEMINI_MODELS (lite, pas cher, non sensible au registre intime).
-const COUPLE_MODELS = ['gemini-3.6-flash', 'gemini-2.5-flash'] as const
+const COUPLE_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash'] as const
 
 async function attemptTranslate(
   system: string, user: string, sourceText: string, budget: number, models: readonly string[], forceGemini: boolean

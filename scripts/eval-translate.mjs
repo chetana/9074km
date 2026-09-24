@@ -19,7 +19,9 @@
 import { readFileSync } from 'fs'
 import { execSync } from 'child_process'
 import { buildTranslateSystem, buildTranslateUser, cleanKhmer } from '../src/lib/server/khmer-guards.ts'
-import { REGRESSION_CASES } from './translate-cases.mjs'
+import { REGRESSION_CASES, PRONOUN_CASES } from './translate-cases.mjs'
+
+const CASES = [...REGRESSION_CASES, ...PRONOUN_CASES]
 
 const ENV = Object.fromEntries(
 	readFileSync(new URL('../.env', import.meta.url), 'utf8')
@@ -54,11 +56,11 @@ function parseAll(raw) {
 }
 
 async function runRegressionCases() {
-	console.log(`\n${'═'.repeat(78)}\nCAS DE RÉGRESSION CONNUS (${REGRESSION_CASES.length})\n${'═'.repeat(78)}`)
+	console.log(`\n${'═'.repeat(78)}\nCAS DE RÉGRESSION CONNUS + PROTOCOLE PRONOMS (${CASES.length})\n${'═'.repeat(78)}`)
 	let failures = 0
-	for (const c of REGRESSION_CASES) {
+	for (const c of CASES) {
 		const system = buildTranslateSystem(c.author)
-		const user = buildTranslateUser(c.text)
+		const user = buildTranslateUser(c.text, c.context)
 		const raw = await callGlm(system, user)
 		const kh = cleanKhmer(parseKh(raw))
 		const { fr, en } = parseAll(raw)
