@@ -192,7 +192,12 @@ appelait un getter générique typé `unknown | null` dans `localCache.ts` — 2
   sur la bulle ouvre `BubbleMenu.svelte` (réagir/écouter/copier/supprimer) — **au tap direct, pas
   au long-press** (testé en long-press ~450ms pendant la refonte, repassé au tap sur demande
   explicite de Chetana : un tap simple ne faisait rien d'autre avant, plus intuitif à l'usage).
-  Fermeture du menu au tap ailleurs dans la liste ou après une action.
+  Le menu s'ouvre **sur le côté de la bulle** (à gauche des miennes, à droite des siennes), en
+  colonne étroite flottante — pas dessous : la maquette P7 le mettait sous la bulle, Chetana a
+  demandé le 24/09/2026 de revenir au côté comme l'ancienne colonne d'actions. Il flotte en
+  surimpression (la bulle ne rétrécit pas) et se recale seul dans `.message-list` s'il déborde.
+  Fermeture au tap n'importe où ailleurs (écouteur `pointerdown` global, en-tête/saisie/dock
+  compris) ou après une action.
 
 ### Race condition auth
 `auth.init()` n'est **pas awaité** dans le layout. Ne jamais appeler `loadDate()` dans `onMount`.

@@ -144,6 +144,7 @@
 				{onSpeak}
 				{onCopy}
 				onDelete={() => { onDelete(); onDeselect(); }}
+				onClose={onDeselect}
 			/>
 		{/if}
 	</div>
