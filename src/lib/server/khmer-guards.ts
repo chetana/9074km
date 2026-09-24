@@ -154,6 +154,9 @@ export interface GlossaryEntry {
 	en?: RegExp             // motif attendu dans la sortie anglaise
 	authorIsChet?: boolean  // undefined = les deux ; true = Chet seulement ; false = Lys seulement
 	direction?: 'fromKh'    // absent = fr/en→kh (GLOSSARY_LINES) ; 'fromKh' = kh→fr/en (GLOSSARY_KH_LINES)
+	// Motifs INTERDITS en sortie, vérifiés par le code uniquement (jamais affichés au modèle — une
+	// forme fautive citée dans le prompt devient plus probable, pas moins).
+	avoid?: { kh?: RegExp; fr?: RegExp; en?: RegExp }
 }
 
 export const GLOSSARY: GlossaryEntry[] = [
@@ -165,11 +168,11 @@ export const GLOSSARY: GlossaryEntry[] = [
 	{ line: '- "mes/tes parents" (registre oral, intime) → ប៉ាម៉ាក់ (jamais "មាតាបិតា", trop formel/littéraire — réservé aux textes officiels)', src: /\b(mes|tes) parents\b/i },
 	{
 		line: '- "ma chérie"/"mon amour"/"mon cœur"/"bébé" (Chet → Lys) → អូន ou អូនសម្លាញ់ ; "Bonjour ma chérie" → សួស្តីអូនសម្លាញ់ (le mot tendre FUSIONNE avec le pronom, jamais un mot séparé)',
-		src: /\bma ch[ée]rie\b|\bmon amour\b|\bmon c[oœ]ur\b|\bb[ée]b[ée]\b/i, kh: /អូន(សម្លាញ់)?/, authorIsChet: true,
+		src: /\bma ch[ée]rie\b|\bmon amour\b|\bmon c(?:oe|œ)ur\b|\bb[ée]b[ée]\b/i, kh: /អូន(សម្លាញ់)?/, authorIsChet: true,
 	},
 	{
 		line: '- "mon chéri"/"mon amour"/"mon cœur" (Lys → Chet) → បង ou បងសម្លាញ់ ; "Bonjour mon chéri" → សួស្តីបងសម្លាញ់ (le mot tendre FUSIONNE avec le pronom, jamais un mot séparé)',
-		src: /\bmon ch[ée]ri\b|\bmon amour\b|\bmon c[oœ]ur\b/i, kh: /បង(សម្លាញ់)?/, authorIsChet: false,
+		src: /\bmon ch[ée]ri\b|\bmon amour\b|\bmon c(?:oe|œ)ur\b/i, kh: /បង(សម្លាញ់)?/, authorIsChet: false,
 	},
 	{
 		// Même `line` que l'entrée précédente (dédupliquée dans GLOSSARY_LINES, n'affiche rien en
@@ -196,8 +199,24 @@ export const GLOSSARY: GlossaryEntry[] = [
 		line: '- ប្រពន្ធសម្លាញ់/ស្រីសម្លាញ់ (femme affectueuse) → "ma chère femme" / "my dear wife" (les DEUX idées dans la même expression)',
 		src: /ប្រពន្ធសម្លាញ់|ស្រីសម្លាញ់/, fr: /\bfemme\b/i, en: /\bwife\b/i, direction: 'fromKh',
 	},
+	// Dérives réelles du 24/09/2026 après-midi (mesurées : "oui" de Chet rendu ចា៎ស 6 fois sur 6,
+	// "s'ennuyer" rendu par un mot inventé 5 fois sur 6, phrase de Chet jugée incompréhensible par Lys).
+	{ line: '- "oui"/"ouais" dit par Chet → បាទ (le oui masculin)', src: /\boui\b|\bouais\b/i, kh: /បាទ/, avoid: { kh: /ចា៎ស|ចាស/ }, authorIsChet: true },
+	{ line: '- "oui"/"ouais" dit par Lys → ចា៎ស (le oui féminin)', src: /\boui\b|\bouais\b/i, kh: /ចា៎ស|ចាស/, avoid: { kh: /បាទ/ }, authorIsChet: false },
+	{ line: '- "content(e)" (heureux) → សប្បាយចិត្ត / អរ', src: /\bcontente?s?\b/i, kh: /សប្បាយ|អរ|រីករាយ|ត្រេកអរ/, avoid: { kh: /ស្រលាញ់|ស្រឡាញ់/ } },
+	{ line: `- "s'ennuyer" (je ne m'ennuie pas) → ធុញទ្រាន់ / អផ្សុក`, src: /\b[mts]['’]ennui|\bennuy/i, kh: /ធុញ|អផ្សុក/ },
+	{ line: '- "courage" (encouragement) → ស៊ូៗ / មានកម្លាំងចិត្ត', src: /\bcourage\b/i, kh: /ស៊ូ|កម្លាំងចិត្ត/ },
+	{ line: '- "stress" → ស្ត្រេស / តានតឹង', src: /\bstress/i, kh: /ស្ត្រេស|ស្ទ្រេស|តានតឹង/ },
+	{ line: '- "récupérer (mon) énergie / des forces" → អោយមានកម្លាំងឡើងវិញ', src: /r[ée]cup[ée]rer (mon |mes |de l'|des )?(énergie|energie|forces?)/i, kh: /កម្លាំង/, avoid: { kh: /ត្រឡប់កម្លាំង/ } },
+	{ line: '- "mais ça va" / "ça va" (pour rassurer) → តែមិនអីទេ / មិនអីទេ', src: /\bmais [çc]a va\b/i, kh: /មិនអីទេ|មិនអី/ },
+	{ line: '- "soucis/problèmes au visage" (peau, cernes) → បញ្ហានៅលើមុខ / បញ្ហាស្បែកមុខ', src: /(soucis?|probl[èe]mes?) (au|du|sur le) visage/i, kh: /លើមុខ|ស្បែកមុខ/ },
+	{
+		line: `- អូនតូច (un bébé / un petit enfant dont on parle) → "le petit" / "the little one" (c'est un NOM, pas le pronom អូន)`,
+		// seulement si la source ne dit pas "យើង" (nous/notre) : sinon "notre petit" est légitime
+		src: /^(?![\s\S]*យើង)[\s\S]*អូនតូច/, avoid: { fr: /\bnotre\b/i, en: /\bour\b/i }, direction: 'fromKh',
+	},
 	{ line: '- "arriver à" + verbe (réussir à faire) → verbe + បាន / អោយបាន (marqueur de résultat, un seul verbe)', src: /\barriver [àa]\b/i },
-	{ line: '- "se remettre à"/"reprendre" + activité → ចាប់ផ្ដើម…ឡើងវិញ / …ម្ដងទៀត (un seul verbe d\'action, jamais deux verbes empilés)', src: /\bse remettre [àa]\b|\breprendre\b/i },
+	{ line: `- "se remettre à"/"reprendre" + activité → ចាប់ផ្ដើម…ឡើងវិញ / …ម្ដងទៀត (un seul verbe d\'action, jamais deux verbes empilés)`, src: /\bse remettre [àa]\b|\breprendre\b/i },
 ]
 
 function uniqueLines(entries: GlossaryEntry[]): string {
@@ -212,7 +231,38 @@ export const GLOSSARY_KH_LINES = uniqueLines(GLOSSARY.filter(g => g.direction ==
 export function glossaryEchoed(sourceText: string, t: { kh: string; fr: string; en: string }, isChet: boolean | null): boolean {
 	return GLOSSARY
 		.filter(g => g.src.test(sourceText) && (g.authorIsChet === undefined || g.authorIsChet === isChet))
-		.every(g => (!g.kh || g.kh.test(t.kh)) && (!g.fr || g.fr.test(t.fr)) && (!g.en || g.en.test(t.en)))
+		.every(g => (!g.kh || g.kh.test(t.kh)) && (!g.fr || g.fr.test(t.fr)) && (!g.en || g.en.test(t.en))
+			&& !(g.avoid?.kh?.test(t.kh) || g.avoid?.fr?.test(t.fr) || g.avoid?.en?.test(t.en)))
+}
+
+// Bug réel du 24/09/2026 : "je suis content" traduit "បងស្រលាញ់អូនណាស់" (je t'aime très fort), et
+// "darling" ajouté en anglais sans mot tendre dans la phrase de Chet. Ne s'applique qu'à une source
+// fr/en : en khmer, interpeller l'autre par អូន/បង est un registre normal, pas un ajout de sens.
+const SRC_TENDER = /ch[ée]ri|\bamour|\bc(?:oe|œ)ur\b|\bb[ée]b[ée]\b|\bdarling|\blove\b|\bhoney|\bsweet|\bmari\b|\bma femme/i
+const SRC_LOVE = /aim|love|ador|amour/i
+export function tendernessAdded(sourceText: string, t: { kh: string; fr: string; en: string }): boolean {
+	if (/[ក-៿]/.test(sourceText)) return false
+	if (!SRC_TENDER.test(sourceText)) {
+		if (/\b(darling|sweetheart|honey|my love|babe)\b/i.test(t.en)) return true
+		if (/\bch[ée]rie?\b|mon amour|mon c(?:oe|œ)ur/i.test(t.fr)) return true
+	}
+	return /ស្រលាញ់|ស្រឡាញ់/.test(t.kh) && !SRC_LOVE.test(sourceText)
+}
+
+// Pronom de l'AUTRE dans une phrase qui ne parle que de soi (bug mesuré le 24/09/2026 : Lys écrit
+// « J'ai fini le travail plus tôt », le khmer lui fait dire បង — piégé par le contexte, écrit par Chet).
+// Ne juge qu'une source fr/en SANS 2e personne : dès qu'il y a « tu/toi/vous », les deux pronoms sont
+// légitimes. Les regex écartent les faux amis : បង devant un pied de consonne (បង្ហាញ = montrer) ou
+// dans បងប្អូន (frères et sœurs), et អូន précédé d'un pied (ប្អូន = cadet).
+const SECOND_PERSON = /\b(tu|te|toi|ton|ta|tes|vous|votre|vos|you|your)\b|\bt['’]/i
+const FIRST_PERSON = /\b(je|moi|me|mon|ma|mes|i|me|my)\b|\b[jm]['’]/i
+const KH_BANG = /បង(?!\u17D2)(?!ប្អូន)/
+const KH_OUN = /(?<!\u17D2)អូន/
+export function pronounSwapped(sourceText: string, kh: string, isChet: boolean | null): boolean {
+	if (isChet === null || /[ក-៿]/.test(sourceText)) return false
+	// Un mot tendre (« ma chérie ») s'adresse à l'autre comme un « tu » : son pronom y est légitime.
+	if (SECOND_PERSON.test(sourceText) || SRC_TENDER.test(sourceText) || !FIRST_PERSON.test(sourceText)) return false
+	return isChet ? KH_OUN.test(kh) : KH_BANG.test(kh)
 }
 
 const ARABIC_TO_KHMER_DIGITS = '០១២៣៤៥៦៧៨៩'
@@ -235,6 +285,26 @@ export function numbersPreserved(sourceText: string, kh: string): boolean {
 	})
 }
 
+/**
+ * Directives d'adaptation GLM — dérivées de l'A/B réel GLM vs Gemini-3.6 (scripts/glm-prompt-v2.mjs,
+ * messages réels du couple). Sans elles, GLM traduit trop littéralement et ajoute des mots
+ * absents du source ("ឥឡូវនេះ", vocatif "អូន"...) ; avec elles il adopte le lexique khmer oral
+ * naturel du couple (ហត់/ធូរ/តោះ/អរហ្នឹង) comme Gemini. C'est ce qui transformerait un modèle
+ * "traducteur" en adaptateur. Lexque issu des sorties réelles de Gemini-3.6 (référence validée).
+ *
+ * Le lexique, l'anti-inversion de sens et l'anti-latin-collé vivent désormais UNIQUEMENT dans le
+ * prompt partagé (buildTranslateSystem) — retirés d'ici le 22/09 pour ne plus les répéter deux fois avec des
+ * formulations différentes (source de confusion pour un petit modèle). Ce bloc ne garde que ce qui
+ * est spécifique à l'A/B GLM lui-même.
+ */
+export const GLM_ADAPT = `
+- Tu n'es PAS Google Translate : adapte le SENS INTENTIONNÉ du message, comme l'écrirait un khmer natif du couple, au naturel.
+- CORRIGE d'abord les fautes/tournures du français source avant de traduire — ne traduis jamais les maladresses lettre à lettre.
+- N'AJOUTE AUCUN mot absent du message source : pas de "ឥឡូវនេះ"(maintenant), pas de vocatif "អូន"/"បង"/"ម៉ែ" qui ne serait pas dans le français, aucun titre inventé type "ទឹកមុត".
+- Vocabulaire khmer ORAL à privilégier (registre couple, Phnom Penh) : "aller" → "តោះ" ; "être fatigué" → "ហត់" (réserve "អស់កម្លាំង" au sens physique fort) ; "ça va mieux" → "ធូរជាងមុន" ; "content de savoir" → "អរហ្នឹង".
+- Le message traduit doit sonner comme si le couple lui-même écrivait en khmer, pas comme du français traduit.
+`
+
 // Prompts de traduction (system/user) — extraits de vertex.ts le 22/09/2026 en même temps que le
 // reste des fonctions pures, pour la MÊME raison : plusieurs scripts d'éval ad-hoc
 // (scripts/*.mjs) contenaient chacun une COPIE-COLLÉE de ces prompts à des dates différentes,
@@ -244,9 +314,9 @@ export function numbersPreserved(sourceText: string, kh: string): boolean {
 export function coupleContext(author?: string): string {
 	const isChet = detectIsChet(author)
 	const authorLine = isChet === true
-		? `⚠️ AUTEUR DE CE MESSAGE = CHET (un HOMME). RÈGLE PRIORITAIRE SUR TOUT : quand il dit "je/moi/j'" → en khmer TOUJOURS "បង"(bang), JAMAIS "អូន"(oun) ; quand il dit "tu/toi" (il parle à Lys) → "អូន"(oun). Accord MASCULIN. Ne te laisse JAMAIS influencer par le contenu du message (même s'il parle de beauté, de visage, de choses "féminines") ni par les messages précédents pour choisir le pronom de l'auteur : c'est CHET qui écrit, donc son "je" = "បង".`
+		? `⚠️ AUTEUR DE CE MESSAGE = CHET (un HOMME). RÈGLE PRIORITAIRE SUR TOUT : quand il dit "je/moi/j'" → en khmer TOUJOURS "បង"(bang), JAMAIS "អូន"(oun) ; quand il dit "tu/toi" (il parle à Lys) → "អូន"(oun). Accord MASCULIN. Son « oui » = « បាទ » (le oui masculin). Ne te laisse JAMAIS influencer par le contenu du message (même s'il parle de beauté, de visage, de choses "féminines") ni par les messages précédents pour choisir le pronom de l'auteur : c'est CHET qui écrit, donc son "je" = "បង".`
 		: isChet === false
-			? `⚠️ AUTEUR DE CE MESSAGE = LYS (une FEMME). RÈGLE PRIORITAIRE SUR TOUT : quand elle dit "je/moi/j'" → en khmer TOUJOURS "អូន"(oun), JAMAIS "បង"(bang) ; quand elle dit "tu/toi" (elle parle à Chet) → "បង"(bang). Accord FÉMININ. Ne te laisse JAMAIS influencer par le contenu du message ni par les messages précédents pour choisir le pronom de l'auteur : c'est LYS qui écrit, donc son "je" = "អូន".`
+			? `⚠️ AUTEUR DE CE MESSAGE = LYS (une FEMME). RÈGLE PRIORITAIRE SUR TOUT : quand elle dit "je/moi/j'" → en khmer TOUJOURS "អូន"(oun), JAMAIS "បង"(bang) ; quand elle dit "tu/toi" (elle parle à Chet) → "បង"(bang). Accord FÉMININ. Son « oui » = « ចា៎ស » (le oui féminin). Ne te laisse JAMAIS influencer par le contenu du message ni par les messages précédents pour choisir le pronom de l'auteur : c'est LYS qui écrit, donc son "je" = "អូន".`
 			: ''
 	return `CONTEXTE DU COUPLE (à respecter absolument) :
 - Chet ("Chetana") = HOMME français. Lys ("Vornsok") = femme cambodgienne.
@@ -293,6 +363,8 @@ Règles impératives :
 - Un vrai prénom collé à un titre (ex "បង Chet" = "Bang Chet") se garde tel quel ; mais "អូន"/"បង" SEULS sont des pronoms → "je/tu" (voir règle pronoms ci-dessus), jamais des noms
 - Le champ de la langue d'origine = le message corrigé tel quel, MÊME personne et MÊME sens (ne le reformule pas, ne change jamais "je" en "il/elle" ni en prénom)
 - Heures, montants, quantités : recopie le MÊME nombre en chiffres (arabes ou khmers), à la même place. Une heure du soir peut passer en notation 12h : "22h" → "ម៉ោង១០យប់" ou "ម៉ោង២២" ; "8h30" → "ម៉ោង៨:៣០ព្រឹក" ; "15€" → "១៥ អឺរ៉ូ"
+- Mots tendres FIDÈLES à la source : un mot tendre (chéri, darling, mon amour, « je t'aime ») apparaît dans la traduction là où la source en a un, et une phrase neutre reste neutre. Ex : Chet écrit « oui c'était bon ce repas, je suis content » → « បាទ បាយហ្នឹងឆ្ងាញ់ បងសប្បាយចិត្ត » / « yes, that meal was good, I'm happy »
+- Mot khmer COURANT et simple : si l'équivalent oral d'un mot ne te vient pas avec certitude, prends le mot khmer le plus courant qui dit la même chose (ex « s'ennuyer » → « ធុញទ្រាន់ ») plutôt que d'en composer un nouveau. Une tournure française figée se traduit par son équivalent khmer, pas mot à mot (ex « récupérer mon énergie » → « អោយមានកម្លាំងឡើងវិញ », « mais ça va » → « តែមិនអីទេ »)
 - Un verbe français = un verbe khmer, même nombre d'actions : "je dois reprendre le sport" a UNE action (reprendre) → បងត្រូវតែចាប់ផ្ដើមកីឡាឡើងវិញ. Le "il faut que / je dois" se rend par ត្រូវ(តែ) collé directement au verbe de l'action
 
 GLOSSAIRE (mot/notion → khmer à toujours utiliser) :

@@ -260,7 +260,23 @@ voir historique git pour le détail) :
   ET mots composés kh→fr/en), règle positive "un verbe français = un verbe khmer" (tuait un cadrage
   "chercher" parasite sur "se remettre à un sport"), règle de conservation des nombres. Vérifié par
   reproduction (6 essais/cas) : 1/6 → 6/6 correct sur les 3 cas après fix. Cas de non-régression
-  dans `scripts/eval-translate.mjs`.
+  dans `scripts/translate-cases.mjs`.
+- **Bug réel du 24/09/2026 après-midi — le modèle "en rajoutait dans le tendre"** : "je suis
+  content" traduit "je t'aime très fort", "darling" ajouté, "notre petit" pour le bébé d'un ami, et
+  le "oui" de Chet rendu `ចា៎ស` (le oui féminin) **6 fois sur 6**. Fixé par : "oui" selon le genre de
+  l'auteur (ligne d'auteur de `coupleContext`), règle "mots tendres fidèles à la source", règle "mot
+  khmer courant plutôt qu'un mot composé" (GLM inventait des mots pour "s'ennuyer"), glossaire avec
+  champ `avoid` (formes interdites vérifiées par le code, jamais montrées au modèle), et deux
+  garde-fous déterministes : **`tendernessAdded`** (mot tendre / "je t'aime" absent de la source
+  fr/en) et **`pronounSwapped`** (pronom de l'autre dans une phrase fr/en qui ne parle que de soi —
+  ni "tu/toi/vous" ni mot tendre ; attention aux faux amis `បង្ហាញ`/`បងប្អូន`/`ប្អូន`). Mesuré :
+  12/30 → 30/30 sur ces cas, et **1 escalade sur 87** traductions à l'éval complète (une vraie
+  erreur) — GLM reste le moteur de ~99 % des messages.
+- **`GLM_ADAPT` vit dans `khmer-guards.ts`** (réexporté par `glm.ts`) : avant le 24/09/2026,
+  `eval-translate.mjs` testait GLM **sans** ce bloc, donc pas avec le prompt exact de prod.
+- **Éval** : `npm run eval:translate -- --runs 6 --only "<nom>"` répète/filtre les cas, et affiche
+  le taux d'escalade vers Gemini que la prod aurait déclenché (`⤴`) — un garde-fou qui escalade des
+  traductions correctes coûte cher, le vérifier avant tout nouveau garde-fou.
 - **Validation de forme** (`pickTranslation`/`pickSuggestion`) : rejette placeholder recopié, champ
   vide, khmer identique au français/anglais — antérieurement une sortie "valide JSON mais fausse"
   passait sans broncher.

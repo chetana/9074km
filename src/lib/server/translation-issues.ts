@@ -9,7 +9,7 @@ export interface TranslationIssue {
 	// glossary_miss/number_drift ajoutés le 24/09/2026 : glossaryEchoed/numbersPreserved lisent la
 	// SOURCE directement (khmer-guards.ts), contrairement à termsEchoed qui dépend du modèle pour
 	// annoncer un terme difficile dans `terms[]` — ils couvrent le cas où il ne l'annonce jamais.
-	reason: 'foreign_script' | 'glued_latin' | 'glossary_miss' | 'number_drift' | 'parse_failure' | 'shape_invalid'
+	reason: 'foreign_script' | 'glued_latin' | 'glossary_miss' | 'number_drift' | 'tenderness_added' | 'pronoun_swapped' | 'parse_failure' | 'shape_invalid'
 	sourceText: string
 	author?: string
 	badKh: string

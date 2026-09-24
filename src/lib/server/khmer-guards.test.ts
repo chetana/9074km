@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
 	containsForeignScript, containsGluedLatin, cleanKhmer, detectIsChet,
 	pickTranslation, pickSuggestion, termsEchoed, splitIntoChunks, translateBudget,
-	glossaryEchoed, numbersPreserved,
+	glossaryEchoed, numbersPreserved, tendernessAdded, pronounSwapped,
 } from './khmer-guards'
 
 describe('containsForeignScript', () => {
@@ -26,7 +26,7 @@ describe('containsForeignScript', () => {
 })
 
 describe('containsGluedLatin', () => {
-	it('détecte la corruption réelle du 22/09 : latin collé sans espace au milieu d\'un mot khmer', () => {
+	it(`détecte la corruption réelle du 22/09 : latin collé sans espace au milieu d\'un mot khmer`, () => {
 		expect(containsGluedLatin('បងទើបកែបុortonexus')).toBe(true)
 	})
 	it('ne signale PAS un vrai nom propre latin séparé par une espace (faux positif à éviter)', () => {
@@ -167,7 +167,7 @@ describe('termsEchoed', () => {
 			terms: [{ src: 'ពូកែ', kh: 'ពូកែ', fr: 'doué / fort', en: 'good at / skilled' }],
 		})).toBe(true)
 	})
-	it('accepte un terme à alternatives si l\'une est présente ("ឡេវ / គ្រាប់ឡេវ")', () => {
+	it(`accepte un terme à alternatives si l\'une est présente ("ឡេវ / គ្រាប់ឡេវ")`, () => {
 		expect(termsEchoed({ kh: 'បងឃើញឡេវអាវថ្មីរបស់អូនទេ?', terms: [{ src: 'boutons', kh: 'ឡេវ / គ្រាប់ឡេវ' }] })).toBe(true)
 	})
 	it('ignore un terme inventé, absent du message source', () => {
@@ -186,7 +186,7 @@ describe('glossaryEchoed', () => {
 		expect(glossaryEchoed('Bonjour ma chérie, je suis dans le train', { kh: 'សួស្តីអូនសម្លាញ់ បងនៅលើរថភ្លើង', fr: '', en: '' }, true)).toBe(true)
 		expect(glossaryEchoed('Bonjour ma chérie, je suis dans le train', { kh: 'សួស្តីចង្អុរអូន បងនៅលើរថភ្លើង', fr: '', en: '' }, true)).toBe(false)
 	})
-	it('ne s\'applique pas dans le mauvais sens (Lys écrit "mon chéri", pas "ma chérie")', () => {
+	it(`ne s\'applique pas dans le mauvais sens (Lys écrit "mon chéri", pas "ma chérie")`, () => {
 		// "ma chérie" est une entrée authorIsChet:true — un message de Lys ne la déclenche jamais
 		expect(glossaryEchoed('Bonjour ma chérie', { kh: 'ខុសទាំងស្រុង', fr: '', en: '' }, false)).toBe(true)
 	})
@@ -227,5 +227,63 @@ describe('pickSuggestion', () => {
 	it('garde les lessons si présentes et bien formées', () => {
 		const s = pickSuggestion(JSON.stringify({ ...base, lessons: [{ original: 'a', corrected: 'b', explanation: 'c' }] }))
 		expect(s.lessons).toEqual([{ original: 'a', corrected: 'b', explanation: 'c' }])
+	})
+})
+
+describe('glossaryEchoed — champ avoid (dérives réelles du 24/09 après-midi)', () => {
+	it('"oui" de Chet : បាទ attendu, ចា៎ស (le oui féminin) rejeté', () => {
+		const src = "oui c'était bon ce repas, je suis content hihi"
+		expect(glossaryEchoed(src, { kh: 'បាទ បាយហ្នឹងឆ្ងាញ់ បងសប្បាយចិត្ត', fr: '', en: '' }, true)).toBe(true)
+		expect(glossaryEchoed(src, { kh: 'ចា៎ស បាយហ្នឹងឆ្ងាញ់ បងអរហ្នឹង', fr: '', en: '' }, true)).toBe(false)
+	})
+	it(`"content" rendu par un "je t'aime" (ស្រលាញ់) est rejeté`, () => {
+		expect(glossaryEchoed('je suis content', { kh: 'បងស្រលាញ់អូនណាស់', fr: '', en: '' }, null)).toBe(false)
+	})
+	it(`"je ne m'ennuie pas" exige ធុញទ្រាន់/អផ្សុក, pas un mot inventé`, () => {
+		expect(glossaryEchoed("au travail je ne m'ennuie pas", { kh: 'នៅកន្លែងធ្វើការ បងមិនធុញទ្រាន់ទេ', fr: '', en: '' }, true)).toBe(true)
+		expect(glossaryEchoed("au travail je ne m'ennuie pas", { kh: 'នៅកន្លែងធ្វើការ បងមិនស្អប់ខ្ពស់ទេ', fr: '', en: '' }, true)).toBe(false)
+	})
+	it('អូនតូច : "notre petit" rejeté, sauf si la source dit យើង (nous)', () => {
+		const t = { kh: '', fr: 'Peut-être que notre petit ne veut pas', en: 'Maybe our little one' }
+		expect(glossaryEchoed('ប្រហែលអូនតូចនឹងមិនទាន់ចង់', t, false)).toBe(false)
+		expect(glossaryEchoed('ប្រហែលអូនតូចរបស់យើងមិនទាន់ចង់', t, false)).toBe(true)
+	})
+})
+
+describe('tendernessAdded', () => {
+	it(`bug réel du 24/09 : "je suis content" traduit "je t'aime très fort"`, () => {
+		expect(tendernessAdded("oui c'était bon ce repas, je suis content hihi", { kh: 'ចា៎ស អាហារហ្នឹងឆ្ងាញ់មែន បងស្រលាញ់អូនណាស់ហីហី', fr: '', en: '' })).toBe(true)
+	})
+	it(`"darling" ajouté en anglais alors que la phrase n'a aucun mot tendre`, () => {
+		expect(tendernessAdded('courage à toi aussi', { kh: '', fr: 'courage à toi aussi', en: 'Hang in there too, darling.' })).toBe(true)
+	})
+	it(`laisse passer un mot tendre ou un je t'aime présents dans la source`, () => {
+		expect(tendernessAdded('courage ma chérie', { kh: '', fr: 'courage ma chérie', en: 'hang in there, darling' })).toBe(false)
+		expect(tendernessAdded("je t'aime", { kh: 'បងស្រលាញ់អូន', fr: "je t'aime", en: 'I love you' })).toBe(false)
+	})
+	it('ne juge pas une source khmère (interpeller par អូន/បង y est normal)', () => {
+		expect(tendernessAdded('អូនស្រលាញ់បង', { kh: 'អូនស្រលាញ់បង', fr: "Je t'aime, chéri", en: 'I love you, darling' })).toBe(false)
+	})
+})
+
+describe('pronounSwapped', () => {
+	it(`bug réel du 24/09 : Lys parle d'elle, le khmer lui fait dire បង`, () => {
+		expect(pronounSwapped("J'ai fini le travail plus tôt aujourd'hui", 'ថ្ងៃនេះបងចប់ការមុនម្លេះ', false)).toBe(true)
+		expect(pronounSwapped("J'ai fini le travail plus tôt aujourd'hui", 'ថ្ងៃនេះអូនចប់ការមុនម្លេះ', false)).toBe(false)
+	})
+	it('Chet parle de lui : អូន interdit', () => {
+		expect(pronounSwapped('Je suis tellement fatigué ce soir', 'អូនហត់ណាស់យប់នេះ', true)).toBe(true)
+		expect(pronounSwapped('Je suis tellement fatigué ce soir', 'បងហត់ណាស់យប់នេះ', true)).toBe(false)
+	})
+	it('ignore les faux amis បង្ហាញ (montrer), បងប្អូន (frères et sœurs), ប្អូន (cadet)', () => {
+		expect(pronounSwapped('Je vais montrer la photo à mes frères et sœurs', 'អូននឹងបង្ហាញរូបទៅបងប្អូន', false)).toBe(false)
+		expect(pronounSwapped('Je vais voir mon petit frère', 'បងនឹងទៅលេងប្អូនប្រុស', true)).toBe(false)
+	})
+	it('ne juge pas une phrase avec « tu » (les deux pronoms y sont légitimes) ni une source khmère', () => {
+		expect(pronounSwapped("je t'aime", 'បងស្រលាញ់អូន', true)).toBe(false)
+		expect(pronounSwapped('Tu as mangé ?', 'អូនញ៉ាំបាយហើយឬនៅ?', true)).toBe(false)
+		// faux positif mesuré à l'éval : « ma chérie » s'adresse à Lys sans « tu »
+		expect(pronounSwapped('Bonjour ma chérie, je suis rentré vers 22h', 'សួស្តីអូនសម្លាញ់ បងត្រឡប់មកផ្ទះវិញម៉ោង១០យប់', true)).toBe(false)
+		expect(pronounSwapped('អូនហត់', 'អូនហត់', true)).toBe(false)
 	})
 })

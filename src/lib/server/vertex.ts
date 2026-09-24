@@ -7,11 +7,11 @@ import {
 	MAX_OUTPUT_CEILING, translateBudget, splitIntoChunks,
 	containsForeignScript, containsGluedLatin, cleanKhmer, detectIsChet,
 	pickTranslation, pickSuggestion, termsEchoed, GLOSSARY_LINES, GLOSSARY_KH_LINES,
-	glossaryEchoed, numbersPreserved,
+	glossaryEchoed, numbersPreserved, tendernessAdded, pronounSwapped,
 	buildTranslateSystem, buildTranslateUser, coupleContext,
 } from './khmer-guards'
 
-type TranslationIssueReason = 'foreign_script' | 'glued_latin' | 'glossary_miss' | 'number_drift'
+type TranslationIssueReason = 'foreign_script' | 'glued_latin' | 'glossary_miss' | 'number_drift' | 'tenderness_added' | 'pronoun_swapped'
 
 export type { Translations, GeminiSuggestion, LessonItem, TranslateTerm }
 
@@ -202,6 +202,8 @@ async function translateWithEscalation(
       : containsGluedLatin(light.t.kh) ? 'glued_latin'
       : !glossaryEchoed(text, light.t, isChet) ? 'glossary_miss'
       : !numbersPreserved(text, light.t.kh) ? 'number_drift'
+      : tendernessAdded(text, light.t) ? 'tenderness_added'
+      : pronounSwapped(text, light.t.kh, isChet) ? 'pronoun_swapped'
       : null
     if (reason) { badKh = light.t.kh; light = null }
   }
@@ -327,6 +329,8 @@ export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh', previ
       : containsGluedLatin(s.kh) ? 'glued_latin'
       : !glossaryEchoed(text, s, isChet) ? 'glossary_miss'
       : !numbersPreserved(text, s.kh) ? 'number_drift'
+      : tendernessAdded(text, s) ? 'tenderness_added'
+      : pronounSwapped(text, s.kh, isChet) ? 'pronoun_swapped'
       : null
     if (reason) { badKh = s.kh; throw new Error('khmer suspect (script étranger, latin collé, ou glossaire/nombre non respecté)') }
   } catch (e) {

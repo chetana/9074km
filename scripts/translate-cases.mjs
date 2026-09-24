@@ -78,6 +78,45 @@ export const REGRESSION_CASES = [
 		text: "Il faut que j'arrive à me remettre à un sport mais je suis toujours fatigué je ne comprends pas",
 		check: () => true,
 	},
+	// ── 5 dérives réelles du 24/09/2026 après-midi (prompt déjà corrigé le matin) : le modèle en
+	// rajoutait dans le tendre (je t'aime / darling / « notre ») ou inventait un mot khmer. ──
+	{
+		name: `"je suis content" ≠ "je t'aime" + "oui" masculin បាទ (24/09 soir)`, author: 'Chet',
+		text: "oui c'était bon ce repas, je suis content hihi",
+		// prod : "ចា៎ស … បងស្រលាញ់អូនណាស់" — "je t'aime très fort" inventé, et ចា៎ស est le oui des femmes
+		check: (kh) => !/ស្រលាញ់|ស្រឡាញ់/.test(kh) && !/ចា៎ស|ចាស/.test(kh) && /សប្បាយ|អរ|រីករាយ|ត្រេកអរ/.test(kh),
+		checkFrEn: (fr, en) => !/\blove\b/i.test(en),
+	},
+	{
+		name: `អូនតូច = "le petit" (bébé d'un ami), jamais "notre" (24/09 soir)`, author: 'Lys',
+		context: "Chet: mon ami était chez le médecin avec sa femme, ils ont fait une échographie, le bébé n'a pas voulu montrer sa tête, il a mis sa main devant ahah",
+		text: 'ប្រហែលអូនតូចនឹងនៅមិនទាន់ចង់អោយប៉ានឹងម៉ាក់គាត់ឃើញមុខគាត់ហើយមើលទៅបង 😂xd',
+		// prod : "notre petit" / "our little one" — sous-entend LEUR bébé
+		check: () => true,
+		checkFrEn: (fr, en) => !/\bnotre\b/i.test(fr) && !/\bour\b/i.test(en),
+	},
+	{
+		name: `"je ne m'ennuie pas" → ធុញទ្រាន់, pas un mot inventé (24/09 soir)`, author: 'Chet',
+		text: "ça va, moi, j'ai juste un soucis avec ma fatigue et mes yeux fatigué, mais sinon ça va, au travail je ne m'ennuie pas, on a beaucoup de chose à faire",
+		// prod : "មិនស្អប់ខ្ពស់ទេ" (« je ne déteste pas haut »), non-sens
+		check: (kh) => /ធុញ|អផ្សុក/.test(kh) && !/ស្អប់/.test(kh),
+	},
+	{
+		name: `"courage" → ស៊ូៗ (24/09 soir)`, author: 'Chet',
+		text: "oh non, tu sais d'ou te venait tout ce stress ? courage ma chérie, j'aimerai être avec toi aussi 💪",
+		// prod : "ខិតខំតែម៉េចទៅ", tournure peu naturelle
+		// ស៊ូៗ ou មានកម្លាំងចិត្ត sont justes ; un essai rendait "stress" par ក្ដីស្រេកឃ្លា (la faim)
+		check: (kh) => /ស៊ូ|កម្លាំងចិត្ត/.test(kh) && /ស្ត្រេស|ស្ទ្រេស|តានតឹង/.test(kh),
+	},
+	{
+		name: `phrase jugée incompréhensible par Lys + pas de "darling" ajouté (24/09 soir)`, author: 'Chet',
+		text: "courage à toi aussi, j'aimerai bien savoir quoi faire pour récupérer mon énergie et ne plus avoir ces soucis au visage mais ça va, c'est rien de grave non plus",
+		// prod : "ស៊ូរៗដែរអូន បងចង់ដឹងថាត្រូវធ្វើអ្វីដើម្បីត្រឡប់កម្លាំងមកវិញ និងកុំមានបញ្ហាមុខហ្នឹងទៀត តែបងធូរហ្នឹង…" —
+		// jugée incompréhensible par Lys : calques "ត្រឡប់កម្លាំង" (faire revenir la force), "បញ្ហាមុខ" ambigu
+		// (មុខ = visage/devant/matière), "បងធូរហ្នឹង" pour "mais ça va". À remplacer par SA phrase dès qu'on l'a.
+		check: (kh) => !/ត្រឡប់កម្លាំង/.test(kh) && /លើមុខ|ស្បែកមុខ/.test(kh) && /មិនអី/.test(kh),
+		checkFrEn: (fr, en) => !/\b(darling|sweetheart|honey|my love|dear)\b/i.test(en) && !/\bch[ée]rie?\b/i.test(fr),
+	},
 ]
 
 // ── protocole pronoms បង/អូន avec contexte BIAISANT (le "20/20" cité dans vertex.ts) ──

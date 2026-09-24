@@ -12,13 +12,20 @@
  *   node --experimental-strip-types scripts/eval-translate.mjs           # cas de régression connus
  *   node --experimental-strip-types scripts/eval-translate.mjs --replay 20   # + N derniers messages réels d'aujourd'hui (jugement humain)
  *   node --experimental-strip-types scripts/eval-translate.mjs --replay 200 --date 2026-09-22   # idem, un autre jour
+ *   node --experimental-strip-types scripts/eval-translate.mjs --runs 6 --only "24/09 soir"   # 6 essais par cas, filtrés par nom
  *
  * Lecture seule : aucune écriture, ni en base ni sur S3. À lancer à la main avant tout changement
  * de prompt/modèle dans vertex.ts/glm.ts — jamais en CI (coûte de vrais appels GLM/Gemini).
  */
 import { readFileSync } from 'fs'
 import { execSync } from 'child_process'
-import { buildTranslateSystem, buildTranslateUser, cleanKhmer } from '../src/lib/server/khmer-guards.ts'
+import {
+	buildTranslateSystem, buildTranslateUser, cleanKhmer, GLM_ADAPT, detectIsChet,
+	containsForeignScript, containsGluedLatin, glossaryEchoed, numbersPreserved, tendernessAdded, pronounSwapped,
+} from '../src/lib/server/khmer-guards.ts'
+
+// Prompt système EXACT de la prod pour GLM : vertex.ts appelle chatGo(`${system}\n\n${GLM_ADAPT}`, …).
+const glmSystem = (author) => `${buildTranslateSystem(author)}\n\n${GLM_ADAPT}`
 import { REGRESSION_CASES, PRONOUN_CASES } from './translate-cases.mjs'
 
 const CASES = [...REGRESSION_CASES, ...PRONOUN_CASES]
@@ -55,23 +62,44 @@ function parseAll(raw) {
 	try { const t = JSON.parse(raw); return { fr: t.fr ?? '', en: t.en ?? '' } } catch { return { fr: '', en: '' } }
 }
 
-async function runRegressionCases() {
-	console.log(`\n${'═'.repeat(78)}\nCAS DE RÉGRESSION CONNUS + PROTOCOLE PRONOMS (${CASES.length})\n${'═'.repeat(78)}`)
+async function runRegressionCases(runs, only) {
+	const cases = only ? CASES.filter(c => c.name.toLowerCase().includes(only.toLowerCase())) : CASES
+	console.log(`\n${'═'.repeat(78)}\nCAS DE RÉGRESSION + PROTOCOLE PRONOMS (${cases.length} cas × ${runs} essai${runs > 1 ? 's' : ''})\n${'═'.repeat(78)}`)
 	let failures = 0
-	for (const c of CASES) {
-		const system = buildTranslateSystem(c.author)
+	let escalations = 0, total = 0
+	const why = {}
+	for (const c of cases) {
+		const system = glmSystem(c.author)
 		const user = buildTranslateUser(c.text, c.context)
-		const raw = await callGlm(system, user)
-		const kh = cleanKhmer(parseKh(raw))
-		const { fr, en } = parseAll(raw)
-		const ok = c.check(kh, c.text) && (c.checkFrEn ? c.checkFrEn(fr, en) : true)
-		if (!ok) failures++
-		console.log(`${ok ? '✅' : '❌'} ${c.name}`)
+		let passed = 0
+		const samples = []
+		for (let run = 0; run < runs; run++) {
+			const raw = await callGlm(system, user)
+			const kh = cleanKhmer(parseKh(raw))
+			const { fr, en } = parseAll(raw)
+			const ok = c.check(kh, c.text) && (c.checkFrEn ? c.checkFrEn(fr, en) : true)
+			// Mêmes garde-fous que translateWithEscalation : une sortie rejetée ici part vers Gemini en prod.
+			const t = { kh, fr, en }
+			const reason = containsForeignScript(kh) ? 'foreign_script' : containsGluedLatin(kh) ? 'glued_latin'
+				: !glossaryEchoed(c.text, t, detectIsChet(c.author)) ? 'glossary_miss' : !numbersPreserved(c.text, kh) ? 'number_drift'
+				: tendernessAdded(c.text, t) ? 'tenderness_added'
+				: pronounSwapped(c.text, kh, detectIsChet(c.author)) ? 'pronoun_swapped' : null
+			total++
+			if (reason) { escalations++; why[reason] = (why[reason] ?? 0) + 1; console.log(`   ⤴ escalade [${reason}] ${c.name.slice(0, 45)} → ${kh}`) }
+			if (ok) passed++
+			else failures++
+			// Un seul essai : on montre tout. Plusieurs : seulement les échecs (et la 1re sortie en exemple).
+			if (runs === 1 || !ok || run === 0) samples.push({ ok, kh: kh || raw, fr, en })
+		}
+		console.log(`${passed === runs ? '✅' : '❌'} ${runs > 1 ? `${passed}/${runs} ` : ''}${c.name}`)
 		console.log(`   [${c.author}] ${c.text}`)
-		console.log(`   → kh: ${kh || raw}`)
-		if (c.checkFrEn) console.log(`   → fr: ${fr}\n   → en: ${en}`)
+		for (const smp of samples) {
+			console.log(`   ${runs > 1 ? (smp.ok ? 'ok ' : 'KO ') : ''}→ kh: ${smp.kh}`)
+			if (c.checkFrEn || !smp.ok) console.log(`        fr: ${smp.fr}\n        en: ${smp.en}`)
+		}
 	}
-	console.log(`\n${failures === 0 ? '✅ Tous les cas de régression passent.' : `❌ ${failures} cas en échec — lire le prompt/glossaire avant de merger.`}`)
+	console.log(`\nEscalades vers Gemini que la prod aurait déclenchées : ${escalations}/${total}${escalations ? ` (${JSON.stringify(why)})` : ''}`)
+	console.log(`${failures === 0 ? '✅ Tous les cas de régression passent.' : `❌ ${failures} échec(s) — lire le prompt/glossaire avant de merger.`}`)
 	return failures
 }
 
@@ -98,7 +126,7 @@ async function replayReal(n, dateArg) {
 
 	let leaks = 0
 	for (const [i, m] of messages.entries()) {
-		const system = buildTranslateSystem(m.author)
+		const system = glmSystem(m.author)
 		const user = buildTranslateUser(m.text)
 		const raw = await callGlm(system, user)
 		const kh = cleanKhmer(parseKh(raw))
@@ -114,9 +142,10 @@ async function replayReal(n, dateArg) {
 	console.log(`\n${leaks === 0 ? `✅ Aucune fuite "bang"/"oun" littérale sur ${messages.length} messages.` : `❌ ${leaks} fuite(s) "bang"/"oun" détectée(s) sur ${messages.length} messages.`}`)
 }
 
+const argVal = (name, dflt) => { const i = process.argv.indexOf(name); return i === -1 ? dflt : process.argv[i + 1] }
 const replayArgIndex = process.argv.indexOf('--replay')
 const dateArgIndex = process.argv.indexOf('--date')
-const failures = await runRegressionCases()
+const failures = await runRegressionCases(parseInt(argVal('--runs', '1'), 10), argVal('--only', null))
 if (replayArgIndex !== -1) {
 	const n = parseInt(process.argv[replayArgIndex + 1] || '20', 10)
 	const dateArg = dateArgIndex !== -1 ? process.argv[dateArgIndex + 1] : undefined
