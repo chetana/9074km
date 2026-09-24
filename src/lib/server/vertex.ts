@@ -153,13 +153,13 @@ const STRONG_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'] as const
 const COUPLE_MODELS = ['gemini-3.6-flash', 'gemini-2.5-flash'] as const
 
 async function attemptTranslate(
-  system: string, user: string, budget: number, models: readonly string[], forceGemini: boolean
+  system: string, user: string, sourceText: string, budget: number, models: readonly string[], forceGemini: boolean
 ): Promise<{ t: Translations & { terms: TranslateTerm[] }; engine: 'glm' | 'gemini' }> {
   const { text: raw, engine } = forceGemini
     ? { text: await geminiRequest(system, [{ text: user }], budget, models), engine: 'gemini' as const }
     : await callGeminiSystem(system, user, budget, models)
   const t = pickTranslation(raw)
-  if (!termsEchoed(t)) throw new Error('terme du glossaire annoncé mais absent du khmer final')
+  if (!termsEchoed(t, sourceText)) throw new Error('terme du glossaire annoncé mais absent du khmer final')
   return { t, engine }
 }
 
@@ -180,7 +180,7 @@ async function translateWithEscalation(
 
   let light: { t: Translations & { terms: TranslateTerm[] }; engine: 'glm' | 'gemini' } | null = null
   try {
-    light = await attemptTranslate(system, user, budget, COUPLE_MODELS, false)
+    light = await attemptTranslate(system, user, text, budget, COUPLE_MODELS, false)
   } catch (e) {
     console.warn(`[translate] moteur léger échoué (${(e as Error).message}) → escalade Gemini fort`)
   }
@@ -201,7 +201,7 @@ async function translateWithEscalation(
   }
   if (light) return { fr: light.t.fr, en: light.t.en, kh: cleanKhmer(light.t.kh), lang: light.t.lang }
 
-  const strong = await attemptTranslate(system, user, budget, STRONG_MODELS, true) // throw si échec total → géré par l'appelant
+  const strong = await attemptTranslate(system, user, text, budget, STRONG_MODELS, true) // throw si échec total → géré par l'appelant
   if (reason) void logTranslationIssue({ reason, sourceText: text, author, badKh, fixedKh: strong.t.kh, engine: 'glm' })
   return { fr: strong.t.fr, en: strong.t.en, kh: cleanKhmer(strong.t.kh), lang: strong.t.lang }
 }
@@ -307,7 +307,7 @@ export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh', previ
       ? await geminiRequest(system, [{ text: user }], budget, models)
       : (await callGeminiSystem(system, user, budget, models)).text
     const s = pickSuggestion(raw)
-    if (!termsEchoed(s)) throw new Error('terme du glossaire annoncé mais absent du khmer final')
+    if (!termsEchoed(s, text)) throw new Error('terme du glossaire annoncé mais absent du khmer final')
     return s
   }
 
@@ -336,7 +336,9 @@ export async function geminiTts(text: string, lang: 'fr' | 'kh'): Promise<string
   const token = await getAccessToken()
   const project = env.VERTEX_PROJECT_ID ?? 'cykt-399216'
   const location = env.VERTEX_LOCATION ?? 'us-central1'
-  const model = 'gemini-2.5-flash-preview-tts'
+  // GA depuis la préversion "gemini-2.5-flash-preview-tts", retirée du catalogue Vertex (constaté
+  // le 24/09/2026 : répondait encore en us-central1 mais plus listée, coupure possible sans préavis).
+  const model = 'gemini-2.5-flash-tts'
   const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`
 
   const res = await fetch(endpoint, {

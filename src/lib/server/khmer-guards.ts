@@ -114,15 +114,23 @@ export function pickSuggestion(raw: string): GeminiSuggestion & { terms: Transla
 	return { corrected: s.corrected, fr: s.fr, en: s.en, kh: s.kh, lang, question: s.question ?? '', lessons, terms }
 }
 
-// Si le modèle s'est engagé sur un terme difficile (glossaire), sa traduction annoncée doit
+// Si le modèle s'est engagé sur un terme difficile (glossaire), sa traduction khmère annoncée doit
 // réapparaître dans le khmer final — sinon c'est le signe d'une génération qui a divergé en route.
-// fr/en ne sont vérifiés QUE si le modèle les a lui-même annoncés (terme dont la source est en
-// khmer, ex "ប្ដីសម្លាញ់" → engagement sur "mari"/"husband" avant de rédiger).
-export function termsEchoed(t: { kh: string; fr?: string; en?: string; terms: TranslateTerm[] }): boolean {
-	return t.terms.every(term =>
-		term.kh && t.kh.includes(term.kh) &&
-		(!term.fr || (t.fr ?? '').toLowerCase().includes(term.fr.toLowerCase())) &&
-		(!term.en || (t.en ?? '').toLowerCase().includes(term.en.toLowerCase())))
+// Un terme à trous ("ចាប់ផ្ដើម...ឡើងវិញ", notation reprise du glossaire) est vérifié morceau par
+// morceau, un terme à alternatives ("ឡេវ / គ្រាប់ឡេវ") passe si l'une d'elles est présente, et un
+// terme dont le `src` n'est pas dans le message source (inventé par le modèle) est ignoré.
+// term.fr/term.en ne sont PAS vérifiés : le modèle y écrit une glose à variantes ("doué / fort")
+// qui n'apparaît jamais telle quelle. Mesuré au banc le 24/09/2026 : la version stricte faisait
+// escalader à tort ~1 traduction correcte sur 4. Le rendu fr/en imposé est vérifié par glossaryEchoed.
+export function termsEchoed(t: { kh: string; terms: TranslateTerm[] }, sourceText?: string): boolean {
+	const source = sourceText?.toLowerCase()
+	return t.terms.every(term => {
+		if (source !== undefined && !source.includes(term.src.toLowerCase())) return true
+		return term.kh.split(/\s+\/\s+/).some(alt => {
+			const parts = alt.split(/\.{2,}|…/).map(p => p.trim()).filter(Boolean)
+			return parts.length > 0 && parts.every(p => t.kh.includes(p))
+		})
+	})
 }
 
 // Glossaire structuré — 24/09/2026 : avant, un simple bloc de texte (GLOSSARY_LINES) que seul

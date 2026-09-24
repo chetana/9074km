@@ -160,15 +160,24 @@ describe('termsEchoed', () => {
 	it('true trivialement si aucun terme difficile annoncé', () => {
 		expect(termsEchoed({ kh: 'អូនស្រលាញ់បង', terms: [] })).toBe(true)
 	})
-	it('vérifie aussi fr/en quand le terme les renseigne (glossaire khmer→fr/en)', () => {
+	it('ignore la glose fr/en du terme (variantes "doué / fort" jamais présentes telles quelles)', () => {
+		// cas réel du banc du 24/09 : traduction correcte, escaladée à tort quand fr/en étaient vérifiés
 		expect(termsEchoed({
-			kh: 'ញាំទឹកឲ្យបានច្រើនផងណាប្ដីសម្លាញ់', fr: 'Bois de l\'eau, mon cher mari', en: 'Drink water, my dear husband',
-			terms: [{ src: 'ប្ដីសម្លាញ់', kh: 'ប្ដីសម្លាញ់', fr: 'mari', en: 'husband' }],
+			kh: 'បងពូកែធ្វើណាស់',
+			terms: [{ src: 'ពូកែ', kh: 'ពូកែ', fr: 'doué / fort', en: 'good at / skilled' }],
 		})).toBe(true)
-		expect(termsEchoed({
-			kh: 'ញាំទឹកឲ្យបានច្រើនផងណាប្ដីសម្លាញ់', fr: 'Bois de l\'eau, chéri', en: 'Drink water, darling',
-			terms: [{ src: 'ប្ដីសម្លាញ់', kh: 'ប្ដីសម្លាញ់', fr: 'mari', en: 'husband' }],
-		})).toBe(false) // "mari" annoncé mais absent du fr final
+	})
+	it('accepte un terme à alternatives si l\'une est présente ("ឡេវ / គ្រាប់ឡេវ")', () => {
+		expect(termsEchoed({ kh: 'បងឃើញឡេវអាវថ្មីរបស់អូនទេ?', terms: [{ src: 'boutons', kh: 'ឡេវ / គ្រាប់ឡេវ' }] })).toBe(true)
+	})
+	it('ignore un terme inventé, absent du message source', () => {
+		const t = { kh: 'បងបានលាបឡេលើមុខ ស្បែកបងទន់រលោងណាស់', terms: [{ src: 'ma chérie', kh: 'អូន' }] }
+		expect(termsEchoed(t, "J'ai mis de la crème sur mon visage, ma peau est toute douce")).toBe(true)
+		expect(termsEchoed(t, "Bonjour ma chérie, j'ai mis de la crème")).toBe(false) // là il est vraiment dans la source
+	})
+	it('vérifie un terme à trous ("ចាប់ផ្ដើម...ឡើងវិញ") morceau par morceau', () => {
+		expect(termsEchoed({ kh: 'បងត្រូវតែចាប់ផ្ដើមកីឡាឡើងវិញអោយបាន', terms: [{ src: 'se remettre à', kh: 'ចាប់ផ្ដើម...ឡើងវិញ' }] })).toBe(true)
+		expect(termsEchoed({ kh: 'បងត្រូវតែចាប់ផ្ដើមកីឡាម្ដងទៀត', terms: [{ src: 'se remettre à', kh: 'ចាប់ផ្ដើម…ឡើងវិញ' }] })).toBe(false)
 	})
 })
 
