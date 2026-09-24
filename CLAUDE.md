@@ -220,13 +220,30 @@ après plusieurs bugs réels — voir historique git pour le détail) :
 - **System/user séparés** : `buildTranslateSystem(author)` / `buildTranslateUser(text, ctx)` (et
   l'équivalent `buildSuggestSystem`/`buildSuggestUser`) — l'invariant (contexte couple, règles,
   glossaire, schéma JSON) vit dans le system prompt, cacheable côté GLM.
-- **Glossaire dans le prompt = formes CIBLES uniquement**, jamais les formes fautives (un petit
-  modèle a du mal à pondérer une négation "jamais X" — la chaîne présente dans le prompt devient
-  plus probable en sortie, pas moins). Ajouter un mot au glossaire : une seule ligne dans
-  `GLOSSARY_LINES` (`vertex.ts`), pas dans 4 endroits différents.
+- **Glossaire structuré** (`GLOSSARY` dans `khmer-guards.ts`, refait le 24/09/2026) : un tableau
+  typé `{line, src, kh?, fr?, en?, authorIsChet?, direction?}` plutôt qu'un bloc de texte — `line`
+  alimente le prompt (`GLOSSARY_LINES` fr/en→kh, `GLOSSARY_KH_LINES` kh→fr/en, dédupliquées), les
+  regex `src`/`kh`/`fr`/`en` alimentent `glossaryEchoed()`, un garde-fou qui lit la SOURCE
+  directement — contrairement à `termsEchoed` (ci-dessous), il ne dépend PAS du modèle pour choisir
+  d'annoncer un terme. Toujours des formes CIBLES uniquement, jamais les formes fautives (un petit
+  modèle pondère mal une négation "jamais X" — la chaîne présente dans le prompt devient plus
+  probable en sortie, pas moins). Ajouter un mot : une seule entrée dans `GLOSSARY`.
 - **Schéma JSON réordonné** : `{"lang", "terms", "en", "kh", "fr"}` — le modèle décide la langue et
-  s'engage sur les mots difficiles (`terms`) AVANT de rédiger les phrases ; le code vérifie que
-  chaque terme annoncé apparaît bien dans le khmer final (`termsEchoed`).
+  s'engage sur les mots difficiles (`terms`, avec `fr`/`en` en plus si le mot difficile est en
+  khmer) AVANT de rédiger les phrases ; le code vérifie que chaque terme annoncé apparaît bien dans
+  le khmer/fr/en final (`termsEchoed`).
+- **`numbersPreserved`** (`khmer-guards.ts`) : vérifie qu'une heure/montant/quantité de la source
+  ressort dans le khmer en chiffres (arabes ou khmers, équivalent 12h accepté) — bug réel du 24/09,
+  "vers 22h" rendu "8h"/"11h" en khmer sur ~1/3 des essais, jamais en fr/en dans la même génération.
+- **Bug réel du 24/09/2026 — mots tendres non couverts dans le sens inverse** : le glossaire ne
+  couvrait que fr/en→kh pour des mots isolés (allergie, sésame...), jamais kh→fr/en ni les formules
+  composées (salutation+surnom). "Bonjour ma chérie" collé à une heure faisait halluciner le khmer
+  un mot bidon (`ចង្អុរ`/`ច្បាស់`/`ចង្អុល`...) sur 5/6 essais, et `ប្ដីសម្លាញ់` perdait "mari" en
+  français sur la moitié des essais. Fixé par : glossaire bidirectionnel (mots tendres fr→pronom kh
+  ET mots composés kh→fr/en), règle positive "un verbe français = un verbe khmer" (tuait un cadrage
+  "chercher" parasite sur "se remettre à un sport"), règle de conservation des nombres. Vérifié par
+  reproduction (6 essais/cas) : 1/6 → 6/6 correct sur les 3 cas après fix. Cas de non-régression
+  dans `scripts/eval-translate.mjs`.
 - **Validation de forme** (`pickTranslation`/`pickSuggestion`) : rejette placeholder recopié, champ
   vide, khmer identique au français/anglais — antérieurement une sortie "valide JSON mais fausse"
   passait sans broncher.

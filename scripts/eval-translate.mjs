@@ -22,6 +22,7 @@ import { createSign } from 'crypto'
 import {
 	buildTranslateSystem, buildTranslateUser,
 	containsForeignScript, containsGluedLatin, cleanKhmer,
+	glossaryEchoed, numbersPreserved,
 } from '../src/lib/server/khmer-guards.ts'
 
 const ENV = Object.fromEntries(
@@ -103,6 +104,32 @@ const REGRESSION_CASES = [
 		check: () => true, // le vrai check est sur fr/en, voir checkFrEn
 		checkFrEn: (fr, en) => !/\bbang\b/i.test(fr) && !/\bbang\b/i.test(en),
 	},
+	{
+		// Bug réel du 24/09/2026 : sur 6 essais, le khmer halluciné un mot bidon pour "ma chérie"
+		// collée à "Bonjour" à 5/6, ET l'heure glissait (8h/11h au lieu de 22h/10h) à 2/6 — jamais
+		// en fr/en dans la même génération. glossaryEchoed + numbersPreserved lisent la source
+		// directement, pas besoin que le modèle annonce quoi que ce soit dans `terms[]`.
+		name: '"Bonjour ma chérie" + heure (bug réel : khmer halluciné + heure qui glisse)', author: 'Chet',
+		text: "Bonjour ma chérie 😘, je suis rentré vers 22h, la je pars au travail, je suis dans le train 🚝",
+		check: (kh, text) => glossaryEchoed(text, { kh, fr: '', en: '' }, true) && numbersPreserved(text, kh),
+	},
+	{
+		// Bug réel du 24/09/2026 : "ប្ដីសម្លាញ់" (mari affectueux) rendu en français perd "mari" sur
+		// 2-3/6 essais (reste juste "chéri"), ou tournure bancale "mon chéri de mari" sur 2/6.
+		name: 'ប្ដីសម្លាញ់ → "mari" ne doit pas disparaître du fr/en (bug réel)', author: 'Lys',
+		text: "ញាំទឹកអោយបានច្រើនផងណាប្ដីសម្លាញ់",
+		check: () => true,
+		checkFrEn: (fr, en) => /\bmari\b/i.test(fr) && /\bhusband\b/i.test(en),
+	},
+	{
+		// Bug réel du 24/09/2026 : "se remettre à un sport" glisse souvent vers un cadrage "dois
+		// trouver un moyen/une possibilité de..." (រក) absent de la source, sur 5/6 essais — pas de
+		// garde de forme fiable possible ici (រក est un mot légitime ailleurs), affiché pour lecture
+		// humaine au --replay ou relance manuelle, pas de check automatisable.
+		name: '"se remettre à un sport" — cadrage រក (chercher) parasite, à relire à l\'œil', author: 'Chet',
+		text: "Il faut que j'arrive à me remettre à un sport mais je suis toujours fatigué je ne comprends pas",
+		check: () => true,
+	},
 ]
 
 async function runRegressionCases() {
@@ -114,7 +141,7 @@ async function runRegressionCases() {
 		const raw = await callGlm(system, user)
 		const kh = cleanKhmer(parseKh(raw))
 		const { fr, en } = parseAll(raw)
-		const ok = c.check(kh) && (c.checkFrEn ? c.checkFrEn(fr, en) : true)
+		const ok = c.check(kh, c.text) && (c.checkFrEn ? c.checkFrEn(fr, en) : true)
 		if (!ok) failures++
 		console.log(`${ok ? '✅' : '❌'} ${c.name}`)
 		console.log(`   [${c.author}] ${c.text}`)

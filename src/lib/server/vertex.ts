@@ -6,9 +6,12 @@ import {
 	type Translations, type TranslateTerm, type LessonItem, type GeminiSuggestion,
 	MAX_OUTPUT_CEILING, translateBudget, splitIntoChunks,
 	containsForeignScript, containsGluedLatin, cleanKhmer, detectIsChet,
-	pickTranslation, pickSuggestion, termsEchoed, GLOSSARY_LINES,
+	pickTranslation, pickSuggestion, termsEchoed, GLOSSARY_LINES, GLOSSARY_KH_LINES,
+	glossaryEchoed, numbersPreserved,
 	buildTranslateSystem, buildTranslateUser, coupleContext,
 } from './khmer-guards'
+
+type TranslationIssueReason = 'foreign_script' | 'glued_latin' | 'glossary_miss' | 'number_drift'
 
 export type { Translations, GeminiSuggestion, LessonItem, TranslateTerm }
 
@@ -173,6 +176,7 @@ async function translateWithEscalation(
   const system = buildTranslateSystem(author)
   const user = buildTranslateUser(text, previousMessage)
   const budget = translateBudget(text, budgetFactor)
+  const isChet = detectIsChet(author)
 
   let light: { t: Translations & { terms: TranslateTerm[] }; engine: 'glm' | 'gemini' } | null = null
   try {
@@ -182,9 +186,17 @@ async function translateWithEscalation(
   }
 
   let badKh = ''
-  let reason: 'foreign_script' | 'glued_latin' | null = null
+  let reason: TranslationIssueReason | null = null
   if (light) {
-    reason = containsForeignScript(light.t.kh) ? 'foreign_script' : containsGluedLatin(light.t.kh) ? 'glued_latin' : null
+    // glossaryEchoed/numbersPreserved lisent la SOURCE directement (déterministe) — trouvés le
+    // 24/09/2026 après un bug où le khmer inventait un mot pour "ma chérie" (fr/en toujours
+    // corrects dans la même génération) sans que le modèle n'annonce jamais de terme difficile
+    // pour ça dans `terms[]` : termsEchoed seul ne pouvait rien détecter.
+    reason = containsForeignScript(light.t.kh) ? 'foreign_script'
+      : containsGluedLatin(light.t.kh) ? 'glued_latin'
+      : !glossaryEchoed(text, light.t, isChet) ? 'glossary_miss'
+      : !numbersPreserved(text, light.t.kh) ? 'number_drift'
+      : null
     if (reason) { badKh = light.t.kh; light = null }
   }
   if (light) return { fr: light.t.fr, en: light.t.en, kh: cleanKhmer(light.t.kh), lang: light.t.lang }
@@ -263,13 +275,18 @@ Règles :
 - Pour un terme technique/emprunt sans mot khmer courant et absent du glossaire ci-dessous : translittération khmère usuelle en UN seul mot ; en cas de doute, garde le mot français isolé par des espaces plutôt que d'inventer un mot khmer
 - Si le message est court ou ambigu, s'appuyer sur le message précédent pour identifier l'intention
 - Si aucune faute, ne mets pas de champ "lessons"
+- Heures, montants, quantités : recopie le MÊME nombre en chiffres, à la même place (équivalent 12h accepté pour une heure du soir)
+- Un verbe français = un verbe khmer, même nombre d'actions — jamais deux verbes empilés pour une seule action
 ${lessonsRule}
 
 GLOSSAIRE (mot/notion → khmer à toujours utiliser) :
 ${GLOSSARY_LINES}
 
+GLOSSAIRE KHMER → FRANÇAIS/ANGLAIS (rendu à toujours utiliser quand CE mot khmer apparaît dans le message source) :
+${GLOSSARY_KH_LINES}
+
 Réponds UNIQUEMENT avec un JSON valide (sans markdown), avec CES clés DANS CET ORDRE EXACT :
-{"lang":"code_langue","terms":[{"src":"mot difficile du message","kh":"sa traduction khmère"}],"en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","fr":"texte en français","corrected":"message corrigé","question":"${questionHint}"${lessonsHint}}
+{"lang":"code_langue","terms":[{"src":"mot difficile du message","kh":"sa traduction khmère","fr":"sa traduction française (seulement si le mot difficile est en khmer)","en":"sa traduction anglaise (seulement si le mot difficile est en khmer)"}],"en":"text in English","kh":"អត្ថបទជាភាសាខ្មែរ","fr":"texte en français","corrected":"message corrigé","question":"${questionHint}"${lessonsHint}}
 - "lang" et "terms" d'abord (voir règle ci-dessus), "en" AVANT "kh"
 - "corrected" : le message corrigé tel quel, dans SA langue d'origine`.trim()
 }
@@ -294,13 +311,18 @@ export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh', previ
     return s
   }
 
+  const isChet = authorLang === 'fr'
   let s: GeminiSuggestion & { terms: TranslateTerm[] }
   let badKh = ''
-  let reason: 'foreign_script' | 'glued_latin' | null = null
+  let reason: TranslationIssueReason | null = null
   try {
     s = await attempt(COUPLE_MODELS, false)
-    reason = containsForeignScript(s.kh) ? 'foreign_script' : containsGluedLatin(s.kh) ? 'glued_latin' : null
-    if (reason) { badKh = s.kh; throw new Error('khmer suspect (script étranger ou latin collé)') }
+    reason = containsForeignScript(s.kh) ? 'foreign_script'
+      : containsGluedLatin(s.kh) ? 'glued_latin'
+      : !glossaryEchoed(text, s, isChet) ? 'glossary_miss'
+      : !numbersPreserved(text, s.kh) ? 'number_drift'
+      : null
+    if (reason) { badKh = s.kh; throw new Error('khmer suspect (script étranger, latin collé, ou glossaire/nombre non respecté)') }
   } catch (e) {
     console.warn(`[suggest] moteur léger échoué ou suspect (${(e as Error).message}) → escalade Gemini fort (bypass GLM)`)
     s = await attempt(STRONG_MODELS, true)

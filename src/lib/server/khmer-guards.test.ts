@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
 	containsForeignScript, containsGluedLatin, cleanKhmer, detectIsChet,
 	pickTranslation, pickSuggestion, termsEchoed, splitIntoChunks, translateBudget,
+	glossaryEchoed, numbersPreserved,
 } from './khmer-guards'
 
 describe('containsForeignScript', () => {
@@ -158,6 +159,48 @@ describe('termsEchoed', () => {
 	})
 	it('true trivialement si aucun terme difficile annoncé', () => {
 		expect(termsEchoed({ kh: 'អូនស្រលាញ់បង', terms: [] })).toBe(true)
+	})
+	it('vérifie aussi fr/en quand le terme les renseigne (glossaire khmer→fr/en)', () => {
+		expect(termsEchoed({
+			kh: 'ញាំទឹកឲ្យបានច្រើនផងណាប្ដីសម្លាញ់', fr: 'Bois de l\'eau, mon cher mari', en: 'Drink water, my dear husband',
+			terms: [{ src: 'ប្ដីសម្លាញ់', kh: 'ប្ដីសម្លាញ់', fr: 'mari', en: 'husband' }],
+		})).toBe(true)
+		expect(termsEchoed({
+			kh: 'ញាំទឹកឲ្យបានច្រើនផងណាប្ដីសម្លាញ់', fr: 'Bois de l\'eau, chéri', en: 'Drink water, darling',
+			terms: [{ src: 'ប្ដីសម្លាញ់', kh: 'ប្ដីសម្លាញ់', fr: 'mari', en: 'husband' }],
+		})).toBe(false) // "mari" annoncé mais absent du fr final
+	})
+})
+
+describe('glossaryEchoed', () => {
+	it('bug réel du 24/09 : "ma chérie" (Chet→Lys) doit produire អូន/អូនសម្លាញ់ en khmer', () => {
+		expect(glossaryEchoed('Bonjour ma chérie, je suis dans le train', { kh: 'សួស្តីអូនសម្លាញ់ បងនៅលើរថភ្លើង', fr: '', en: '' }, true)).toBe(true)
+		expect(glossaryEchoed('Bonjour ma chérie, je suis dans le train', { kh: 'សួស្តីចង្អុរអូន បងនៅលើរថភ្លើង', fr: '', en: '' }, true)).toBe(false)
+	})
+	it('ne s\'applique pas dans le mauvais sens (Lys écrit "mon chéri", pas "ma chérie")', () => {
+		// "ma chérie" est une entrée authorIsChet:true — un message de Lys ne la déclenche jamais
+		expect(glossaryEchoed('Bonjour ma chérie', { kh: 'ខុសទាំងស្រុង', fr: '', en: '' }, false)).toBe(true)
+	})
+	it('ប្ដីសម្លាញ់ (source khmer) exige "mari"/"husband" dans le fr/en', () => {
+		expect(glossaryEchoed('ញាំទឹកឲ្យបានច្រើនផងណាប្ដីសម្លាញ់', { kh: '', fr: 'Bois de l\'eau, mon cher mari', en: 'Drink water, my dear husband' }, false)).toBe(true)
+		expect(glossaryEchoed('ញាំទឹកឲ្យបានច្រើនផងណាប្ដីសម្លាញ់', { kh: '', fr: 'Bois de l\'eau, chéri', en: 'Drink water, darling' }, false)).toBe(false)
+	})
+	it('true trivialement si aucune entrée du glossaire ne concerne cette phrase', () => {
+		expect(glossaryEchoed('Tu as vu les infos ce matin ?', { kh: 'x', fr: 'y', en: 'z' }, true)).toBe(true)
+	})
+})
+
+describe('numbersPreserved', () => {
+	it('bug réel du 24/09 : "22h" doit ressortir en ១០ (12h) ou ២២ dans le khmer', () => {
+		expect(numbersPreserved('je suis rentré vers 22h', 'បងបានទៅដល់ផ្ទះម៉ោង១០យប់')).toBe(true)
+		expect(numbersPreserved('je suis rentré vers 22h', 'បងបានទៅដល់ផ្ទះម៉ោង២២')).toBe(true)
+		expect(numbersPreserved('je suis rentré vers 22h', 'បងបានទៅដល់ផ្ទះម៉ោងប្រាំបីរាត្រី')).toBe(false) // "8" en lettres, aucun chiffre
+	})
+	it('accepte les chiffres khmers natifs', () => {
+		expect(numbersPreserved('rendez-vous à 8h30', 'ណាត់ជួបម៉ោង៨:៣០ព្រឹក')).toBe(true)
+	})
+	it('true trivialement si la source ne contient aucun nombre à unité', () => {
+		expect(numbersPreserved('je pense à toi', 'អូននឹកបង')).toBe(true)
 	})
 })
 
