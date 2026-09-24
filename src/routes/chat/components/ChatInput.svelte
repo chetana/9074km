@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Smile, Camera, Mic, Send } from 'lucide-svelte';
+	import EmojiPanel from './EmojiPanel.svelte';
 	interface Props {
 		inputText: string;
 		sending: boolean;
@@ -9,7 +10,7 @@
 		transcribing: boolean;
 		showEmojis: boolean;
 		placeholder: string;
-		emojis: string[];
+		userLang: 'fr' | 'kh';
 		onInput: () => void;
 		onKeydown: (e: KeyboardEvent) => void;
 		onSend: () => void;
@@ -21,22 +22,26 @@
 
 	let {
 		inputText = $bindable(), sending, recording, speaking, vadLoading, transcribing,
-		showEmojis, placeholder, emojis,
+		showEmojis, placeholder, userLang,
 		onInput, onKeydown, onSend, onToggleEmojis, onInsertEmoji, onPickImage, onToggleRecording
 	}: Props = $props();
+
+	let textarea: HTMLTextAreaElement | undefined = $state();
+	function pickEmoji(emoji: string) {
+		onInsertEmoji(emoji);
+		// Sur ordinateur on rend la main au champ pour continuer à écrire ; pas sur mobile, où le
+		// focus rouvrirait le clavier alors qu'on voulait peut-être juste envoyer l'emoji.
+		if (window.matchMedia('(pointer: fine)').matches) textarea?.focus();
+	}
 </script>
 
 {#if showEmojis}
-	<div class="emoji-bar">
-		{#each emojis as e}
-			<button class="emoji-btn" onclick={() => onInsertEmoji(e)}>{e}</button>
-		{/each}
-	</div>
+	<EmojiPanel {userLang} onPick={pickEmoji} onClose={onToggleEmojis} />
 {/if}
 
 <div class="input-bar">
 	<div class="composer-pill">
-		<button class="action-btn" class:active={showEmojis} onclick={onToggleEmojis} aria-label="Emojis"><Smile size={20} /></button>
+		<button class="action-btn emoji-toggle" class:active={showEmojis} onclick={onToggleEmojis} aria-label="Emojis"><Smile size={20} /></button>
 		<button class="action-btn" onclick={onPickImage} disabled={sending || recording || transcribing} aria-label="Image"><Camera size={20} /></button>
 		<button
 			class="action-btn"
@@ -53,6 +58,7 @@
 			{/if}
 		</button>
 		<textarea
+			bind:this={textarea}
 			class="input"
 			bind:value={inputText}
 			oninput={onInput}
@@ -78,31 +84,6 @@
 </div>
 
 <style>
-	.emoji-bar {
-		display: grid;
-		grid-template-rows: 1fr 1fr;
-		grid-auto-flow: column;
-		overflow-x: auto;
-		gap: var(--space-1);
-		padding: var(--space-2) var(--space-3);
-		background: var(--surface);
-		border-top: 1px solid var(--border);
-		flex-shrink: 0;
-		scrollbar-width: none;
-	}
-	.emoji-bar::-webkit-scrollbar { display: none; }
-	.emoji-btn {
-		font-size: 1.5rem;
-		line-height: 1;
-		width: 2.5rem;
-		height: 2.5rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: var(--radius-sm);
-		transition: transform 0.12s;
-	}
-	.emoji-btn:active { transform: scale(0.82); }
 
 	.input-bar {
 		padding: var(--space-2) var(--space-3) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));

@@ -753,15 +753,9 @@
 
 	// ── Emoji picker ──────────────────────────────────────────────────────
 	let showEmojis = $state(false);
-	const EMOJIS = [
-		'❤️','🩷','💕','💞','💓','💗','💖','💝','🥰','😍',
-		'😘','🥺','😊','🤗','😂','😅','😭','🥹','😌','🙏',
-		'✨','🌸','🌺','🌷','🌹','💐','🌙','⭐','☀️','🎉',
-		'👍','🙌','💪','🤍','🕊️','🦋','🐱','🐶','🐰','🍀',
-	];
-
 	function insertEmoji(emoji: string) {
 		inputText += emoji;
+		showEmojis = false; // se referme dès qu'un emoji est choisi
 		onInput();
 	}
 </script>
@@ -953,7 +947,7 @@
 			{transcribing}
 			{showEmojis}
 			placeholder={ui.placeholder}
-			emojis={EMOJIS}
+			{userLang}
 			{onInput}
 			{onKeydown}
 			onSend={send}

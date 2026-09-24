@@ -176,7 +176,14 @@ appelait un getter générique typé `unknown | null` dans `localCache.ts` — 2
   `workletURL`/`modelURL`/`additionalAudioConstraints`, qui n'existent pas dans le type
   `RealTimeVADOptions` et étaient silencieusement ignorés (bug trouvé le 22/09 : le modèle
   chargé était "legacy" par défaut, pas "v5" comme l'intention du code le suggérait).
-- **Emoji picker** : bouton 😊 → grille 2 lignes scrollable (40 emojis)
+- **Emoji picker** (`EmojiPanel.svelte`, refait le 24/09/2026) : bouton 😊 → panneau vertical
+  (molette/doigt) de tous les emojis Unicode par catégorie (`src/lib/emoji-data.ts`, généré depuis
+  `emoji-test.txt` officiel, sans variantes de teint, chargé par import dynamique), onglets lucide,
+  récents par appareil (`localStorage`, favoris du couple par défaut). Les emojis de version > 15.0
+  sont testés à l'exécution (canvas : couleur + largeur d'un seul glyphe) et masqués si l'appareil
+  ne sait pas les dessiner. **Se referme au choix d'un emoji, au tap ailleurs et à Échap** (demande
+  explicite de Chetana : ne jamais rester ouvert par oubli). Remplace l'ancienne bande horizontale
+  de 40 emojis, que la molette ne faisait pas défiler sur ordinateur.
 - **Polling** : toutes les 20s, uniquement quand l'onglet est visible ET la fenêtre au premier
   plan (pas de SSE permanent — retiré car ça maintenait un vCPU actif en continu à l'ère
   serverless ; sur chetbox le coût ne bouge plus si on veut un jour repasser en push temps réel).
