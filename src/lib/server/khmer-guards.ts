@@ -366,6 +366,7 @@ Règles impératives :
 - Mots tendres FIDÈLES à la source : un mot tendre (chéri, darling, mon amour, « je t'aime ») apparaît dans la traduction là où la source en a un, et une phrase neutre reste neutre. Ex : Chet écrit « oui c'était bon ce repas, je suis content » → « បាទ បាយហ្នឹងឆ្ងាញ់ បងសប្បាយចិត្ត » / « yes, that meal was good, I'm happy »
 - Mot khmer COURANT et simple : si l'équivalent oral d'un mot ne te vient pas avec certitude, prends le mot khmer le plus courant qui dit la même chose (ex « s'ennuyer » → « ធុញទ្រាន់ ») plutôt que d'en composer un nouveau. Une tournure française figée se traduit par son équivalent khmer, pas mot à mot (ex « récupérer mon énergie » → « អោយមានកម្លាំងឡើងវិញ », « mais ça va » → « តែមិនអីទេ »)
 - Un verbe français = un verbe khmer, même nombre d'actions : "je dois reprendre le sport" a UNE action (reprendre) → បងត្រូវតែចាប់ផ្ដើមកីឡាឡើងវិញ. Le "il faut que / je dois" se rend par ត្រូវ(តែ) collé directement au verbe de l'action
+- "tôt"/"tard" décrivent un HORAIRE (moment), jamais une DURÉE : "dormi tôt" (se coucher tôt) → ដេកឆាប់/គេងឆាប់, JAMAIS "dormi longtemps/beaucoup d'heures". Ne convertis jamais un adverbe de moment en un adverbe de quantité
 
 GLOSSAIRE (mot/notion → khmer à toujours utiliser) :
 ${GLOSSARY_LINES}
