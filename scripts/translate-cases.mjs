@@ -117,6 +117,14 @@ export const REGRESSION_CASES = [
 		check: (kh) => !/ត្រឡប់កម្លាំង/.test(kh) && /លើមុខ|ស្បែកមុខ/.test(kh) && /មិនអី/.test(kh),
 		checkFrEn: (fr, en) => !/\b(darling|sweetheart|honey|my love|dear)\b/i.test(en) && !/\bch[ée]rie?\b/i.test(fr),
 	},
+	{
+		// Bug réel du 25/09/2026 : "tu as dormi tôt" (se coucher tôt, un horaire) rendu en prod par
+		// "ដេកច្រើនម៉ោង" (dormir de nombreuses heures, une durée) — glissement de sens, pas de registre :
+		// la source ne dit rien sur la durée du sommeil, seulement qu'il s'est couché tôt.
+		name: '"dormi tôt" (horaire) ≠ dormir longtemps (bug réel : horaire → durée)', author: 'Chet',
+		text: "Bonjour ma chérie, ah c'est bien si tu as dormi tôt, mais c'est dommage que tu aies eu mal à la tête, t'avais assez bu ? parfois dormir sans avoir bien bu de l'eau, ça nous assèche et ça fait mal à la tête",
+		check: (kh) => !/ច្រើនម៉ោង|ដេកយូរ/.test(kh),
+	},
 ]
 
 // ── protocole pronoms បង/អូន avec contexte BIAISANT (le "20/20" cité dans vertex.ts) ──
