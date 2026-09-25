@@ -164,6 +164,11 @@ export const GLOSSARY: GlossaryEntry[] = [
 	{ line: '- sésame → ល្ង', src: /\bs[ée]same\b/i, kh: /ល្ង/ },
 	{ line: '- acidulé/aigre (goût) → ជូរ', src: /acidul[ée]|aigre/i, kh: /ជូរ/ },
 	{ line: '- bleu (couleur) → ខៀវ', src: /\bbleue?s?\b/i, kh: /ខៀវ/ },
+	{
+		// Bug réel du 25/09/2026 : "couverture" absent du glossaire → GLM invente un mot différent
+		// à chaque essai ("ភ្លុងវី", "គ្រែងរុំ"...), jamais le vrai mot ភួយ.
+		line: '- couverture (lit, pour dormir) → ភួយ', src: /\bcouvertures?\b/i, kh: /ភួយ/,
+	},
 	{ line: '- "il faut que" (obligation) → ត្រូវ / ត្រូវតែ (jamais "បាត់បង់" qui veut dire "perdre")', src: /il faut que/i },
 	{ line: '- "mes/tes parents" (registre oral, intime) → ប៉ាម៉ាក់ (jamais "មាតាបិតា", trop formel/littéraire — réservé aux textes officiels)', src: /\b(mes|tes) parents\b/i },
 	{

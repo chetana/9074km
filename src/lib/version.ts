@@ -1,2 +1,2 @@
 // Bump patch +1 a chaque deploiement (via deploy.sh).
-export const APP_VERSION = '1.0.313';
+export const APP_VERSION = '1.0.314';

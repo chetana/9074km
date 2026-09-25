@@ -121,9 +121,19 @@ export const REGRESSION_CASES = [
 		// Bug réel du 25/09/2026 : "tu as dormi tôt" (se coucher tôt, un horaire) rendu en prod par
 		// "ដេកច្រើនម៉ោង" (dormir de nombreuses heures, une durée) — glissement de sens, pas de registre :
 		// la source ne dit rien sur la durée du sommeil, seulement qu'il s'est couché tôt.
-		name: '"dormi tôt" (horaire) ≠ dormir longtemps (bug réel : horaire → durée)', author: 'Chet',
+		// Même essai prod : après "អូនសម្លាញ់" en ouverture, le pronom d'adresse dérivait vers "កូន"
+		// (« enfant », registre parent→enfant) pour le reste du message au lieu de rester à "អូន"
+		// (le terme d'affection normal entre amoureux) — deux bugs distincts dans le même message.
+		name: '"dormi tôt" (horaire) ≠ dormir longtemps + pas de dérive អូន→កូន (bug réel)', author: 'Chet',
 		text: "Bonjour ma chérie, ah c'est bien si tu as dormi tôt, mais c'est dommage que tu aies eu mal à la tête, t'avais assez bu ? parfois dormir sans avoir bien bu de l'eau, ça nous assèche et ça fait mal à la tête",
-		check: (kh) => !/ច្រើនម៉ោង|ដេកយូរ/.test(kh),
+		check: (kh) => !/ច្រើនម៉ោង|ដេកយូរ/.test(kh) && !/កូន/.test(kh),
+	},
+	{
+		// Bug réel du 25/09/2026 : "couverture" absent du glossaire → mot inventé différent à chaque
+		// essai ("ភ្លុងវី", "គ្រែងរុំ"...), jamais ភួយ (le vrai mot). Ajouté au GLOSSARY.
+		name: '"couverture" (lit) → ភួយ, pas un mot inventé (bug réel)', author: 'Chet',
+		text: "tu as attrapé froid aussi ? tu avais le ventilateur sur toi sans couverture ?",
+		check: (kh) => kh.includes('ភួយ'),
 	},
 ]
 
