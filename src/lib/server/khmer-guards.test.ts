@@ -197,6 +197,26 @@ describe('glossaryEchoed', () => {
 	it('true trivialement si aucune entrée du glossaire ne concerne cette phrase', () => {
 		expect(glossaryEchoed('Tu as vu les infos ce matin ?', { kh: 'x', fr: 'y', en: 'z' }, true)).toBe(true)
 	})
+	// Incidents mesurés du 26/09/2026 (lease translation-issues S3 du journal lys) :
+	// interjections latines collées en tête de mot khmer + traduction littéraire qui rate le ton oral.
+	it('bug réel du 26/09 (1) : "Ohhhhh" doit être translittéré, jamais de lettres latines dans le khmer', () => {
+		// BAD réel : "អូhhhh ល្អទេស្មើ អូនដើរលេងក្នុងម៉ាស៊ីនត្រជាក់ហ្នឹង"
+		expect(glossaryEchoed('Ohhhhh trop bien tu te balades a ac', { kh: 'អូhhhh ល្អទេស្មើ អូនដើរលេង', fr: '', en: '' }, true)).toBe(false)
+		// FIXED réel : "អូហូ ល្អខ្លាំងណាស់ អូនដើរលេង"
+		expect(glossaryEchoed('Ohhhhh trop bien tu te balades a ac', { kh: 'អូហូ ល្អខ្លាំងណាស់ អូនដើរលេង', fr: '', en: '' }, true)).toBe(true)
+	})
+	it('bug réel du 26/09 (2) : "Ahhhh" collé — même garde-fou', () => {
+		// BAD réel : "អhhhh អូនទាំងពីរធ្វើត្រូវហើយ..."
+		expect(glossaryEchoed('Ahhhh vous avez raison de profiter de ce jour sans pluie', { kh: 'អhhhh អូនទាំងពីរធ្វើត្រូវហើយ', fr: '', en: '' }, true)).toBe(false)
+		// FIXED réel : "អា៎ ពិតជាត្រឹមត្រូវហើយ..."
+		expect(glossaryEchoed('Ahhhh vous avez raison de profiter de ce jour sans pluie', { kh: 'អា៎ ពិតជាត្រឹមត្រូវហើយ', fr: '', en: '' }, true)).toBe(true)
+	})
+	it('bug réel du 26/09 (4) : reprise du mal qui passe → តែមិនអីទេ (le BAD littéraire le rate, le FIXED il le répare)', () => {
+		// BAD réel : "បងមើលទៅនៅហត់ដែរ តែធូរជាងមុនហើយ" — aucun មិនអីទេ (garde-fou existant "mais ça va")
+		expect(glossaryEchoed("J'ai encore l'air fatigué mais ça va mieux, j'espère que ce weekend de repos m'aidera", { kh: 'បងមើលទៅនៅហត់ដែរ តែធូរជាងមុនហើយ', fr: '', en: '' }, true)).toBe(false)
+		// FIXED réel : "តែមិនអីទេវាធូរស្រាលជាងដើមសប្ដាហ៍"
+		expect(glossaryEchoed("J'ai encore l'air fatigué mais ça va mieux, j'espère que ce weekend de repos m'aidera", { kh: 'បងនៅតែមើលទៅហត់ តែមិនអីទេ', fr: '', en: '' }, true)).toBe(true)
+	})
 })
 
 describe('numbersPreserved', () => {
