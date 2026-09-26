@@ -324,3 +324,25 @@ npm run eval:translate # rejoue les cas de régression de traduction + réplique
 ## Archive Flutter
 
 Code original Flutter dans `app-flutter/` (120 MB, non versionné — voir `.gitignore`).
+
+## Déploiement depuis chetbox par l'agent (26/09/2026)
+
+Si Chetana donne son **feu vert explicite en session**, l'agent peut deployer. Pièges repérés
+le 26/09 (à ne plus rater) :
+1. **Bump APP_VERSION AVANT le build** — `src/lib/version.ts` doit être = au tag de l'image
+   AVANT `docker build` (le deploy.sh le fait; dans l'ordre manuel on l'oublie → `/api/version`
+   a raconté 311 sur un container 312, puis 312 sur un tag 313).
+2. Tag = latest_deployed + 1 se lit sur `https://lys.chetana.fr/api/version` (check avant bump).
+3. Après `up -d lys` : vérifier `/api/version` **sur le web** (pas juste le nom d'image) + que le
+   container passe digest du registry, pas du cache local (push AVANT up -d).
+4. Creds registry : `DOCKER_rg.fr-par.scw.cloud_PASSWORD` (bundle rév 7, login `nologin`).
+   Ne jamais les afficher ni les laisser dans un fichier temporaire non shredé.
+
+## Build Docker optimisé (fait le 26/09, à conserver)
+
+- **Cache mount npm** (`--mount=type=cache,target=/root/.npm`) sur les 2 stages : `npm install`
+  ne retélécharge plus rien après le premier build (~40s → ~5s à chaque build).
+- Layer lock : `COPY package.json package-lock.json` SEUL → cache layer si deps inchangées
+  ("upper fingerprint" du build ~0s).
+- **BuildKit forcé** (`DOCKER_BUILDKIT=1`) sinon cache mounts non actifs.
+- Temps mesuré : ~57s au premier, **11s** ensuite (source seule, deps & npm cache chauds).
