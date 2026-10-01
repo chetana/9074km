@@ -160,6 +160,15 @@ export interface GlossaryEntry {
 }
 
 export const GLOSSARY: GlossaryEntry[] = [
+	// Incidents mesurés du 26/09/2026 (journal S3 translation-issues, 2/4 incidents) : GLM laisse des
+	// lettres latines d'interjection ("Ohhh", "Ahhh") collées en tête de mot khmer ("អូhhhh", "អhhhh").
+	// Pas de `kh:` attendu (la translittération orale varie : អូ/អូហូ, អា៎/អាហ...) — on ne tolère
+	// juste AUCUN caractère latin dans la sortie tant que la source en ouvre une.
+	{
+		line: '- interjections écrites en toutes lettres ("Ohhh", "Ahhh", "Ouii", "Pfff") → translittération orale khmer (អូ/អូហូ, អា៎/អាហ, …) — JAMAIS de caractères latins dans la sortie, même en début de mot',
+		src: /\b(?:oh{2,}|ah{2,}|a+hh+|ouii+|pff+|miam|wooo+w)\b/i,
+		avoid: { kh: /[A-Za-z]/ },
+	},
 	{ line: '- allergie/allergique → អាលែកហ្ស៊ី', src: /allergi/i, kh: /អាលែកហ្ស៊ី/ },
 	{ line: '- sésame → ល្ង', src: /\bs[ée]same\b/i, kh: /ល្ង/ },
 	{ line: '- acidulé/aigre (goût) → ជូរ', src: /acidul[ée]|aigre/i, kh: /ជូរ/ },
