@@ -26,11 +26,22 @@ export function glmEnabled(): boolean {
 	return env.GLM_ENABLED === '1' && !!env.OPENCODE_API_KEY
 }
 
+// Modèle de SECOURS dans le même abonnement Go, essayé avant Gemini (payant à l'usage). Choisi au
+// banc du 01/10/2026 (scripts/bench-go-models.mjs, 31 cas réels, prompt de prod) : kimi-k3 31/31
+// sans escalade, 9 s ; mimo-v2.6-flash 31/31 mais 15 s ; qwen3.8-flash 21/31, deepseek-v4.1-flash
+// 26/31 ; minimax-m3 et gpt-6-luna incompatibles avec ce format. GO_FALLBACK_MODEL=0 désactive.
+const DEFAULT_GO_FALLBACK = 'kimi-k3'
+export function goFallbackModel(): string | null {
+	const m = env.GO_FALLBACK_MODEL ?? DEFAULT_GO_FALLBACK
+	return glmEnabled() && m && m !== '0' && m !== GLM_MODEL ? m : null
+}
+
 /** Appel brut Go avec relance sur MAX_TOKENS (mêmes garde-fous que geminiRequest). */
 export async function chatGo(
 	system: string,
 	user: string,
-	maxTokens = 300
+	maxTokens = 300,
+	model: string = GLM_MODEL
 ): Promise<string> {
 	if (!env.OPENCODE_API_KEY) throw new Error('OPENCODE_API_KEY manquant')
 
@@ -46,10 +57,10 @@ export async function chatGo(
 			headers: {
 				Authorization: `Bearer ${env.OPENCODE_API_KEY}`,
 				'Content-Type': 'application/json',
-				'x-opencode-session': 'lys-couple-translate',
+				'x-opencode-session': model === GLM_MODEL ? 'lys-couple-translate' : `lys-couple-translate-${model}`,
 			},
 			body: JSON.stringify({
-				model: GLM_MODEL,
+				model,
 				messages: [
 					{ role: 'system', content: system },
 					{ role: 'user', content: user },

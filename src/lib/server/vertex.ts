@@ -1,6 +1,6 @@
 import { createSign } from 'crypto'
 import { env } from '$env/dynamic/private'
-import { glmEnabled, chatGo, GLM_ADAPT } from './glm'
+import { glmEnabled, chatGo, goFallbackModel, GLM_ADAPT } from './glm'
 import { logTranslationIssue } from './translation-issues'
 import {
 	type Translations, type TranslateTerm, type LessonItem, type GeminiSuggestion,
@@ -115,10 +115,19 @@ async function callGemini(prompt: string, maxTokens = 300, models: readonly stri
 	// Utilisé par les leçons/grading (prompt unique, pas de split system/user — voir
 	// callGeminiSystem ci-dessous pour la traduction, qui en a besoin).
 	if (glmEnabled()) {
+		const sys = `Tu réponds UNIQUEMENT avec un JSON valide (sans markdown).${GLM_ADAPT}`
 		try {
-			return await chatGo(`Tu réponds UNIQUEMENT avec un JSON valide (sans markdown).${GLM_ADAPT}`, prompt, maxTokens)
+			return await chatGo(sys, prompt, maxTokens)
 		} catch (e) {
-			console.warn(`[engine] GLM KO → bascule Gemini (${(e as Error).message})`)
+			console.warn(`[engine] GLM KO (${(e as Error).message})`)
+		}
+		const fb = goFallbackModel()
+		if (fb) {
+			try {
+				return await chatGo(sys, prompt, maxTokens, fb)
+			} catch (e) {
+				console.warn(`[engine] ${fb} KO → bascule Gemini (${(e as Error).message})`)
+			}
 		}
 	}
 	return geminiRequest('', [{ text: prompt }], maxTokens, models)
@@ -132,12 +141,21 @@ async function callGemini(prompt: string, maxTokens = 300, models: readonly stri
  */
 async function callGeminiSystem(
 	system: string, user: string, maxTokens = 300, models: readonly string[] = GEMINI_MODELS
-): Promise<{ text: string; engine: 'glm' | 'gemini' }> {
+): Promise<{ text: string; engine: 'glm' | 'gemini'; viaFallback?: boolean }> {
 	if (glmEnabled()) {
 		try {
 			return { text: await chatGo(`${system}\n\n${GLM_ADAPT}`, user, maxTokens), engine: 'glm' }
 		} catch (e) {
-			console.warn(`[engine] GLM KO → bascule Gemini (${(e as Error).message})`)
+			console.warn(`[engine] GLM KO (${(e as Error).message})`)
+		}
+		// Secours dans l'abonnement Go (déjà payé) avant Gemini (payant à l'usage).
+		const fb = goFallbackModel()
+		if (fb) {
+			try {
+				return { text: await chatGo(`${system}\n\n${GLM_ADAPT}`, user, maxTokens, fb), engine: 'glm', viaFallback: true }
+			} catch (e) {
+				console.warn(`[engine] ${fb} KO → bascule Gemini (${(e as Error).message})`)
+			}
 		}
 	}
 	return { text: await geminiRequest(system, [{ text: user }], maxTokens, models), engine: 'gemini' }
@@ -159,14 +177,21 @@ const STRONG_MODELS = ['gemini-3.5-flash', 'gemini-3.6-flash'] as const
 const COUPLE_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash'] as const
 
 async function attemptTranslate(
-  system: string, user: string, sourceText: string, budget: number, models: readonly string[], forceGemini: boolean
-): Promise<{ t: Translations & { terms: TranslateTerm[] }; engine: 'glm' | 'gemini' }> {
-  const { text: raw, engine } = forceGemini
-    ? { text: await geminiRequest(system, [{ text: user }], budget, models), engine: 'gemini' as const }
+  system: string, user: string, sourceText: string, budget: number, models: readonly string[], forceGemini: boolean,
+  enforceTerms = true
+): Promise<{ t: Translations & { terms: TranslateTerm[] }; engine: 'glm' | 'gemini'; viaFallback?: boolean }> {
+  const { text: raw, engine, viaFallback } = forceGemini
+    ? { text: await geminiRequest(system, [{ text: user }], budget, models), engine: 'gemini' as const, viaFallback: false }
     : await callGeminiSystem(system, user, budget, models)
   const t = pickTranslation(raw)
-  if (!termsEchoed(t, sourceText)) throw new Error('terme du glossaire annoncé mais absent du khmer final')
-  return { t, engine }
+  // `termsEchoed` est un détecteur HEURISTIQUE (le modèle écrit un terme autrement qu'il ne l'a
+  // annoncé) : il déclenche l'escalade du moteur léger, mais ne doit JAMAIS rejeter le modèle
+  // fort — sinon plus aucune traduction (bug du 01/10/2026 : message laissé en français).
+  if (!termsEchoed(t, sourceText)) {
+    if (enforceTerms) throw new Error('terme du glossaire annoncé mais absent du khmer final')
+    console.warn('[translate] terme annoncé absent du khmer final chez Gemini fort — traduction conservée')
+  }
+  return { t, engine, viaFallback }
 }
 
 // Chemin unique de traduction avec escalade : tentative légère (GLM/2.5-flash-lite) → si
@@ -184,7 +209,21 @@ async function translateWithEscalation(
   const budget = translateBudget(text, budgetFactor)
   const isChet = detectIsChet(author)
 
-  let light: { t: Translations & { terms: TranslateTerm[] }; engine: 'glm' | 'gemini' } | null = null
+  // Contrôles déterministes de la sortie khmère (null = rien de suspect). glossaryEchoed/
+  // numbersPreserved lisent la SOURCE directement — trouvés le 24/09/2026 après un bug où le khmer
+  // inventait un mot pour "ma chérie" (fr/en toujours corrects dans la même génération) sans que le
+  // modèle n'annonce jamais de terme difficile pour ça dans `terms[]` : termsEchoed seul ne pouvait
+  // rien détecter.
+  const suspect = (t: Translations): TranslationIssueReason | null =>
+    containsForeignScript(t.kh) ? 'foreign_script'
+      : containsGluedLatin(t.kh) ? 'glued_latin'
+      : !glossaryEchoed(text, t, isChet) ? 'glossary_miss'
+      : !numbersPreserved(text, t.kh) ? 'number_drift'
+      : tendernessAdded(text, t) ? 'tenderness_added'
+      : pronounSwapped(text, t.kh, isChet) ? 'pronoun_swapped'
+      : null
+
+  let light: { t: Translations & { terms: TranslateTerm[] }; engine: 'glm' | 'gemini'; viaFallback?: boolean } | null = null
   try {
     light = await attemptTranslate(system, user, text, budget, COUPLE_MODELS, false)
   } catch (e) {
@@ -193,23 +232,30 @@ async function translateWithEscalation(
 
   let badKh = ''
   let reason: TranslationIssueReason | null = null
+  const lightWasDefaultGo = light?.engine === 'glm' && !light.viaFallback
   if (light) {
-    // glossaryEchoed/numbersPreserved lisent la SOURCE directement (déterministe) — trouvés le
-    // 24/09/2026 après un bug où le khmer inventait un mot pour "ma chérie" (fr/en toujours
-    // corrects dans la même génération) sans que le modèle n'annonce jamais de terme difficile
-    // pour ça dans `terms[]` : termsEchoed seul ne pouvait rien détecter.
-    reason = containsForeignScript(light.t.kh) ? 'foreign_script'
-      : containsGluedLatin(light.t.kh) ? 'glued_latin'
-      : !glossaryEchoed(text, light.t, isChet) ? 'glossary_miss'
-      : !numbersPreserved(text, light.t.kh) ? 'number_drift'
-      : tendernessAdded(text, light.t) ? 'tenderness_added'
-      : pronounSwapped(text, light.t.kh, isChet) ? 'pronoun_swapped'
-      : null
+    reason = suspect(light.t)
     if (reason) { badKh = light.t.kh; light = null }
   }
   if (light) return { fr: light.t.fr, en: light.t.en, kh: cleanKhmer(light.t.kh), lang: light.t.lang }
 
-  const strong = await attemptTranslate(system, user, text, budget, STRONG_MODELS, true) // throw si échec total → géré par l'appelant
+  // GLM vient d'être rejeté par un garde-fou : avant d'appeler Gemini (payant à l'usage), on
+  // demande à un 2e modèle de l'abonnement Go (déjà payé), avec les MÊMES contrôles. Inutile si
+  // c'est déjà lui qui a répondu (viaFallback).
+  const fb = goFallbackModel()
+  if (reason && fb && lightWasDefaultGo) {
+    try {
+      const t2 = pickTranslation(await chatGo(`${system}\n\n${GLM_ADAPT}`, user, budget, fb))
+      if (termsEchoed(t2, text) && !suspect(t2)) {
+        void logTranslationIssue({ reason, sourceText: text, author, badKh, fixedKh: t2.kh, engine: 'glm' })
+        return { fr: t2.fr, en: t2.en, kh: cleanKhmer(t2.kh), lang: t2.lang }
+      }
+    } catch (e) {
+      console.warn(`[translate] secours ${fb} échoué (${(e as Error).message}) → escalade Gemini fort`)
+    }
+  }
+
+  const strong = await attemptTranslate(system, user, text, budget, STRONG_MODELS, true, false) // throw si échec total → géré par l'appelant
   if (reason) void logTranslationIssue({ reason, sourceText: text, author, badKh, fixedKh: strong.t.kh, engine: 'glm' })
   return { fr: strong.t.fr, en: strong.t.en, kh: cleanKhmer(strong.t.kh), lang: strong.t.lang }
 }
@@ -310,12 +356,12 @@ export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh', previ
   const user = buildSuggestUser(text, previousMessage)
   const budget = translateBudget(text, 6)
 
-  async function attempt(models: readonly string[], forceGemini: boolean): Promise<GeminiSuggestion & { terms: TranslateTerm[] }> {
+  async function attempt(models: readonly string[], forceGemini: boolean, enforceTerms = true): Promise<GeminiSuggestion & { terms: TranslateTerm[] }> {
     const raw = forceGemini
       ? await geminiRequest(system, [{ text: user }], budget, models)
       : (await callGeminiSystem(system, user, budget, models)).text
     const s = pickSuggestion(raw)
-    if (!termsEchoed(s, text)) throw new Error('terme du glossaire annoncé mais absent du khmer final')
+    if (enforceTerms && !termsEchoed(s, text)) throw new Error('terme du glossaire annoncé mais absent du khmer final')
     return s
   }
 
@@ -335,7 +381,7 @@ export async function geminiSuggest(text: string, authorLang: 'fr' | 'kh', previ
     if (reason) { badKh = s.kh; throw new Error('khmer suspect (script étranger, latin collé, ou glossaire/nombre non respecté)') }
   } catch (e) {
     console.warn(`[suggest] moteur léger échoué ou suspect (${(e as Error).message}) → escalade Gemini fort (bypass GLM)`)
-    s = await attempt(STRONG_MODELS, true)
+    s = await attempt(STRONG_MODELS, true, false)
     if (reason) void logTranslationIssue({ reason, sourceText: text, author, badKh, fixedKh: s.kh, engine: 'glm' })
   }
   s.kh = cleanKhmer(s.kh)

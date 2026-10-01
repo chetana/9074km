@@ -33,9 +33,11 @@ vi.mock('$env/dynamic/private', () => ({
 
 const chatGoMock = vi.fn()
 const glmEnabledMock = vi.fn(() => true)
+const goFallbackMock = vi.fn((): string | null => null)
 vi.mock('./glm', () => ({
 	glmEnabled: () => glmEnabledMock(),
-	chatGo: (system: string, user: string, maxTokens?: number) => chatGoMock(system, user, maxTokens),
+	goFallbackModel: () => goFallbackMock(),
+	chatGo: (system: string, user: string, maxTokens?: number, model?: string) => chatGoMock(system, user, maxTokens, model),
 	GLM_ADAPT: '',
 }))
 
@@ -56,6 +58,7 @@ beforeEach(() => {
 	chatGoMock.mockReset()
 	logTranslationIssueMock.mockReset()
 	glmEnabledMock.mockReturnValue(true)
+	goFallbackMock.mockReturnValue(null)
 	vi.restoreAllMocks()
 })
 
@@ -107,5 +110,72 @@ describe('geminiTranslateAll — escalade GLM → Gemini fort', () => {
 		expect(result.kh).toBe('សួស្តី')
 		expect(chatGoMock).toHaveBeenCalledTimes(1)
 		expect(logTranslationIssueMock.mock.calls[0][0]).toMatchObject({ reason: 'foreign_script', engine: 'glm' })
+	})
+
+	it('terme annoncé absent du khmer, même chez Gemini fort : on GARDE la traduction forte (bug du 01/10 : message laissé en français)', async () => {
+		// Le 01/10/2026, « je me sens moins malade » est resté en français partout : GLM puis Gemini
+		// annonçaient chacun un terme (`terms`) écrit autrement dans le khmer final, termsEchoed
+		// rejetait les DEUX, le découpage en morceaux retombait sur la même erreur, et le texte
+		// source était conservé. Un garde-fou heuristique ne doit jamais coûter la traduction.
+		const divergent = { lang: 'fr', terms: [{ src: 'malade', kh: 'ឈឺ' }], en: 'I feel less sick', kh: 'បងមិនសូវអីទេ', fr: 'Je me sens moins malade' }
+		chatGoMock.mockResolvedValue(JSON.stringify(divergent))
+		vi.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
+			const href = String(url?.url ?? url)
+			if (href.includes('oauth2.googleapis.com')) {
+				return new Response(JSON.stringify({ access_token: 'fake-token' }), { status: 200 })
+			}
+			return new Response(fakeGeminiCandidate(divergent), { status: 200 })
+		})
+
+		const result = await geminiTranslateAll('je me sens moins malade')
+
+		expect(result.kh).toBe('បងមិនសូវអីទេ') // jamais le texte source recopié dans le champ khmer
+		expect(result.en).toBe('I feel less sick')
+	})
+})
+
+describe('geminiTranslateAll — secours Go (kimi-k3) avant Gemini', () => {
+	const bonne = { lang: 'fr', terms: [], en: 'buttons', kh: 'ប៊ូតុង', fr: 'boutons' }
+	const corrompue = { lang: 'fr', terms: [], en: 'buttons', kh: 'បុortonexus', fr: 'boutons' }
+
+	it('GLM rejeté par un garde-fou : le 2e modèle Go répond, Gemini jamais appelé', async () => {
+		goFallbackMock.mockReturnValue('kimi-k3')
+		chatGoMock.mockResolvedValueOnce(JSON.stringify(corrompue)).mockResolvedValueOnce(JSON.stringify(bonne))
+		const fetchSpy = vi.spyOn(global, 'fetch')
+
+		const result = await geminiTranslateAll('boutons')
+
+		expect(result.kh).toBe('ប៊ូតុង')
+		expect(fetchSpy).not.toHaveBeenCalled()
+		expect(chatGoMock).toHaveBeenCalledTimes(2)
+		expect(chatGoMock.mock.calls[1][3]).toBe('kimi-k3')
+		expect(logTranslationIssueMock.mock.calls[0][0]).toMatchObject({ reason: 'glued_latin', engine: 'glm' })
+	})
+
+	it('GLM en panne technique : le 2e modèle Go prend le relais, Gemini jamais appelé', async () => {
+		goFallbackMock.mockReturnValue('kimi-k3')
+		chatGoMock.mockRejectedValueOnce(new Error('GLM 503')).mockResolvedValueOnce(JSON.stringify(bonne))
+		const fetchSpy = vi.spyOn(global, 'fetch')
+
+		const result = await geminiTranslateAll('boutons')
+
+		expect(result.kh).toBe('ប៊ូតុង')
+		expect(fetchSpy).not.toHaveBeenCalled()
+		expect(chatGoMock.mock.calls[1][3]).toBe('kimi-k3')
+	})
+
+	it('les deux modèles Go rejetés : escalade vers Gemini fort', async () => {
+		goFallbackMock.mockReturnValue('kimi-k3')
+		chatGoMock.mockResolvedValue(JSON.stringify(corrompue))
+		vi.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
+			const href = String(url?.url ?? url)
+			if (href.includes('oauth2.googleapis.com')) return new Response(JSON.stringify({ access_token: 'fake-token' }), { status: 200 })
+			return new Response(fakeGeminiCandidate(bonne), { status: 200 })
+		})
+
+		const result = await geminiTranslateAll('boutons')
+
+		expect(result.kh).toBe('ប៊ូតុង') // version Gemini, jamais la corruption
+		expect(chatGoMock).toHaveBeenCalledTimes(2) // GLM puis kimi, pas de 3e appel Go
 	})
 })
