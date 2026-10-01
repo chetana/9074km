@@ -277,6 +277,12 @@ voir historique git pour le détail) :
 - **Éval** : `npm run eval:translate -- --runs 6 --only "<nom>"` répète/filtre les cas, et affiche
   le taux d'escalade vers Gemini que la prod aurait déclenché (`⤴`) — un garde-fou qui escalade des
   traductions correctes coûte cher, le vérifier avant tout nouveau garde-fou.
+- **Chaîne de moteurs (01/10/2026)** : GLM-5.3-flash → **kimi-k3** (même abonnement Go, `GO_FALLBACK_MODEL=0` pour
+  désactiver) → Gemini fort. Le secours Go s'applique sur panne technique ET quand un garde-fou rejette GLM.
+  Choisi par `scripts/bench-go-models.mjs` (kimi-k3 62/62 ; mimo-v2.6-flash, qwen3.8-flash, deepseek-v4.1-flash
+  moins fiables ; minimax-m3 / gpt-6-luna incompatibles). L'endpoint Go n'a **ni TTS ni transcription** (`/audio/*` → 404) :
+  la voix reste sur Gemini. `termsEchoed` est un déclencheur d'escalade, **jamais** un rejet du modèle fort
+  (bug du 01/10 : message laissé en français quand GLM et Gemini étaient rejetés tous les deux).
 - **Validation de forme** (`pickTranslation`/`pickSuggestion`) : rejette placeholder recopié, champ
   vide, khmer identique au français/anglais — antérieurement une sortie "valide JSON mais fausse"
   passait sans broncher.
