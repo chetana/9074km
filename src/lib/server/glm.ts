@@ -1,18 +1,68 @@
 import { env } from '$env/dynamic/private'
 
 /**
- * Adaptateur OpenCode Go (GLM-5.3-flash) pour les traductions du couple.
+ * Adaptateur ClinePass (via l'API Cline) — moteur principal des traductions du couple.
  *
- * Pourquoi : même qualité de registre khmer que gemini-3.6-flash pour ~1/10 du prix,
- * via la souscription OpenCode Go déjà payée. Endpoint OpenAI-compatible :
- *   https://opencode.ai/zen/go/v1/chat/completions
- * Un header x-opencode-session stable par "conversation" optimise le prompt caching
- * (obligatoire — l'API refuse la requête sans).
- *
- * Consommation : ~40 msg/jour de chat → ~$0.5-1/mois équivalent, bruit face au volume
- * opencode perso (~$28/sem). Si saturation un jour → env GLM_ENABLED=0 sur la box
- * (ou ne rien faire : le fallback Gemini prend automatiquement le relais sur erreur).
+ * Pourquoi : l'abonnement ClinePass ($9.99/mois) inclut les MÊMES modèles que
+ * l'abonnement OpenCode Go (glm-5.3-flash, kimi-k3…) avec un quota 2-5x. On l'utilise
+ * en premier, OpenCode Go prend le relais sur échec, puis Gemini (payant à l'usage).
+ * Endpoint OpenAI-compatible documenté (docs.cline.bot/api) :
+ *   POST https://api.cline.bot/api/v1/chat/completions   (Authorization: Bearer CLINE_API_KEY)
+ * Modèle : slug complet `cline-pass/glm-5.3-flash`. stream:false obligatoire ici.
+ * Activation : CLINE_ENABLED=1 + CLINE_API_KEY sur la box (env/lys.env).
  */
+
+const CLINE_URL = 'https://api.cline.bot/api/v1/chat/completions'
+export const CLINE_MODEL = 'cline-pass/glm-5.3-flash'
+const CLINE_CEILING = 8192
+
+export function clineEnabled(): boolean {
+	return env.CLINE_ENABLED === '1' && !!env.CLINE_API_KEY
+}
+
+/** Appel ClinePass brut, même contrat que chatGo (relance sur sortie tronquée). */
+export async function chatCline(system: string, user: string, maxTokens = 300): Promise<string> {
+	if (!env.CLINE_API_KEY) throw new Error('CLINE_API_KEY manquant')
+
+	let budget = Math.min(CLINE_CEILING, Math.max(4096, maxTokens))
+	let lastError: Error | null = null
+	for (let attempt = 0; attempt < 3; attempt++) {
+		const res = await fetch(CLINE_URL, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${env.CLINE_API_KEY}`,
+				'Content-Type': 'application/json',
+				'X-Title': 'lys.chetana.fr',
+			},
+			body: JSON.stringify({
+				model: CLINE_MODEL,
+				messages: [
+					{ role: 'system', content: system },
+					{ role: 'user', content: user },
+				],
+				temperature: 0.2,
+				max_tokens: budget,
+				stream: false,
+			}),
+		})
+		const data = await res.json() as any
+		if (!res.ok) {
+			console.warn(`[cline] échec ${res.status}: ${data?.error?.message ?? 'inconnu'}`)
+			lastError = new Error(`Cline ${res.status}: ${data?.error?.message ?? 'inconnu'}`)
+			break
+		}
+		const choice = data?.choices?.[0]
+		if (choice?.finish_reason === 'length' && budget < CLINE_CEILING) {
+			const bumped = Math.min(CLINE_CEILING, Math.max(budget * 2, 2048))
+			console.warn(`[cline] sortie tronquée (budget ${budget}) → relance à ${bumped}`)
+			budget = bumped
+			continue
+		}
+		const raw: string = choice?.message?.content ?? '{}'
+		return raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+	}
+	throw lastError ?? new Error('ClinePass a échoué')
+}
 
 const GO_URL = 'https://opencode.ai/zen/go/v1/chat/completions'
 const GLM_MODEL = 'glm-5.3-flash'
@@ -36,13 +86,23 @@ export function goFallbackModel(): string | null {
 	return glmEnabled() && m && m !== '0' && m !== GLM_MODEL ? m : null
 }
 
-/** Appel brut Go avec relance sur MAX_TOKENS (mêmes garde-fous que geminiRequest). */
+/** Appel brut Go avec relance sur MAX_TOKENS (mêmes garde-fous que geminiRequest).
+ * ClinePass est essayé en premier sur le modèle par défaut (même glm-5.3-flash, quota
+ * d'abonnement ClinePass) — sur échec, OpenCode Go prend le relais sans rien changer
+ * pour l'appelant, puis Gemini en dernier recours côté appelant. */
 export async function chatGo(
 	system: string,
 	user: string,
 	maxTokens = 300,
 	model: string = GLM_MODEL
 ): Promise<string> {
+	if (model === GLM_MODEL && clineEnabled()) {
+		try {
+			return await chatCline(system, user, maxTokens)
+		} catch (e) {
+			console.warn(`[glm] ClinePass KO (${(e as Error).message}) → OpenCode Go`)
+		}
+	}
 	if (!env.OPENCODE_API_KEY) throw new Error('OPENCODE_API_KEY manquant')
 
 	let budget = Math.min(MAX_OUTPUT_CEILING, Math.max(4096, maxTokens))
