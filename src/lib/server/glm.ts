@@ -43,6 +43,9 @@ export async function chatCline(system: string, user: string, maxTokens = 300): 
 				temperature: 0.2,
 				max_tokens: budget,
 				stream: false,
+				// glm-5.3-flash raisonne par défaut (~700 tokens cachés → 6-7 s) ; low divise
+				// la latence par ~5 sans dégrader le khmer (bench 02/10/2026 : 1,3 s, 11 tokens).
+				reasoning_effort: 'low',
 			}),
 		})
 		const data = await res.json() as any
