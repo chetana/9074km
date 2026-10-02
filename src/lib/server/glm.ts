@@ -47,11 +47,12 @@ export async function chatCline(system: string, user: string, maxTokens = 300): 
 		})
 		const data = await res.json() as any
 		if (!res.ok) {
-			console.warn(`[cline] échec ${res.status}: ${data?.error?.message ?? 'inconnu'}`)
-			lastError = new Error(`Cline ${res.status}: ${data?.error?.message ?? 'inconnu'}`)
+			console.warn(`[cline] échec ${res.status}: ${data?.error?.message ?? data?.message ?? 'inconnu'}`)
+			lastError = new Error(`Cline ${res.status}: ${data?.error?.message ?? data?.message ?? 'inconnu'}`)
 			break
 		}
-		const choice = data?.choices?.[0]
+		// L'API Cline encapsule la réponse : { data: { choices: [...] } } (≠ format OpenAI brut)
+		const choice = data?.choices?.[0] ?? data?.data?.choices?.[0]
 		if (choice?.finish_reason === 'length' && budget < CLINE_CEILING) {
 			const bumped = Math.min(CLINE_CEILING, Math.max(budget * 2, 2048))
 			console.warn(`[cline] sortie tronquée (budget ${budget}) → relance à ${bumped}`)
