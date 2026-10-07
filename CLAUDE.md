@@ -22,7 +22,7 @@ Application de couple : Chet (Paris 🇫🇷) + Lys (Phnom Penh 🇰🇭) — 9 
 - **Auth** : Logto (`src/lib/auth.ts`, `hooks.server.ts`) + fallback "direct sign-in" Google si pas
   de session (redirect silencieux, sauf liens de partage coffre publics et `/fiancailles`).
 - **IA (traductions + leçons)** : `src/lib/server/vertex.ts` + `src/lib/server/glm.ts`.
-  **Moteur principal : GLM-5.3-flash** via l'abonnement OpenCode Go (pas cher), **fallback Gemini**
+  **Moteur principal : GLM-5.3-flash** via l'abonnement **ClinePass** (pas cher ; OpenCode Go désactivé le 07/10/2026), **fallback Gemini**
   (Vertex AI) sur échec technique OU sortie khmère suspecte (script étranger, latin corrompu collé,
   forme JSON invalide). Voir "Traduction" plus bas — c'est la partie la plus retravaillée du repo.
 
@@ -77,7 +77,7 @@ src/
                           isValidCoverPrefix, isMediaFile, isImageFile) — bucket partagé avec
                           chat/apprendre/translation-issues, jamais de path/prefix libre
       vertex.ts         — Traduction (translate/suggest/transcribe) + leçons/grading
-      glm.ts            — Adaptateur GLM-5.3-flash (OpenCode Go), moteur principal pas cher
+      glm.ts            — Adaptateur GLM-5.3-flash (ClinePass, repli OpenCode Go si clé présente), moteur principal pas cher
       khmer-guards.ts   — Fonctions pures de traduction (validation, anti-corruption, prompts)
       translation-issues.ts — journal S3 des incidents de traduction détectés automatiquement
       rate-limit.ts     — Décision pure de rate-limit (fenêtre glissante), utilisée par hooks.server.ts
@@ -277,10 +277,13 @@ voir historique git pour le détail) :
 - **Éval** : `npm run eval:translate -- --runs 6 --only "<nom>"` répète/filtre les cas, et affiche
   le taux d'escalade vers Gemini que la prod aurait déclenché (`⤴`) — un garde-fou qui escalade des
   traductions correctes coûte cher, le vérifier avant tout nouveau garde-fou.
-- **Chaîne de moteurs (01/10/2026)** : GLM-5.3-flash → **kimi-k3** (même abonnement Go, `GO_FALLBACK_MODEL=0` pour
-  désactiver) → Gemini fort. Le secours Go s'applique sur panne technique ET quand un garde-fou rejette GLM.
-  Choisi par `scripts/bench-go-models.mjs` (kimi-k3 62/62 ; mimo-v2.6-flash, qwen3.8-flash, deepseek-v4.1-flash
-  moins fiables ; minimax-m3 / gpt-6-luna incompatibles). L'endpoint Go n'a **ni TTS ni transcription** (`/audio/*` → 404) :
+- **Chaîne de moteurs (07/10/2026)** : GLM-5.3-flash (**ClinePass**, `CLINE_ENABLED=1` + `CLINE_API_KEY`) →
+  **kimi-k3** (aussi via ClinePass, `GO_FALLBACK_MODEL=0` pour le couper) → Gemini fort. Le secours s'applique sur
+  panne technique ET quand un garde-fou rejette GLM. **Une clé OpenCode Go n'est plus obligatoire** : si
+  `OPENCODE_API_KEY` est présente, elle sert de repli quand ClinePass échoue, sinon l'erreur ClinePass remonte
+  directement vers Gemini. `GLM_ENABLED=1` reste l'interrupteur général. Choisi par `scripts/bench-go-models.mjs`
+  (kimi-k3 62/62 sur Go ; mimo-v2.6-flash, qwen3.8-flash, deepseek-v4.1-flash moins fiables ; minimax-m3 /
+  gpt-6-luna incompatibles) — non rejoué via ClinePass, même modèle. Ni ClinePass ni Go n'ont de TTS/transcription :
   la voix reste sur Gemini. `termsEchoed` est un déclencheur d'escalade, **jamais** un rejet du modèle fort
   (bug du 01/10 : message laissé en français quand GLM et Gemini étaient rejetés tous les deux).
 - **Validation de forme** (`pickTranslation`/`pickSuggestion`) : rejette placeholder recopié, champ
