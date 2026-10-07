@@ -13,7 +13,7 @@ import { env } from '$env/dynamic/private'
  */
 
 const CLINE_URL = 'https://api.cline.bot/api/v1/chat/completions'
-export const CLINE_MODEL = 'cline-pass/glm-5.3-flash'
+const CLINE_PREFIX = 'cline-pass/'
 const CLINE_CEILING = 8192
 
 export function clineEnabled(): boolean {
@@ -21,7 +21,7 @@ export function clineEnabled(): boolean {
 }
 
 /** Appel ClinePass brut, même contrat que chatGo (relance sur sortie tronquée). */
-export async function chatCline(system: string, user: string, maxTokens = 300): Promise<string> {
+export async function chatCline(system: string, user: string, maxTokens = 300, model = 'glm-5.3-flash'): Promise<string> {
 	if (!env.CLINE_API_KEY) throw new Error('CLINE_API_KEY manquant')
 
 	let budget = Math.min(CLINE_CEILING, Math.max(4096, maxTokens))
@@ -35,7 +35,7 @@ export async function chatCline(system: string, user: string, maxTokens = 300): 
 				'X-Title': 'lys.chetana.fr',
 			},
 			body: JSON.stringify({
-				model: CLINE_MODEL,
+				model: `${CLINE_PREFIX}${model}`,
 				messages: [
 					{ role: 'system', content: system },
 					{ role: 'user', content: user },
@@ -76,11 +76,13 @@ const MAX_OUTPUT_CEILING = 8192
 // scripts/eval-translate.mjs teste enfin le prompt EXACT de prod — il envoyait le prompt sans elles.
 export { GLM_ADAPT } from './khmer-guards'
 
+// GLM_ENABLED reste l'interrupteur général ; il suffit d'UN des deux abonnements (ClinePass ou
+// OpenCode Go) — l'abonnement OpenCode Go a été désactivé le 07/10/2026, ClinePass tourne seul.
 export function glmEnabled(): boolean {
-	return env.GLM_ENABLED === '1' && !!env.OPENCODE_API_KEY
+	return env.GLM_ENABLED === '1' && (clineEnabled() || !!env.OPENCODE_API_KEY)
 }
 
-// Modèle de SECOURS dans le même abonnement Go, essayé avant Gemini (payant à l'usage). Choisi au
+// Modèle de SECOURS (ClinePass, sinon Go), essayé avant Gemini (payant à l'usage). Choisi au
 // banc du 01/10/2026 (scripts/bench-go-models.mjs, 31 cas réels, prompt de prod) : kimi-k3 31/31
 // sans escalade, 9 s ; mimo-v2.6-flash 31/31 mais 15 s ; qwen3.8-flash 21/31, deepseek-v4.1-flash
 // 26/31 ; minimax-m3 et gpt-6-luna incompatibles avec ce format. GO_FALLBACK_MODEL=0 désactive.
@@ -100,14 +102,16 @@ export async function chatGo(
 	maxTokens = 300,
 	model: string = GLM_MODEL
 ): Promise<string> {
-	if (model === GLM_MODEL && clineEnabled()) {
+	let clineError: Error | null = null
+	if (clineEnabled()) {
 		try {
-			return await chatCline(system, user, maxTokens)
+			return await chatCline(system, user, maxTokens, model)
 		} catch (e) {
-			console.warn(`[glm] ClinePass KO (${(e as Error).message}) → OpenCode Go`)
+			clineError = e as Error
+			console.warn(`[glm] ClinePass KO (${clineError.message})${env.OPENCODE_API_KEY ? ' → OpenCode Go' : ''}`)
 		}
 	}
-	if (!env.OPENCODE_API_KEY) throw new Error('OPENCODE_API_KEY manquant')
+	if (!env.OPENCODE_API_KEY) throw clineError ?? new Error('OPENCODE_API_KEY manquant')
 
 	let budget = Math.min(MAX_OUTPUT_CEILING, Math.max(4096, maxTokens))
 	// Budget plancher 4096 : les traductions JSON {fr,en,kh,lang} + tokens de raisonnement
