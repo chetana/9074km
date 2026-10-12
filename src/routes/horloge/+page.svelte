@@ -11,34 +11,10 @@
 	let now = $state(new Date());
 	let interval: ReturnType<typeof setInterval>;
 
-	const SLIDE_KEY = 'horloge-slide';
-	let carousel: HTMLDivElement | undefined = $state();
-	let slide = $state(0);
-
 	onMount(() => {
 		interval = setInterval(() => (now = new Date()), 1000);
-		// retrouve la vue choisie la dernière fois (avion / carte d'embarquement / points)
-		try {
-			const saved = Number(localStorage.getItem(SLIDE_KEY));
-			if (saved > 0 && saved < 3 && carousel) {
-				carousel.scrollTo({ left: saved * carousel.clientWidth, behavior: 'instant' });
-				slide = saved;
-			}
-		} catch { /* localStorage indisponible : on reste sur la première vue */ }
 	});
 
-	function onCarouselScroll() {
-		if (!carousel) return;
-		const i = Math.round(carousel.scrollLeft / carousel.clientWidth);
-		if (i !== slide) {
-			slide = i;
-			try { localStorage.setItem(SLIDE_KEY, String(i)); } catch { /* ignoré */ }
-		}
-	}
-
-	function goToSlide(i: number) {
-		carousel?.scrollTo({ left: i * carousel.clientWidth, behavior: 'smooth' });
-	}
 	onDestroy(() => clearInterval(interval));
 
 	const paris = $derived(toZonedTime(now, TZ_PARIS));
@@ -104,102 +80,44 @@
 
 <div class="page">
 
-	<!-- Carrousel du compte à rebours (Lys arrive à Paris le 2 novembre) : 3 vues de même hauteur, à glisser.
-	     1 = avion sur l'arc (la mini-carte d'origine), 2 = carte d'embarquement, 3 = un point par jour. -->
-	<div class="cd-carousel" bind:this={carousel} onscroll={onCarouselScroll}>
-
-		<!-- Vue 1 : « vol en cours » -->
-		<div class="cd-slide map-card">
-			<svg class="world-map" viewBox="0 30 800 150" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-				<path class="flight-line" d="M 680,160 C 520,20 280,20 120,160" pathLength="1" bind:this={arcEl}/>
-				{#if arrivalVisible}
-					<path class="flight-done" d="M 680,160 C 520,20 280,20 120,160" pathLength="1" stroke-dasharray="{journey.progress} 1"/>
-				{/if}
-				<circle class="pin pin-paris" cx="120" cy="160" r="6"/>
-				<text class="pin-label" x="120" y="145" text-anchor="middle">Paris</text>
-				<circle class="pin pin-pp" cx="680" cy="160" r="6"/>
-				<text class="pin-label" x="680" y="145" text-anchor="middle">Phnom Penh</text>
-				{#if arrivalVisible}
-					<g transform="translate({plane.x} {plane.y}) rotate({plane.a})">
-						<circle r="15" class="plane-bg"/>
-						<path d="M9,0 L-6,-7 L-3,0 L-6,7 Z" class="plane-shape"/>
-					</g>
-				{/if}
-			</svg>
-			<div class="map-footer">
-				<div class="map-hero">
-					<span class="map-dist">{DISTANCE_KM.toLocaleString('fr-FR')} km</span>
-					<span class="map-sep">·</span>
-					<span class="map-together">Jour {daysTogether}</span>
-					<span class="map-offset">+{hourDiff}h</span>
-				</div>
-				{#if arrivalVisible}
-					<div class="cd-line" role="timer" aria-live="off">
-						{#if countdown.arrived}
-							<b>Lys est arrivée à Paris !</b>
-							<span class="cd-kh" lang="km">Lys មកដល់ប៉ារីសហើយ! ទីបំផុតយើងបាននៅជាមួយគ្នាហើយ</span>
-						{:else}
-							<span class="cd-time">{countdown.days}<small>{countdown.days > 1 ? 'jours' : 'jour'}</small> {pad2(countdown.hours)}<small>h</small> {pad2(countdown.minutes)}<small>min</small> {pad2(countdown.seconds)}<small>s</small></span>
-							<b>Lys arrive à Paris</b>
-							<span class="cd-kh" lang="km">Lys នឹងមកដល់ប៉ារីស · នៅសល់ {countdown.days} ថ្ងៃទៀត</span>
-						{/if}
-					</div>
-				{/if}
+	<!-- Compte à rebours 1/3 : « vol en cours » — l'avion avance sur l'arc, compteur FR + khmer -->
+	<div class="map-card">
+		<svg class="world-map" viewBox="0 30 800 150" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+			<path class="flight-line" d="M 680,160 C 520,20 280,20 120,160" pathLength="1" bind:this={arcEl}/>
+			{#if arrivalVisible}
+				<path class="flight-done" d="M 680,160 C 520,20 280,20 120,160" pathLength="1" stroke-dasharray="{journey.progress} 1"/>
+			{/if}
+			<circle class="pin pin-paris" cx="120" cy="160" r="6"/>
+			<text class="pin-label" x="120" y="145" text-anchor="middle">Paris</text>
+			<circle class="pin pin-pp" cx="680" cy="160" r="6"/>
+			<text class="pin-label" x="680" y="145" text-anchor="middle">Phnom Penh</text>
+			{#if arrivalVisible}
+				<g transform="translate({plane.x} {plane.y}) rotate({plane.a})">
+					<circle r="15" class="plane-bg"/>
+					<path d="M9,0 L-6,-7 L-3,0 L-6,7 Z" class="plane-shape"/>
+				</g>
+			{/if}
+		</svg>
+		<div class="map-footer">
+			<div class="map-hero">
+				<span class="map-dist">{DISTANCE_KM.toLocaleString('fr-FR')} km</span>
+				<span class="map-sep">·</span>
+				<span class="map-together">Jour {daysTogether}</span>
+				<span class="map-offset">+{hourDiff}h</span>
 			</div>
-		</div>
-
-		<!-- Vue 2 : carte d'embarquement PNH → CDG -->
-		<div class="cd-slide cd-card">
-			<div class="bp">
-				<div class="bp-main">
-					<div class="bp-tag">Carte d'embarquement</div>
-					<div class="bp-route">
-						<div><div class="bp-code">PNH</div><div class="bp-city">Phnom Penh</div></div>
-						<div class="bp-line"><Plane size={20} strokeWidth={1.75} style="transform: rotate(-90deg)" aria-hidden="true" /></div>
-						<div class="bp-right"><div class="bp-code">CDG</div><div class="bp-city">Paris</div></div>
-					</div>
-					<div class="bp-meta">
-						<div><span class="bp-label">Passagère</span>LYS</div>
-						<div><span class="bp-label">Date</span>{fmtShortDate(ARRIVAL_PARIS)}</div>
-						<div><span class="bp-label">Distance</span>{DISTANCE_KM.toLocaleString('fr-FR')} km</div>
-					</div>
-					<div class="bp-bar" aria-hidden="true"></div>
-					<div class="bp-kh" lang="km">ប័ណ្ណឡើងយន្តហោះ · Lys នឹងមកដល់ប៉ារីស</div>
-				</div>
-				<div class="bp-stub">
+			{#if arrivalVisible}
+				<div class="cd-line" role="timer" aria-live="off">
 					{#if countdown.arrived}
-						<b class="bp-done">✓</b>
-						<span>Arrivée</span>
-						<span lang="km">មកដល់ហើយ</span>
+						<b>Lys est arrivée à Paris !</b>
+						<span class="cd-kh" lang="km">Lys មកដល់ប៉ារីសហើយ! ទីបំផុតយើងបាននៅជាមួយគ្នាហើយ</span>
 					{:else}
-						<span>Embarquement dans</span>
-						<b>{countdown.days}</b>
-						<span>{countdown.days > 1 ? 'jours' : 'jour'}</span>
-						<span class="bp-hms">{pad2(countdown.hours)} : {pad2(countdown.minutes)} : {pad2(countdown.seconds)}</span>
-						<span lang="km">នៅសល់ថ្ងៃទៀត</span>
+						<span class="cd-time">{countdown.days}<small>{countdown.days > 1 ? 'jours' : 'jour'}</small> {pad2(countdown.hours)}<small>h</small> {pad2(countdown.minutes)}<small>min</small> {pad2(countdown.seconds)}<small>s</small></span>
+						<b>Lys arrive à Paris</b>
+						<span class="cd-kh" lang="km">Lys នឹងមកដល់ប៉ារីស · នៅសល់ {countdown.days} ថ្ងៃទៀត</span>
 					{/if}
 				</div>
-			</div>
+			{/if}
 		</div>
-
-		<!-- Vue 3 : un point par jour, le dernier est Paris -->
-		<div class="cd-slide cd-card cd-dots-card">
-			<div class="dots-top">
-				<b>{countdown.arrived ? 'Arrivée !' : `${countdown.days} ${countdown.days > 1 ? 'jours' : 'jour'}`}</b>
-				<span>Lys arrive à Paris · {fmtShortDate(ARRIVAL_PARIS)}</span>
-			</div>
-			<div class="dots" aria-hidden="true">
-				{#each Array(journey.totalDays) as _, i}
-					<i class="dot" class:on={i < journey.doneDays} class:now={i === journey.doneDays && !countdown.arrived} class:end={i === journey.totalDays - 1}>{i === journey.totalDays - 1 ? '♥' : ''}</i>
-				{/each}
-			</div>
-			<div class="cd-kh dots-kh" lang="km">Lys នឹងមកដល់ប៉ារីស · នៅសល់ {countdown.days} ថ្ងៃទៀត</div>
-		</div>
-	</div>
-	<div class="cd-dots-nav" role="tablist" aria-label="Affichage du compte à rebours">
-		{#each ['Avion', 'Carte d’embarquement', 'Jours'] as label, i}
-			<button type="button" role="tab" aria-selected={slide === i} aria-label={label} class:active={slide === i} onclick={() => goToSlide(i)}></button>
-		{/each}
 	</div>
 
 	<!-- Carte Paris -->
@@ -356,6 +274,59 @@
 	</div>
 
 
+	<!-- Sous les horloges : les deux autres vues du compte à rebours (Lys arrive à Paris le 2 novembre) -->
+	{#if arrivalVisible}
+		<div class="cd-extras">
+			<!-- Compte à rebours 2/3 : carte d'embarquement PNH → CDG -->
+			<div class="cd-card">
+				<div class="bp">
+					<div class="bp-main">
+						<div class="bp-tag">Carte d'embarquement</div>
+						<div class="bp-route">
+							<div><div class="bp-code">PNH</div><div class="bp-city">Phnom Penh</div></div>
+							<div class="bp-line"><Plane size={20} strokeWidth={1.75} style="transform: rotate(-90deg)" aria-hidden="true" /></div>
+							<div class="bp-right"><div class="bp-code">CDG</div><div class="bp-city">Paris</div></div>
+						</div>
+						<div class="bp-meta">
+							<div><span class="bp-label">Passagère</span>LYS</div>
+							<div><span class="bp-label">Date</span>{fmtShortDate(ARRIVAL_PARIS)}</div>
+							<div><span class="bp-label">Distance</span>{DISTANCE_KM.toLocaleString('fr-FR')} km</div>
+						</div>
+						<div class="bp-bar" aria-hidden="true"></div>
+						<div class="bp-kh" lang="km">ប័ណ្ណឡើងយន្តហោះ · Lys នឹងមកដល់ប៉ារីស</div>
+					</div>
+					<div class="bp-stub">
+						{#if countdown.arrived}
+							<b class="bp-done">✓</b>
+							<span>Arrivée</span>
+							<span lang="km">មកដល់ហើយ</span>
+						{:else}
+							<span>Embarquement dans</span>
+							<b>{countdown.days}</b>
+							<span>{countdown.days > 1 ? 'jours' : 'jour'}</span>
+							<span class="bp-hms">{pad2(countdown.hours)} : {pad2(countdown.minutes)} : {pad2(countdown.seconds)}</span>
+							<span lang="km">នៅសល់ថ្ងៃទៀត</span>
+						{/if}
+					</div>
+				</div>
+			</div>
+
+			<!-- Compte à rebours 3/3 : un point par jour, le dernier est Paris -->
+			<div class="cd-card cd-dots-card">
+				<div class="dots-top">
+					<b>{countdown.arrived ? 'Arrivée !' : `${countdown.days} ${countdown.days > 1 ? 'jours' : 'jour'}`}</b>
+					<span>Lys arrive à Paris · {fmtShortDate(ARRIVAL_PARIS)}</span>
+				</div>
+				<div class="dots" aria-hidden="true">
+					{#each Array(journey.totalDays) as _, i}
+						<i class="dot" class:on={i < journey.doneDays} class:now={i === journey.doneDays && !countdown.arrived} class:end={i === journey.totalDays - 1}>{i === journey.totalDays - 1 ? '♥' : ''}</i>
+					{/each}
+				</div>
+				<div class="cd-kh dots-kh" lang="km">Lys នឹងមកដល់ប៉ារីស · នៅសល់ {countdown.days} ថ្ងៃទៀត</div>
+			</div>
+		</div>
+	{/if}
+
 </div>
 
 <style>
@@ -457,45 +428,14 @@
 		padding: 1px var(--space-2);
 	}
 
-	/* ── Carrousel du compte à rebours (3 vues de même hauteur) ── */
-	.cd-carousel {
+	/* ── Compte à rebours : vues 2 et 3 empilées sous les horloges ── */
+	.cd-extras {
 		display: flex;
+		flex-direction: column;
 		gap: var(--space-3);
-		overflow-x: auto;
-		scroll-snap-type: x mandatory;
-		scrollbar-width: none;
-		-webkit-overflow-scrolling: touch;
-		flex-shrink: 0;
-		align-items: stretch;
-	}
-	.cd-carousel::-webkit-scrollbar { display: none; }
-
-	.cd-slide {
-		flex: 0 0 100%;
-		scroll-snap-align: start;
-		scroll-snap-stop: always;
-		min-width: 0;
-	}
-
-	.cd-dots-nav {
-		display: flex;
-		justify-content: center;
-		gap: var(--space-2);
-		padding: var(--space-1) 0 var(--space-1);
+		margin-top: var(--space-3);
 		flex-shrink: 0;
 	}
-	/* zone tactile élargie autour d'un point de 8px (≥ 24px) */
-	.cd-dots-nav button {
-		position: relative;
-		width: 8px;
-		height: 8px;
-		padding: 0;
-		border: none;
-		border-radius: 50%;
-		background: color-mix(in srgb, var(--accent) 45%, transparent);
-	}
-	.cd-dots-nav button::before { content: ''; position: absolute; inset: -9px; }
-	.cd-dots-nav button.active { background: var(--accent-text); }
 
 	.flight-done {
 		fill: none;
@@ -536,6 +476,7 @@
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
 		overflow: hidden;
+		flex-shrink: 0;
 	}
 
 	/* carte d'embarquement */
