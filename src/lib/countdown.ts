@@ -41,3 +41,27 @@ export function getCountdown(now: Date, target: Date = ARRIVAL_PARIS): Countdown
 export function showArrivalCard(c: Countdown): boolean {
 	return !c.arrived || c.sinceDays < ARRIVAL_CELEBRATION_DAYS;
 }
+
+// ── Trajet Phnom Penh → Paris (avion qui avance, points du calendrier) ──
+// Départ du « trajet » = la dernière fois qu'ils se sont vus (08/09/2026, heure de Phnom Penh).
+export const JOURNEY_START = new Date('2026-09-08T00:00:00+07:00');
+
+export interface Journey {
+	/** 0 (départ) → 1 (arrivée) */
+	progress: number;
+	/** nombre de jours entre le départ et l'arrivée (= nombre de points) */
+	totalDays: number;
+	/** jours déjà écoulés depuis le départ (0..totalDays) */
+	doneDays: number;
+}
+
+export function getJourney(now: Date, start: Date = JOURNEY_START, end: Date = ARRIVAL_PARIS): Journey {
+	const total = end.getTime() - start.getTime();
+	const elapsed = now.getTime() - start.getTime();
+	const totalDays = Math.max(1, Math.round(total / DAY));
+	return {
+		progress: Math.min(1, Math.max(0, elapsed / total)),
+		totalDays,
+		doneDays: Math.min(totalDays, Math.max(0, Math.floor(elapsed / DAY))),
+	};
+}

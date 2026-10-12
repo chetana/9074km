@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ARRIVAL_PARIS, getCountdown, showArrivalCard, ARRIVAL_CELEBRATION_DAYS } from './countdown'
+import { ARRIVAL_PARIS, getCountdown, showArrivalCard, ARRIVAL_CELEBRATION_DAYS, getJourney, JOURNEY_START } from './countdown'
 
 describe('getCountdown (arrivée de Lys à Paris, 2 novembre 2026)', () => {
 	it("l'arrivée est le 2 novembre 2026 à 00:00 heure de Paris (UTC+1)", () => {
@@ -43,5 +43,27 @@ describe('showArrivalCard', () => {
 		expect(at(0)).toBe(true)
 		expect(at((ARRIVAL_CELEBRATION_DAYS - 1) * 86_400_000 + 3_600_000)).toBe(true)
 		expect(at(ARRIVAL_CELEBRATION_DAYS * 86_400_000)).toBe(false)
+	})
+})
+
+describe('getJourney (avion et points : 08/09 → 02/11)', () => {
+	it('55 jours de trajet', () => {
+		expect(getJourney(JOURNEY_START).totalDays).toBe(55)
+	})
+	it('au départ : progression 0, aucun jour écoulé', () => {
+		expect(getJourney(JOURNEY_START)).toMatchObject({ progress: 0, doneDays: 0 })
+	})
+	it('le 12/10 à midi (Phnom Penh) : 34 jours écoulés, environ 62 %', () => {
+		const j = getJourney(new Date('2026-10-12T12:00:00+07:00'))
+		expect(j.doneDays).toBe(34)
+		expect(j.progress).toBeGreaterThan(0.61)
+		expect(j.progress).toBeLessThan(0.63)
+	})
+	it("à l'arrivée et après : progression 1, tous les jours écoulés (jamais au-delà)", () => {
+		expect(getJourney(ARRIVAL_PARIS)).toMatchObject({ progress: 1, doneDays: 55 })
+		expect(getJourney(new Date('2027-01-01T00:00:00Z'))).toMatchObject({ progress: 1, doneDays: 55 })
+	})
+	it("avant le départ : progression 0, jamais négative", () => {
+		expect(getJourney(new Date('2026-08-01T00:00:00Z'))).toMatchObject({ progress: 0, doneDays: 0 })
 	})
 })
