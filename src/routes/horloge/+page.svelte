@@ -4,6 +4,8 @@
 	import { fr } from 'date-fns/locale';
 	import { getStatus, getDaysTogether, TZ_PARIS, TZ_PP, DISTANCE_KM } from '$lib/i18n';
 	import Flag from '$lib/Flag.svelte';
+	import { Plane } from 'lucide-svelte';
+	import { ARRIVAL_PARIS, getCountdown, showArrivalCard } from '$lib/countdown';
 	import { skyAt, type SkyColors } from '$lib/sky';
 
 	let now = $state(new Date());
@@ -17,6 +19,11 @@
 	const paris = $derived(toZonedTime(now, TZ_PARIS));
 	const pp = $derived(toZonedTime(now, TZ_PP));
 	const daysTogether = $derived(getDaysTogether(now));
+
+	// Compte à rebours de l'arrivée de Lys à Paris (2 novembre 2026) — carte visible jusqu'à 7 jours après.
+	const countdown = $derived(getCountdown(now));
+	const arrivalVisible = $derived(showArrivalCard(countdown));
+	const pad2 = (n: number) => String(n).padStart(2, '0');
 
 	const parisStatus = $derived(getStatus(paris.getHours()));
 	const ppStatus = $derived(getStatus(pp.getHours()));
@@ -74,6 +81,26 @@
 			</div>
 			<span class="map-offset">+{hourDiff}h</span>
 		</div>
+		<!-- Compte à rebours : Lys arrive à Paris le 2 novembre (bande compacte pour ne pas écraser les deux horloges) -->
+		{#if arrivalVisible}
+			<div class="map-arrival" class:arrived={countdown.arrived} role="timer" aria-live="off">
+				<Plane size={18} strokeWidth={1.75} aria-hidden="true" />
+				{#if countdown.arrived}
+					<div class="arrival-text">
+						<span class="arrival-fr"><b>Lys est arrivée à Paris !</b> Enfin ensemble</span>
+						<span class="arrival-kh" lang="km">Lys មកដល់ប៉ារីសហើយ! ទីបំផុតយើងបាននៅជាមួយគ្នាហើយ</span>
+					</div>
+				{:else}
+					<div class="arrival-text">
+						<span class="arrival-fr">
+							<b>Lys arrive à Paris</b>
+							<span class="arrival-time">{countdown.days}<small>{countdown.days > 1 ? 'jours' : 'jour'}</small> {pad2(countdown.hours)}<small>h</small> {pad2(countdown.minutes)}<small>min</small> {pad2(countdown.seconds)}<small>s</small></span>
+						</span>
+						<span class="arrival-kh" lang="km">Lys នឹងមកដល់ប៉ារីស · នៅសល់ {countdown.days} ថ្ងៃទៀត · ២ វិច្ឆិកា</span>
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<!-- Carte Paris -->
@@ -329,6 +356,67 @@
 		padding: 1px var(--space-2);
 	}
 
+	/* ── Compte à rebours : arrivée de Lys à Paris (bande dans la mini-carte) ── */
+	.map-arrival {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-3);
+		border-top: 1px solid var(--border-soft);
+		background: color-mix(in srgb, var(--accent) 8%, transparent);
+		color: var(--accent-text);
+	}
+
+	.map-arrival.arrived {
+		background: color-mix(in srgb, var(--accent) 16%, transparent);
+	}
+
+	.arrival-text {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		min-width: 0;
+		gap: 1px;
+	}
+
+	.arrival-fr {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		column-gap: var(--space-2);
+		font-size: var(--fs-base);
+		color: var(--text-secondary);
+		text-align: left;
+	}
+
+	.arrival-fr b {
+		font-family: var(--font-display);
+		font-weight: 600;
+		color: var(--text);
+	}
+
+	.arrival-time {
+		font-family: var(--font-display);
+		font-weight: 600;
+		color: var(--accent-text);
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+
+	.arrival-time small {
+		font-size: var(--fs-sm);
+		font-weight: 500;
+		color: var(--muted);
+		margin: 0 var(--space-1) 0 2px;
+	}
+
+	.arrival-kh {
+		font-size: var(--fs-base);
+		color: var(--muted);
+		line-height: var(--lh-kh);
+		text-align: left;
+	}
+
 	/* ── Cartes ── */
 	.clock-card {
 		position: relative;
@@ -340,12 +428,16 @@
 			linear-gradient(160deg, var(--sky-top), var(--sky-mid) 55%, var(--sky-bot));
 		border: 1px solid var(--border-soft);
 		border-radius: var(--radius-pebble);
-		padding: var(--space-6) var(--space-6) calc(var(--space-6) + 3.5rem);
+		/* marge basse réduite (3.5rem → 1rem) : la bande de compte à rebours a pris ~4 rem en haut de page et les deux
+		   horloges doivent tenir ensemble sur un iPhone ; les silhouettes (opacité .14) peuvent passer sous le statut */
+		padding: var(--space-6) var(--space-6) calc(var(--space-6) + 1rem);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
 		overflow: hidden;
-		flex: 1;
+		/* 1 0 auto : les cartes grandissent pour remplir l'écran mais ne sont jamais écrasées (avant : `flex: 1`, qui
+		   rognait l'heure et la date quand la page gagnait une ligne) — la page défile si l'écran est trop court. */
+		flex: 1 0 auto;
 		transition: background 4s ease-in-out;
 	}
 
