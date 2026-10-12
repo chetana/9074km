@@ -1,0 +1,76 @@
+<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Horloge · compte à rebours — 3 propositions</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600&family=Noto+Sans+Khmer:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#FFF8F0;--surface:#fff;--raised:#FFEDE0;--accent:#FF9EB3;--accent-deep:#C43A5A;--text:#4A3438;--ts:#7A6064;--muted:#856870;--border:rgba(255,143,166,.30);--bs:rgba(255,143,166,.18);--r:1.625rem;--fd:'Fredoka',ui-rounded,sans-serif}
+*{box-sizing:border-box;margin:0}body{font-family:Inter,system-ui,sans-serif;background:#f3e9e2;color:var(--text);padding:24px;display:flex;gap:28px;flex-wrap:wrap;justify-content:center}
+.frame{width:390px}.frame h2{font:600 15px var(--fd);margin:0 0 8px;color:var(--accent-deep)}.frame p.note{font-size:12px;color:var(--ts);margin:8px 2px 0;line-height:1.45}
+.phone{background:var(--bg);border-radius:28px;padding:14px;border:1px solid var(--border)}
+.km{font-family:'Noto Sans Khmer',sans-serif;line-height:1.6}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.hero{display:flex;justify-content:center;gap:8px;align-items:baseline;font:700 20px var(--fd);color:var(--accent-deep)}.hero span{font:600 15px var(--fd);color:var(--ts)}
+.pill{font:700 11px var(--fd);color:var(--accent-deep);background:rgba(255,158,179,.12);border:1px solid var(--border);border-radius:10px;padding:1px 8px}
+/* A : vol en cours sur l'arc existant */
+.A svg{display:block;width:100%}.A .arc-done{stroke:var(--accent-deep);stroke-width:2.5;fill:none;stroke-linecap:round}.A .arc{stroke:var(--accent);stroke-width:1.5;stroke-dasharray:6 4;fill:none;opacity:.6}
+.A .lbl{font:600 13px var(--fd);fill:var(--text)}.A .big{font:700 19px var(--fd);fill:var(--accent-deep)}
+.A .foot{padding:6px 14px 12px;text-align:center}.A .cd{font:700 30px/1 var(--fd);color:var(--accent-deep)}.A .cd small{font:500 12px var(--fd);color:var(--muted);margin:0 6px 0 2px}
+.A .t1{font:600 13px var(--fd);color:var(--text)}.A .t2{font-size:12.5px;color:var(--muted)}
+/* B : carte d'embarquement */
+.B .bp{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;position:relative}
+.B .main{flex:1;padding:14px 14px 12px;border-right:2px dashed var(--border);position:relative}
+.B .main::before,.B .main::after{content:"";position:absolute;right:-9px;width:16px;height:16px;border-radius:50%;background:var(--bg);border:1px solid var(--border)}.B .main::before{top:-9px}.B .main::after{bottom:-9px}
+.B .tag{font:600 10px var(--fd);letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.B .route{display:flex;align-items:center;gap:8px;margin:6px 0 2px}.B .code{font:700 30px/1 var(--fd);color:var(--text)}.B .city{font-size:10.5px;color:var(--muted)}
+.B .line{flex:1;border-top:2px dotted var(--accent);position:relative;height:0}.B .line svg{position:absolute;left:50%;top:-11px;transform:translateX(-50%) rotate(0deg);background:var(--surface);color:var(--accent-deep)}
+.B .meta{display:flex;gap:14px;margin-top:10px}.B .meta div{font:600 13px var(--fd)}.B .meta label{display:block;font:500 9.5px Inter;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.B .stub{width:112px;background:linear-gradient(180deg,rgba(255,158,179,.14),rgba(255,158,179,.06));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:10px 6px;text-align:center}
+.B .stub b{font:700 40px/1 var(--fd);color:var(--accent-deep)}.B .stub span{font:600 11px var(--fd);color:var(--ts)}.B .stub .hms{font:600 12px var(--fd);color:var(--accent-deep);margin-top:4px}
+.B .bar{height:22px;margin-top:10px;background:repeating-linear-gradient(90deg,var(--text) 0 2px,transparent 2px 4px,var(--text) 4px 5px,transparent 5px 9px,var(--text) 9px 12px,transparent 12px 14px);opacity:.55;border-radius:2px}
+/* C : jours à remplir */
+.C .grid{display:grid;grid-template-columns:repeat(11,1fr);gap:7px;padding:4px 14px 10px}.C .d{aspect-ratio:1;border-radius:50%;background:var(--raised);border:1px solid var(--bs)}
+.C .d.on{background:var(--accent);border-color:var(--accent)}.C .d.now{background:var(--surface);border:2px solid var(--accent-deep);box-shadow:0 0 0 3px rgba(255,158,179,.28)}
+.C .d.end{background:var(--accent-deep);border-color:var(--accent-deep);display:grid;place-items:center;color:#fff;font-size:10px}
+.C .top{padding:12px 14px 4px;display:flex;justify-content:space-between;align-items:baseline}.C .top b{font:700 28px var(--fd);color:var(--accent-deep)}.C .top span{font:600 13px var(--fd);color:var(--ts)}
+</style>
+<body>
+
+<div class="frame A"><h2>A · « Vol en cours » — l'avion avance sur l'arc existant</h2>
+<div class="phone"><div class="card">
+ <svg viewBox="0 0 800 230" aria-hidden="true">
+  <path class="arc" d="M 120,170 C 280,30 520,30 680,170"/>
+  <!-- progression : 62 % du trajet Phnom Penh → Paris (départ = dernière visite) -->
+  <path class="arc-done" d="M 680,170 C 640,136 598,108 556,88 C 520,72 488,66 455,63" id="done" stroke-dasharray="none"/>
+  <circle cx="680" cy="170" r="7" fill="#E00025" stroke="#5A2536" stroke-width="1.5"/><text class="lbl" x="680" y="150" text-anchor="middle">Phnom Penh</text>
+  <circle cx="120" cy="170" r="7" fill="#ED2939" stroke="#5A2536" stroke-width="1.5"/><text class="lbl" x="120" y="150" text-anchor="middle">Paris</text>
+  <text x="120" y="204" text-anchor="middle" font-size="22" fill="#C43A5A">♡</text>
+  <!-- avion posé sur l'arc, orienté dans le sens du vol (vers la gauche, légèrement montant) -->
+  <g transform="translate(455 63) rotate(-188)"><circle r="17" fill="#fff" stroke="#FF9EB3"/><path d="M-7,0 L7,-5 L7,5 Z" fill="#C43A5A" transform="rotate(0)"/><path d="M-1,0 L-8,-9 M-1,0 L-8,9" stroke="#C43A5A" stroke-width="2" stroke-linecap="round"/></g>
+ </svg>
+ <div class="foot">
+  <div class="hero"><b>9 074 km</b><span>· Jour 272</span><i class="pill">+5h</i></div>
+  <div style="height:8px"></div>
+  <div class="cd">20<small>jours</small>13<small>h</small>00<small>min</small>00<small>s</small></div>
+  <div class="t1" style="margin-top:6px">Lys arrive à Paris · lundi 2 novembre</div>
+  <div class="t2 km">Lys នឹងមកដល់ប៉ារីស · នៅសល់ 20 ថ្ងៃទៀត</div>
+ </div></div></div>
+<p class="note"><b>Aucune hauteur en plus</b> : le compteur remplace la ligne « +5h » sous la carte, et l'avion glisse sur la ligne pointillée déjà là. Le trait plein = la part du trajet déjà « volée » depuis la dernière visite. À l'arrivée : l'avion se pose sur Paris, le cœur s'allume.</p></div>
+
+<div class="frame B"><h2>B · « Carte d'embarquement » — PNH ✈ CDG</h2>
+<div class="phone"><div class="bp">
+ <div class="main"><div class="tag">Carte d'embarquement · ប័ណ្ណឡើងយន្តហោះ</div>
+  <div class="route"><div><div class="code">PNH</div><div class="city">Phnom Penh</div></div><div class="line"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:translateX(-50%) rotate(-90deg)"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></div><div style="text-align:right"><div class="code">CDG</div><div class="city">Paris</div></div></div>
+  <div class="meta"><div><label>Passagère</label>LYS</div><div><label>Date</label>02 NOV</div><div><label>Distance</label>9 074 km</div></div>
+  <div class="bar"></div><div class="km" style="font-size:12px;color:var(--muted);margin-top:6px">Lys នឹងមកដល់ប៉ារីស</div></div>
+ <div class="stub"><span>Embarquement dans</span><b>20</b><span>jours</span><div class="hms">13 : 00 : 00</div><span class="km" style="font-size:12px">នៅសល់ថ្ងៃទៀត</span></div>
+</div></div>
+<p class="note">Le plus « mignon », mais le plus haut (~130 px) : à réserver à un écran dédié ou à remplacer la mini-carte pendant le compte à rebours. Les codes PNH/CDG sont des vrais codes d'aéroport.</p></div>
+
+<div class="frame C"><h2>C · « Jours à remplir » — un point par jour, le dernier est Paris</h2>
+<div class="phone"><div class="card">
+ <div class="top"><b>20 jours</b><span>Lys arrive à Paris · 2 nov.</span></div>
+ <div class="grid" id="g"></div>
+ <div style="padding:0 14px 12px;text-align:center"><div class="km" style="font-size:12.5px;color:var(--muted)">Lys នឹងមកដល់ប៉ារីស · នៅសល់ 20 ថ្ងៃទៀត</div></div>
+</div></div>
+<p class="note">Très lisible d'un coup d'œil (55 points du 8/9 au 2/11) ; chaque minuit un point se remplit. Hauteur ≈ 130 px. Peut se glisser sous le « Jour 272 ».</p></div>
+<script>const g=document.getElementById('g');for(let i=0;i<55;i++){const d=document.createElement('i');d.className='d'+(i<34?' on':i===34?' now':'');if(i===54){d.className='d end';d.textContent='♥'}g.appendChild(d)}</script>
+</body></html>

@@ -4,19 +4,64 @@
 	import { fr } from 'date-fns/locale';
 	import { getStatus, getDaysTogether, TZ_PARIS, TZ_PP, DISTANCE_KM } from '$lib/i18n';
 	import Flag from '$lib/Flag.svelte';
+	import { Plane } from 'lucide-svelte';
+	import { ARRIVAL_PARIS, getCountdown, showArrivalCard, getJourney } from '$lib/countdown';
 	import { skyAt, type SkyColors } from '$lib/sky';
 
 	let now = $state(new Date());
 	let interval: ReturnType<typeof setInterval>;
 
+	const SLIDE_KEY = 'horloge-slide';
+	let carousel: HTMLDivElement | undefined = $state();
+	let slide = $state(0);
+
 	onMount(() => {
 		interval = setInterval(() => (now = new Date()), 1000);
+		// retrouve la vue choisie la dernière fois (avion / carte d'embarquement / points)
+		try {
+			const saved = Number(localStorage.getItem(SLIDE_KEY));
+			if (saved > 0 && saved < 3 && carousel) {
+				carousel.scrollTo({ left: saved * carousel.clientWidth, behavior: 'instant' });
+				slide = saved;
+			}
+		} catch { /* localStorage indisponible : on reste sur la première vue */ }
 	});
+
+	function onCarouselScroll() {
+		if (!carousel) return;
+		const i = Math.round(carousel.scrollLeft / carousel.clientWidth);
+		if (i !== slide) {
+			slide = i;
+			try { localStorage.setItem(SLIDE_KEY, String(i)); } catch { /* ignoré */ }
+		}
+	}
+
+	function goToSlide(i: number) {
+		carousel?.scrollTo({ left: i * carousel.clientWidth, behavior: 'smooth' });
+	}
 	onDestroy(() => clearInterval(interval));
 
 	const paris = $derived(toZonedTime(now, TZ_PARIS));
 	const pp = $derived(toZonedTime(now, TZ_PP));
 	const daysTogether = $derived(getDaysTogether(now));
+
+	// Compte à rebours de l'arrivée de Lys à Paris (2 novembre 2026) — carte visible jusqu'à 7 jours après.
+	const countdown = $derived(getCountdown(now));
+	const arrivalVisible = $derived(showArrivalCard(countdown));
+	const pad2 = (n: number) => String(n).padStart(2, '0');
+
+	// Trajet Phnom Penh → Paris : l'avion avance sur l'arc de la mini-carte (position lue sur le tracé SVG
+	// lui-même, donc exactement sur la ligne), les points du calendrier se remplissent jour après jour.
+	const journey = $derived(getJourney(now));
+	let arcEl: SVGPathElement | undefined = $state();
+	const plane = $derived.by(() => {
+		if (!arcEl) return { x: 680, y: 160, a: 180 };
+		const len = arcEl.getTotalLength();
+		const d = journey.progress * len;
+		const p0 = arcEl.getPointAtLength(Math.max(0, d - 1));
+		const p1 = arcEl.getPointAtLength(Math.min(len, d + 1));
+		return { x: p1.x, y: p1.y, a: (Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180) / Math.PI };
+	});
 
 	const parisStatus = $derived(getStatus(paris.getHours()));
 	const ppStatus = $derived(getStatus(pp.getHours()));
@@ -40,6 +85,11 @@
 		return format(toZonedTime(d, tz), "EEEE d MMMM", { locale: fr, timeZone: tz });
 	}
 
+	// « 2 nov. » (date courte d'arrivée, fuseau de Paris)
+	function fmtShortDate(d: Date) {
+		return format(toZonedTime(d, TZ_PARIS), 'd MMM', { locale: fr });
+	}
+
 	function fmtDateKh(d: Date, tz: string) {
 		const zoned = toZonedTime(d, tz);
 		const KH_DAYS = ['អាទិត្យ', 'ច័ន្ទ', 'អង្គារ', 'ពុធ', 'ព្រហស្បតិ៍', 'សុក្រ', 'សៅរ៍'];
@@ -54,26 +104,102 @@
 
 <div class="page">
 
-	<!-- Mini-carte + compteur fusionnés -->
-	<div class="map-card">
-		<svg class="world-map" viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-			<!-- ── Ligne de vol pointillée ── -->
-			<path class="flight-line" d="M 120,160 C 280,20 520,20 680,160"/>
+	<!-- Carrousel du compte à rebours (Lys arrive à Paris le 2 novembre) : 3 vues de même hauteur, à glisser.
+	     1 = avion sur l'arc (la mini-carte d'origine), 2 = carte d'embarquement, 3 = un point par jour. -->
+	<div class="cd-carousel" bind:this={carousel} onscroll={onCarouselScroll}>
 
-			<!-- ── Épingles ── -->
-			<circle class="pin pin-paris" cx="120" cy="160" r="6"/>
-			<text class="pin-label" x="120" y="145" text-anchor="middle">Paris</text>
-			<circle class="pin pin-pp" cx="680" cy="160" r="6"/>
-			<text class="pin-label" x="680" y="145" text-anchor="middle">Phnom Penh</text>
-		</svg>
-		<div class="map-footer">
-			<div class="map-hero">
-				<span class="map-dist">{DISTANCE_KM.toLocaleString('fr-FR')} km</span>
-				<span class="map-sep">·</span>
-				<span class="map-together">Jour {daysTogether}</span>
+		<!-- Vue 1 : « vol en cours » -->
+		<div class="cd-slide map-card">
+			<svg class="world-map" viewBox="0 30 800 150" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+				<path class="flight-line" d="M 680,160 C 520,20 280,20 120,160" pathLength="1" bind:this={arcEl}/>
+				{#if arrivalVisible}
+					<path class="flight-done" d="M 680,160 C 520,20 280,20 120,160" pathLength="1" stroke-dasharray="{journey.progress} 1"/>
+				{/if}
+				<circle class="pin pin-paris" cx="120" cy="160" r="6"/>
+				<text class="pin-label" x="120" y="145" text-anchor="middle">Paris</text>
+				<circle class="pin pin-pp" cx="680" cy="160" r="6"/>
+				<text class="pin-label" x="680" y="145" text-anchor="middle">Phnom Penh</text>
+				{#if arrivalVisible}
+					<g transform="translate({plane.x} {plane.y}) rotate({plane.a})">
+						<circle r="15" class="plane-bg"/>
+						<path d="M9,0 L-6,-7 L-3,0 L-6,7 Z" class="plane-shape"/>
+					</g>
+				{/if}
+			</svg>
+			<div class="map-footer">
+				<div class="map-hero">
+					<span class="map-dist">{DISTANCE_KM.toLocaleString('fr-FR')} km</span>
+					<span class="map-sep">·</span>
+					<span class="map-together">Jour {daysTogether}</span>
+					<span class="map-offset">+{hourDiff}h</span>
+				</div>
+				{#if arrivalVisible}
+					<div class="cd-line" role="timer" aria-live="off">
+						{#if countdown.arrived}
+							<b>Lys est arrivée à Paris !</b>
+							<span class="cd-kh" lang="km">Lys មកដល់ប៉ារីសហើយ! ទីបំផុតយើងបាននៅជាមួយគ្នាហើយ</span>
+						{:else}
+							<span class="cd-time">{countdown.days}<small>{countdown.days > 1 ? 'jours' : 'jour'}</small> {pad2(countdown.hours)}<small>h</small> {pad2(countdown.minutes)}<small>min</small> {pad2(countdown.seconds)}<small>s</small></span>
+							<b>Lys arrive à Paris</b>
+							<span class="cd-kh" lang="km">Lys នឹងមកដល់ប៉ារីស · នៅសល់ {countdown.days} ថ្ងៃទៀត</span>
+						{/if}
+					</div>
+				{/if}
 			</div>
-			<span class="map-offset">+{hourDiff}h</span>
 		</div>
+
+		<!-- Vue 2 : carte d'embarquement PNH → CDG -->
+		<div class="cd-slide cd-card">
+			<div class="bp">
+				<div class="bp-main">
+					<div class="bp-tag">Carte d'embarquement</div>
+					<div class="bp-route">
+						<div><div class="bp-code">PNH</div><div class="bp-city">Phnom Penh</div></div>
+						<div class="bp-line"><Plane size={20} strokeWidth={1.75} style="transform: rotate(-90deg)" aria-hidden="true" /></div>
+						<div class="bp-right"><div class="bp-code">CDG</div><div class="bp-city">Paris</div></div>
+					</div>
+					<div class="bp-meta">
+						<div><span class="bp-label">Passagère</span>LYS</div>
+						<div><span class="bp-label">Date</span>{fmtShortDate(ARRIVAL_PARIS)}</div>
+						<div><span class="bp-label">Distance</span>{DISTANCE_KM.toLocaleString('fr-FR')} km</div>
+					</div>
+					<div class="bp-bar" aria-hidden="true"></div>
+					<div class="bp-kh" lang="km">ប័ណ្ណឡើងយន្តហោះ · Lys នឹងមកដល់ប៉ារីស</div>
+				</div>
+				<div class="bp-stub">
+					{#if countdown.arrived}
+						<b class="bp-done">✓</b>
+						<span>Arrivée</span>
+						<span lang="km">មកដល់ហើយ</span>
+					{:else}
+						<span>Embarquement dans</span>
+						<b>{countdown.days}</b>
+						<span>{countdown.days > 1 ? 'jours' : 'jour'}</span>
+						<span class="bp-hms">{pad2(countdown.hours)} : {pad2(countdown.minutes)} : {pad2(countdown.seconds)}</span>
+						<span lang="km">នៅសល់ថ្ងៃទៀត</span>
+					{/if}
+				</div>
+			</div>
+		</div>
+
+		<!-- Vue 3 : un point par jour, le dernier est Paris -->
+		<div class="cd-slide cd-card cd-dots-card">
+			<div class="dots-top">
+				<b>{countdown.arrived ? 'Arrivée !' : `${countdown.days} ${countdown.days > 1 ? 'jours' : 'jour'}`}</b>
+				<span>Lys arrive à Paris · {fmtShortDate(ARRIVAL_PARIS)}</span>
+			</div>
+			<div class="dots" aria-hidden="true">
+				{#each Array(journey.totalDays) as _, i}
+					<i class="dot" class:on={i < journey.doneDays} class:now={i === journey.doneDays && !countdown.arrived} class:end={i === journey.totalDays - 1}>{i === journey.totalDays - 1 ? '♥' : ''}</i>
+				{/each}
+			</div>
+			<div class="cd-kh dots-kh" lang="km">Lys នឹងមកដល់ប៉ារីស · នៅសល់ {countdown.days} ថ្ងៃទៀត</div>
+		</div>
+	</div>
+	<div class="cd-dots-nav" role="tablist" aria-label="Affichage du compte à rebours">
+		{#each ['Avion', 'Carte d’embarquement', 'Jours'] as label, i}
+			<button type="button" role="tab" aria-selected={slide === i} aria-label={label} class:active={slide === i} onclick={() => goToSlide(i)}></button>
+		{/each}
 	</div>
 
 	<!-- Carte Paris -->
@@ -295,6 +421,8 @@
 	}
 
 	.map-hero {
+		flex-wrap: wrap;
+		justify-content: center;
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-2);
@@ -329,6 +457,120 @@
 		padding: 1px var(--space-2);
 	}
 
+	/* ── Carrousel du compte à rebours (3 vues de même hauteur) ── */
+	.cd-carousel {
+		display: flex;
+		gap: var(--space-3);
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		scrollbar-width: none;
+		-webkit-overflow-scrolling: touch;
+		flex-shrink: 0;
+		align-items: stretch;
+	}
+	.cd-carousel::-webkit-scrollbar { display: none; }
+
+	.cd-slide {
+		flex: 0 0 100%;
+		scroll-snap-align: start;
+		scroll-snap-stop: always;
+		min-width: 0;
+	}
+
+	.cd-dots-nav {
+		display: flex;
+		justify-content: center;
+		gap: var(--space-2);
+		padding: var(--space-1) 0 var(--space-1);
+		flex-shrink: 0;
+	}
+	/* zone tactile élargie autour d'un point de 8px (≥ 24px) */
+	.cd-dots-nav button {
+		position: relative;
+		width: 8px;
+		height: 8px;
+		padding: 0;
+		border: none;
+		border-radius: 50%;
+		background: color-mix(in srgb, var(--accent) 45%, transparent);
+	}
+	.cd-dots-nav button::before { content: ''; position: absolute; inset: -9px; }
+	.cd-dots-nav button.active { background: var(--accent-text); }
+
+	.flight-done {
+		fill: none;
+		stroke: var(--accent-text);
+		stroke-width: 2.5;
+		stroke-linecap: round;
+	}
+	.plane-bg { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
+	.plane-shape { fill: var(--accent-text); }
+
+	.cd-line {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1px;
+		margin-top: var(--space-1);
+		text-align: center;
+		font-size: var(--fs-base);
+		color: var(--text-secondary);
+	}
+	.cd-line b { font-family: var(--font-display); font-weight: 600; color: var(--text); font-size: var(--fs-md); }
+	.cd-time {
+		font-family: var(--font-display);
+		font-size: var(--fs-2xl);
+		font-weight: 700;
+		color: var(--accent-text);
+		font-variant-numeric: tabular-nums;
+	}
+	.cd-time small { font-size: var(--fs-sm); font-weight: 500; color: var(--muted); margin: 0 var(--space-1) 0 2px; }
+	.cd-kh { font-size: var(--fs-base); color: var(--muted); line-height: var(--lh-kh); }
+
+	/* vues 2 et 3 : même enveloppe que la mini-carte */
+	.cd-card {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+	}
+
+	/* carte d'embarquement */
+	.bp { display: flex; align-items: stretch; flex: 1; }
+	.bp-main { flex: 1; min-width: 0; padding: var(--space-3) var(--space-3) var(--space-2); border-right: 2px dashed var(--border); }
+	.bp-tag { font-family: var(--font-display); font-size: var(--fs-xs); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+	.bp-route { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-2) 0 var(--space-1); }
+	.bp-right { text-align: right; }
+	.bp-code { font-family: var(--font-display); font-size: 1.9rem; font-weight: 700; line-height: 1; color: var(--text); }
+	.bp-city { font-size: var(--fs-xs); color: var(--muted); }
+	.bp-line { flex: 1; display: flex; justify-content: center; align-items: center; color: var(--accent-text); border-top: 2px dotted var(--accent); height: 0; }
+	.bp-line :global(svg) { background: var(--surface); padding: 0 var(--space-1); box-sizing: content-box; }
+	.bp-meta div { white-space: nowrap; }
+	.bp-meta { display: flex; gap: var(--space-3); margin-top: var(--space-2); font-family: var(--font-display); font-size: var(--fs-md); font-weight: 600; color: var(--text); }
+	.bp-label { display: block; font-family: inherit; font-size: var(--fs-xs); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+	.bp-bar { height: 16px; margin-top: var(--space-2); opacity: .5; border-radius: 2px; background: repeating-linear-gradient(90deg, var(--text) 0 2px, transparent 2px 4px, var(--text) 4px 5px, transparent 5px 9px, var(--text) 9px 12px, transparent 12px 14px); }
+	.bp-kh { margin-top: var(--space-1); font-size: var(--fs-base); color: var(--muted); line-height: var(--lh-kh); }
+	.bp-stub { width: 7.2rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: var(--space-2); text-align: center; background: color-mix(in srgb, var(--accent) 10%, transparent); font-family: var(--font-display); font-size: var(--fs-sm); font-weight: 600; color: var(--text-secondary); }
+	.bp-stub b { font-size: 2.4rem; font-weight: 700; line-height: 1; color: var(--accent-text); }
+	.bp-stub .bp-hms { font-size: var(--fs-md); color: var(--accent-text); font-variant-numeric: tabular-nums; margin-top: 2px; }
+	.bp-stub [lang='km'] { font-family: inherit; font-size: var(--fs-base); font-weight: 400; color: var(--muted); line-height: var(--lh-kh); }
+	.bp-done { font-size: 2.6rem !important; }
+
+	/* un point par jour */
+	.cd-dots-card { padding: var(--space-3) var(--space-4); gap: var(--space-2); }
+	.dots-top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+	.dots-top b { font-family: var(--font-display); font-size: var(--fs-3xl); font-weight: 700; color: var(--accent-text); }
+	.dots-top span { font-family: var(--font-display); font-size: var(--fs-md); font-weight: 600; color: var(--text-secondary); }
+	.dots { display: grid; grid-template-columns: repeat(14, 1fr); gap: 5px; }
+	.dot { aspect-ratio: 1; border-radius: 50%; background: var(--raised); border: 1px solid var(--border-soft); display: grid; place-items: center; font-style: normal; font-size: 0.6rem; color: var(--on-accent); }
+	.dot.on { background: var(--accent); border-color: var(--accent); }
+	.dot.now { background: var(--surface); border: 2px solid var(--accent-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+	.dot.end { background: var(--accent-text); border-color: var(--accent-text); color: #fff; }
+	.dots-kh { text-align: center; }
+
 	/* ── Cartes ── */
 	.clock-card {
 		position: relative;
@@ -340,12 +582,16 @@
 			linear-gradient(160deg, var(--sky-top), var(--sky-mid) 55%, var(--sky-bot));
 		border: 1px solid var(--border-soft);
 		border-radius: var(--radius-pebble);
-		padding: var(--space-6) var(--space-6) calc(var(--space-6) + 3.5rem);
+		/* marge basse réduite (3.5rem → 1rem) : la bande de compte à rebours a pris ~4 rem en haut de page et les deux
+		   horloges doivent tenir ensemble sur un iPhone ; les silhouettes (opacité .14) peuvent passer sous le statut */
+		padding: var(--space-6) var(--space-6) calc(var(--space-6) + 1rem);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
 		overflow: hidden;
-		flex: 1;
+		/* 1 0 auto : les cartes grandissent pour remplir l'écran mais ne sont jamais écrasées (avant : `flex: 1`, qui
+		   rognait l'heure et la date quand la page gagnait une ligne) — la page défile si l'écran est trop court. */
+		flex: 1 0 auto;
 		transition: background 4s ease-in-out;
 	}
 
