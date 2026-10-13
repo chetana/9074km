@@ -224,6 +224,15 @@ export const GLOSSARY: GlossaryEntry[] = [
 	{ line: '- "récupérer (mon) énergie / des forces" → អោយមានកម្លាំងឡើងវិញ', src: /r[ée]cup[ée]rer (mon |mes |de l'|des )?(énergie|energie|forces?)/i, kh: /កម្លាំង/, avoid: { kh: /ត្រឡប់កម្លាំង/ } },
 	{ line: '- "mais ça va" / "ça va" (pour rassurer) → តែមិនអីទេ / មិនអីទេ', src: /\bmais [çc]a va\b/i, kh: /មិនអីទេ|មិនអី/ },
 	{ line: '- "soucis/problèmes au visage" (peau, cernes) → បញ្ហានៅលើមុខ / បញ្ហាស្បែកមុខ', src: /(soucis?|probl[èe]mes?) (au|du|sur le) visage/i, kh: /លើមុខ|ស្បែកមុខ/ },
+	// Bug réel des 12 et 13/10/2026 (2 messages de Lys, chat de prod) : "អូនលក់ដាច់ណាស់" (j'ai très bien
+	// vendu, elle tient une boutique) rendu "j'ai dormi très profondément", et "ការលក់" (les ventes)
+	// rendu "veillé sur mon sommeil" — le moteur confond លក់ (vendre) avec ដេកលក់ (s'endormir).
+	// Le lookbehind écarte ដេកលក់/គេងលក់ (vrai sommeil) ; `avoid` ne figure jamais dans le prompt.
+	{
+		line: '- លក់ / ការលក់ / លក់ដាច់ (Lys tient une boutique : clients, articles, caisse) → "vendre" / "les ventes" / "bien vendre, beaucoup vendre" — លក់ seul (sans ដេក/គេង devant) parle de vente, jamais de sommeil',
+		src: /(?<!ដេក)(?<!គេង)លក់/, fr: /vend|vente|écoul|ecoul/i, en: /\bsel(?:l|ls|ling)\b|\bsold\b|\bsales?\b/i,
+		avoid: { fr: /dorm|sommeil|endorm|sieste/i, en: /\bslee?p|\bslept|\basleep|\bnap/i }, direction: 'fromKh',
+	},
 	{
 		line: `- អូនតូច (un bébé / un petit enfant dont on parle) → "le petit" / "the little one" (c'est un NOM, pas le pronom អូន)`,
 		// seulement si la source ne dit pas "យើង" (nous/notre) : sinon "notre petit" est légitime

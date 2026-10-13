@@ -62,6 +62,13 @@ export const REGRESSION_CASES = [
 		check: (kh, text) => glossaryEchoed(text, { kh, fr: '', en: '' }, true) && numbersPreserved(text, kh),
 	},
 	{
+		// Bug réel des 12-13/10/2026 : លក់ (vendre) rendu "dormi profondément" / "veillé sur mon sommeil".
+		name: 'លក់ដាច់ = bien vendre, jamais dormir (bug réel 12-13/10)', author: 'Lys',
+		text: 'បងបានមើលការលក់អូនទេ ថ្ងៃនេះអូនលក់ដាច់ណាស់ 🙈',
+		check: () => true,
+		checkFrEn: (fr, en) => /vend|vente/i.test(fr) && !/dorm|sommeil/i.test(fr) && !/\bslee?p|\bslept/i.test(en),
+	},
+	{
 		// Bug réel du 24/09/2026 : "ប្ដីសម្លាញ់" (mari affectueux) rendu en français perd "mari" sur
 		// 2-3/6 essais (reste juste "chéri"), ou tournure bancale "mon chéri de mari" sur 2/6.
 		name: 'ប្ដីសម្លាញ់ → "mari" ne doit pas disparaître du fr/en (bug réel)', author: 'Lys',

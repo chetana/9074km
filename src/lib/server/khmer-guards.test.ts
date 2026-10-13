@@ -190,6 +190,14 @@ describe('glossaryEchoed', () => {
 		// "ma chérie" est une entrée authorIsChet:true — un message de Lys ne la déclenche jamais
 		expect(glossaryEchoed('Bonjour ma chérie', { kh: 'ខុសទាំងស្រុង', fr: '', en: '' }, false)).toBe(true)
 	})
+	it('លក់ (vendre) ≠ dormir : le bug réel des 12-13/10/2026 est refusé, la bonne traduction acceptée', () => {
+		const src = 'បងបានមើលការលក់អូនទេ ថ្ងៃនេះអូនលក់ដាច់ណាស់'
+		expect(glossaryEchoed(src, { kh: '', fr: "Tu as veillé sur moi pendant mon sommeil, chéri ? J'ai tellement bien dormi aujourd'hui", en: 'Did you watch over me while I was sleeping? I slept so deeply today' }, false)).toBe(false)
+		expect(glossaryEchoed(src, { kh: '', fr: "Tu as vu mes ventes, chéri ? J'ai beaucoup vendu aujourd'hui", en: 'Did you see my sales, darling? I sold a lot today' }, false)).toBe(true)
+	})
+	it('ដេកលក់ (s\'endormir) n\'est PAS soumis à la règle vendre', () => {
+		expect(glossaryEchoed('អូនដេកលក់ស្រួលណាស់', { kh: '', fr: "J'ai très bien dormi", en: 'I slept very well' }, false)).toBe(true)
+	})
 	it('ប្ដីសម្លាញ់ (source khmer) exige "mari"/"husband" dans le fr/en', () => {
 		expect(glossaryEchoed('ញាំទឹកឲ្យបានច្រើនផងណាប្ដីសម្លាញ់', { kh: '', fr: 'Bois de l\'eau, mon cher mari', en: 'Drink water, my dear husband' }, false)).toBe(true)
 		expect(glossaryEchoed('ញាំទឹកឲ្យបានច្រើនផងណាប្ដីសម្លាញ់', { kh: '', fr: 'Bois de l\'eau, chéri', en: 'Drink water, darling' }, false)).toBe(false)
