@@ -180,3 +180,66 @@ export const PRONOUN_CASES = [
 		check: () => true, checkFrEn: (fr, en) => noNameLeak(fr, en) && /love you/i.test(en),
 	},
 ]
+
+// ── cas « boutique » khmer→fr/en (Lys tient une boutique ; bug réel 12-13/10/2026 : លក់ rendu « dormir »).
+// Le vocabulaire commerce (vendre, client, commande, livraison, stock, prix, caisse) est celui où les
+// modèles légers dérapent. Chaque check lit le fr/en, pas le khmer (source khmer, sortie fr/en).
+export const SHOP_CASES = [
+	{
+		name: 'boutique — លក់បានច្រើន = beaucoup vendu (jamais dormir)', author: 'Lys',
+		text: 'ថ្ងៃនេះអូនលក់បានច្រើនណាស់',
+		// លក់ (vendre) est le mot piégé du bug réel ; "sell/sold/sale" attendu en anglais
+		check: () => true,
+		checkFrEn: (fr, en) => /vend|vente/i.test(fr) && !/dorm|sommeil/i.test(fr) && /\bsold\b|\bsell|\bsales?\b/i.test(en) && !/\bslee?p|\bslept/i.test(en),
+	},
+	{
+		name: 'boutique — អតិថិជន = clients, nombre conservé', author: 'Lys',
+		text: 'ថ្ងៃនេះមានអតិថិជនបីនាក់មកហាង',
+		// អតិថិជន = client ; "3 clients" ; le magasin est la boutique, pas la maison
+		check: () => true,
+		checkFrEn: (fr, en) => /client/i.test(fr) && /\b(3|trois)\b/i.test(fr) && /customer|client/i.test(en) && /\b(3|three)\b/i.test(en),
+	},
+	{
+		name: 'boutique — កុម្ម៉ង់ = commande de 5 articles', author: 'Lys',
+		text: 'មានភ្ញៀវម្នាក់កុម្ម៉ង់អាវប្រាំដុំ',
+		// កុម្ម៉ង់ = passer commande (pas "commander quelqu'un" ni "commandement") ; 5 articles
+		check: () => true,
+		checkFrEn: (fr, en) => /command/i.test(fr) && /\b(5|cinq)\b/i.test(fr) && /order/i.test(en) && /\b(5|five)\b/i.test(en),
+	},
+	{
+		name: 'boutique — ដឹកជញ្ជូន = livraison demain matin', author: 'Lys',
+		text: 'ទំនិញនឹងដឹកទៅដល់ភ្ញៀវនៅព្រឹកស្អែក',
+		// ដឹក = transporter/livrer ; ព្រឹកស្អែក = demain matin (piège : "ce matin")
+		check: () => true,
+		checkFrEn: (fr, en) => /livr/i.test(fr) && /demain/i.test(fr) && /deliver/i.test(en) && /tomorrow/i.test(en),
+	},
+	{
+		name: 'boutique — ស្តុកនៅសល់តិច / ដាច់ស្តុក = stock presque épuisé, rupture', author: 'Lys',
+		text: 'ស្តុកអាវនៅសល់តិចហើយ ទំហំធំដាច់ស្តុកហើយ',
+		// ដាច់ស្តុក = rupture de stock (ដាច់ = être épuisé ici, pas "coupé" ni "dormir")
+		check: () => true,
+		checkFrEn: (fr, en) => /stock/i.test(fr) && /rupture|épuis|plus de|fini/i.test(fr) && /stock/i.test(en) && /out of stock|sold out|run out|ran out/i.test(en) && !/dorm|sommeil/i.test(fr),
+	},
+	{
+		name: 'boutique — បញ្ចុះតម្លៃ = réduction de 10 %', author: 'Lys',
+		text: 'អូនបញ្ចុះតម្លៃដប់ភាគរយឲ្យភ្ញៀវនេះ',
+		// បញ្ចុះតម្លៃ = baisser le prix / remise ; ដប់ភាគរយ = 10 % (nombre en lettres khmères)
+		check: () => true,
+		checkFrEn: (fr, en) => /réduc|remise|rabais|baiss/i.test(fr) && /\b10\b|dix/i.test(fr) && /discount|off/i.test(en) && /\b10\b|ten/i.test(en),
+	},
+	{
+		name: 'boutique — លុយចូលបាន 50 ដុល្លារ = 50 $ encaissés', author: 'Lys',
+		text: 'ថ្ងៃនេះលុយចូលបានហាសិបដុល្លារ',
+		// លុយចូល = l\'argent rentré en caisse ; ហាសិប = 50 ; ដុល្លារ = dollars (pas "monnaie"/"poupée")
+		check: () => true,
+		checkFrEn: (fr, en) => /argent|caisse|encaiss|gagn|recett|rentr|vente/i.test(fr) && /\b50\b|cinquante/i.test(fr) && /dollar|\$/i.test(fr) && /\b50\b|fifty/i.test(en) && /dollar|\$/i.test(en),
+	},
+	{
+		name: 'boutique — phrase réelle : bien vendu, 3 clients, peu de stock', author: 'Lys',
+		text: 'ថ្ងៃនេះអូនលក់ដាច់ណាស់ មានអតិថិជនបីនាក់មកទិញ ហើយស្តុកនៅសល់តិចទេ',
+		// l\'esprit du bug réel dans un message complet : vendre + clients + stock, aucune dérive "sommeil"
+		check: () => true,
+		checkFrEn: (fr, en) => /vend|vente/i.test(fr) && /client/i.test(fr) && /\b(3|trois)\b/i.test(fr) && /stock/i.test(fr) && !/dorm|sommeil/i.test(fr)
+			&& /customer|client/i.test(en) && /stock/i.test(en) && !/\bslee?p|\bslept/i.test(en),
+	},
+]
