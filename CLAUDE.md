@@ -303,6 +303,22 @@ voir historique git pour le détail) :
   `lys-translation-review` (`chet-workspace/home-claude/skills/`), qui propose des ajouts au
   glossaire à valider avant de les committer, jamais appliqués automatiquement.
 
+## Audit des traductions (`scripts/audit-translations.mjs`, 13/10/2026)
+
+Détecte a posteriori les erreurs sémantiques que les garde-fous de prod ne voient pas (ex : « លក់ដាច់ »
+= vendre, stocké « dormir »). Pour chaque message stocké dans `chat/YYYY/MM/DD.json`, Gemini
+(`gemini-3.6-flash`) produit une référence fr (source khmer) ou rétro-traduit le `kh` stocké (source fr),
+puis un juge classe la traduction stockée `ok` / `nuance` / `faux` et propose des entrées de glossaire
+pour les « faux » (à valider à la main, jamais appliquées).
+
+- `node --experimental-strip-types scripts/audit-translations.mjs --days 7` (aussi `--date`, `--max 200`,
+  `--file chat.json` pour rejouer une copie locale, `--json /chemin/rapport.json`).
+- **Lecture seule** (aucune écriture S3/DB, rapport JSON seulement là où on le demande). Coût réel :
+  ~0,0008 $/message (2 appels), ~0,22 $ pour 283 messages — le total est affiché en fin de run.
+- Le juge n'est pas infaillible : la référence peut elle-même se tromper (surtout la rétro-traduction
+  d'un kh stocké). Relire chaque « faux » avant d'agir ; ~20-30 % sont des faux positifs. À lancer à la
+  main (jamais en CI).
+
 ## Coffre (`/coffre`)
 
 - Navigation hiérarchique : Années → Mois → Jours → Fichiers
