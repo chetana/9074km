@@ -177,6 +177,16 @@ export const REGRESSION_CASES = [
 		check: (kh) => /គេហទំព័រ|វេបសាយ|វេបសៃ/.test(kh),
 	},
 	{
+		name: '"l\'habitude de vendre" → ធ្លាប់, pas "fini de vendre" (bug réel 19/10)', author: 'Chet',
+		text: "j'ai peur que tu t'ennuies à la maison, vu que tu as l'habitude de vendre",
+		check: (kh) => kh.includes('ធ្លាប់') && !kh.includes('ធ្លាប់លក់រួច'),
+	},
+	{
+		name: 'date "5 novembre" → ថ្ងៃទី៥, ទី jamais perdu (bug réel 19/10)', author: 'Chet',
+		text: "j'ai vu des billets moins chers le 5 novembre, tu veux qu'on y aille le 5 novembre ?",
+		check: (kh) => /ទី\s*[5៥]/.test(kh) && !/ថ្ងៃ[5៥]/.test(kh),
+	},
+	{
 		// Bug réel du 25/09/2026 : "couverture" absent du glossaire → mot inventé différent à chaque
 		// essai ("ភ្លុងវី", "គ្រែងរុំ"...), jamais ភួយ (le vrai mot). Ajouté au GLOSSARY.
 		name: '"couverture" (lit) → ភួយ, pas un mot inventé (bug réel)', author: 'Chet',
@@ -198,6 +208,13 @@ const lysSelf = (kh) => kh.includes('អូន') && !kh.includes('បង')
 const noNameLeak = (fr, en) => !/\b(oun|bang|bong)\b/i.test(fr) && !/\b(oun|bang|bong)\b/i.test(en)
 
 export const PRONOUN_CASES = [
+	{
+		name: 'kh→fr : "បងគិតដូចអូនទេ" = c\'est ELLE qui demande « tu penses comme moi ? » (bug réel 19/10)', author: 'Lys',
+		text: 'បងគិតដូចអូនទេ គ្មានពេលណាហត់ជាងពេលដែលយើងរស់នៅជាមួយមនុស្សដែលមិនយល់ពីយើង',
+		check: () => true,
+		checkFrEn: (fr, en) => !/^\W*je pense (pareil|comme|la même)/i.test(fr) && /\b(tu|toi)\b/i.test(fr.split(/[.,;]/)[0]) && /\byou\b/i.test(en.split(/[.,;]/)[0]),
+	},
+
 	{ name: 'pronom Chet — fatigué', author: 'Chet', context: LYS_CTX, text: 'Je suis tellement fatigué ce soir', check: chetSelf },
 	{ name: 'pronom Chet — beauté (biais contenu)', author: 'Chet', context: LYS_CTX, text: "Je me suis fait beau pour la soirée, j'ai même mis du parfum", check: chetSelf },
 	{ name: 'pronom Chet — peau douce (biais contenu)', author: 'Chet', context: LYS_CTX, text: "J'ai mis de la crème sur mon visage, ma peau est toute douce", check: chetSelf },

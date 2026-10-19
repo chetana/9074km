@@ -190,6 +190,10 @@ export const GLOSSARY: GlossaryEntry[] = [
 		line: '- N minutes → N នាទី (ម៉ោង = heure, réservé aux heures)',
 		src: /^(?!.*(?:\d\s*h\b|\bheures?\b)).*\b\d+\s*(?:minutes?|min)\b/is, kh: /នាទី/, avoid: { kh: /ម៉ោង/ },
 	},
+	// Messages du 19/10/2026 : "tu as l'habitude de vendre" → ធ្លាប់លក់រួច (= "tu as fini de vendre") ;
+	// "moins cher le 5 novembre" → ថោកជាងថ្ងៃទ៥ (ទី manquant, ordre qui change le sens).
+	{ line: '- avoir l\'habitude de / être habitué à → ធ្លាប់ (+ verbe, sans រួច)', src: /\bl'habitude\b|\bhabitu[ée]e?s?\b/i, kh: /ធ្លាប់/ },
+	{ line: '- une date (« le 5 novembre ») → ថ្ងៃទី៥ ខែវិច្ឆិកា : ទី toujours présent avant le numéro du jour', src: /\b\d{1,2}(?:er)?\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre)\b/i, kh: /ទី\s*[0-9០-៩]/ },
 	{ line: '- "il faut que" (obligation) → ត្រូវ / ត្រូវតែ (jamais "បាត់បង់" qui veut dire "perdre")', src: /il faut que/i },
 	{ line: '- "mes/tes parents" (registre oral, intime) → ប៉ាម៉ាក់ (jamais "មាតាបិតា", trop formel/littéraire — réservé aux textes officiels)', src: /\b(mes|tes) parents\b/i },
 	{
