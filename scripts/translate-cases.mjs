@@ -201,6 +201,23 @@ export const REGRESSION_CASES = [
 		text: "le prix normal c'est plutôt le double",
 		check: (kh) => /ទ្វេ|ពីរដង/.test(kh) && !kh.includes('ឆ្ងាយ'),
 	},
+	// Audit du 19/10/2026 sur les messages du 13 au 15/10.
+	{ name: '"tu me manques aussi" Chet → បងនឹកអូន, pas inversé (audit 13/10)', author: 'Chet', text: "et tu me manques aussi ma chérie 😘",
+		check: (kh) => /បង(?:ក៏)?នឹកអូន/.test(kh) && !/អូន(?:ក៏)?នឹកបង/.test(kh) },
+	{ name: '"23 degrés" ≠ ម៉ោង (audit 13/10)', author: 'Chet', text: "ici il refait chaud, il fait 23 degrés ce matin",
+		check: (kh) => !kh.includes('ម៉ោង') },
+	{ name: '"j\'aurais pensé" → គិត, pas សំណើច=rire (audit 15/10)', author: 'Chet', text: "oui, on a une activité avant, donc j'aurais déjà pensé à autre chose je pense",
+		check: (kh) => !kh.includes('សំណើច') },
+	{ name: '"je baille" / "difficile" ≠ asthme / manque (audit 13/10)', author: 'Chet', text: "c'est difficile ce matin, je baille déjà ahah",
+		check: (kh) => !/ហឺត|ខ្វះខាត/.test(kh) },
+	{ name: '"chez mes parents" avec possessif (audit 15/10)', author: 'Chet', text: "j'irai près de chez mes parents pour aller acheter",
+		check: (kh) => /ប៉ាម៉ាក់(?:របស់)?\s*(?:បង|ខ្ញុំ)/.test(kh) },
+	{ name: 'kh→fr : ថ្ងាស់ = front, pas menton (audit 15/10)', author: 'Lys', text: 'អូនសារភាពប្រាប់បងតាមត្រង់ចុះ អូនមិនចូលចិត្តថ្ងាស់របស់អូននឹងច្រមុះរបស់អូនទេ',
+		check: () => true, checkFrEn: (fr) => /\bfront\b/i.test(fr) && !/menton/i.test(fr) },
+	{ name: 'kh→fr : ឆ្ងល់ = se demander, pas ballonnements (audit 14/10)', author: 'Lys', text: 'អូនសុខសប្បាយជាធម្មតាទេបង តែឆ្ងល់២ថ្ងៃហើយ អូនចេះតែឃ្លានមិនឈប់សោះ',
+		check: () => true, checkFrEn: (fr) => !/ballonn/i.test(fr) && /demand|bizarre|étrang|intrigu|étonn|curieu/i.test(fr) },
+	{ name: 'kh→fr : ឆ្ងន់ (typo de ឆ្ងាញ់) = délicieux, pas difficile (audit 14/10)', author: 'Lys', text: 'មែនហើយបងវាឆ្ងន់ខ្លាំងណាស់',
+		check: () => true, checkFrEn: (fr) => /délicieu|bon/i.test(fr) && !/difficile/i.test(fr) },
 	{
 		// Bug réel du 25/09/2026 : "couverture" absent du glossaire → mot inventé différent à chaque
 		// essai ("ភ្លុងវី", "គ្រែងរុំ"...), jamais ភួយ (le vrai mot). Ajouté au GLOSSARY.

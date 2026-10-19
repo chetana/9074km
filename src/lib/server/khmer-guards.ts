@@ -210,6 +210,31 @@ export const GLOSSARY: GlossaryEntry[] = [
 		line: '- rire écrit (ahah, haha) → ហាហា (jamais en lettres latines)',
 		src: /\b(?:ah){2,}h?\b|\b(?:ha){2,}h?\b/i, avoid: { kh: /\b(?:ah){2,}h?\b|\b(?:ha){2,}h?\b/i },
 	},
+	// Audit du 19/10/2026 (13-15/10, validé avec une locutrice native simulée + relecture) :
+	// "tu me manques" inversé, "degrés" lu ម៉ោង, "penser" lu សំណើច (rire), "bailler" lu ហឺត, "difficile" lu ខ្វះខាត.
+	{ line: '- "tu me manques" (Chet → Lys) → បងនឹកអូន (aussi : បងក៏នឹកអូនដែរ) — celui qui parle est បង', src: /\btu me manques\b/i, kh: /បង(?:ក៏)?នឹកអូន/, avoid: { kh: /អូន(?:ក៏)?នឹកបង/ }, authorIsChet: true },
+	{ line: '- "tu me manques" (Lys → Chet) → អូននឹកបង (aussi : អូនក៏នឹកបងដែរ) — celle qui parle est អូន', src: /\btu me manques\b/i, kh: /អូន(?:ក៏)?នឹកបង/, avoid: { kh: /បង(?:ក៏)?នឹកអូន/ }, authorIsChet: false },
+	{
+		line: '- N degrés (température) → N ដឺក្រេ ou N អង្សា ; ម៉ោង est réservé aux heures',
+		src: /^(?!.*(?:\d\s*h\b|\bheures?\b)).*\b\d+\s*degr[ée]s?\b/is, avoid: { kh: /ម៉ោង/ },
+	},
+	{
+		line: '- penser (à), réfléchir → គិត (សំណើច = rire)',
+		src: /^(?!.*(?:\brire\b|rigol|\brit\b|\brient\b)).*\bpens(?:er|e|ais|erais|é|ée|ons|ez|ent)\b/is, avoid: { kh: /សំណើច/ },
+	},
+	{ line: '- bailler (de fatigue) : un verbe de bâillement, pas une maladie respiratoire', src: /\bbaill(?:er|e|ais|ons|ez|ent)\b/i, avoid: { kh: /ហឺត/ } },
+	{ line: '- difficile / dur (une matinée, une journée) → ពិបាក / លំបាក', src: /\bdifficile\b/i, avoid: { kh: /ខ្វះខាត/ } },
+	{
+		line: '- "chez mes parents" → ផ្ទះប៉ាម៉ាក់ + MON pronom (បង pour Chet) : le possessif lève le doute avec "tes parents"',
+		src: /\bchez mes parents\b/i, kh: /ប៉ាម៉ាក់(?:របស់)?\s*(?:បង|ខ្ញុំ)/, authorIsChet: true,
+	},
+	{
+		line: '- "chez mes parents" → ផ្ទះប៉ាម៉ាក់ + MON pronom (បង pour Chet) : le possessif lève le doute avec "tes parents"',
+		src: /\bchez mes parents\b/i, kh: /ប៉ាម៉ាក់(?:របស់)?\s*(?:អូន|ខ្ញុំ)/, authorIsChet: false,
+	},
+	{ line: '- ឆ្ងល់ → se demander, trouver ça bizarre', src: /ឆ្ងល់/, fr: /demand|bizarre|étrang|etrang|intrigu|étonn|curieu/i, avoid: { fr: /ballonn/i }, direction: 'fromKh' },
+	{ line: '- ឆ្ងន់ (faute de frappe courante de ឆ្ងាញ់) → délicieux, très bon (nourriture)', src: /ឆ្ងន់|ឆ្ងាញ់/, fr: /délicieu|delicieu|\bbon\b|\bbonne\b/i, avoid: { fr: /difficile/i }, direction: 'fromKh' },
+	{ line: '- ថ្ងាស់ → front (partie du visage) ; ចង្កា → menton', src: /ថ្ងាស់/, fr: /\bfront\b/i, en: /forehead/i, avoid: { fr: /menton/i }, direction: 'fromKh' },
 	{ line: '- "il faut que" (obligation) → ត្រូវ / ត្រូវតែ (jamais "បាត់បង់" qui veut dire "perdre")', src: /il faut que/i },
 	{ line: '- "mes/tes parents" (registre oral, intime) → ប៉ាម៉ាក់ (jamais "មាតាបិតា", trop formel/littéraire — réservé aux textes officiels)', src: /\b(mes|tes) parents\b/i },
 	{
