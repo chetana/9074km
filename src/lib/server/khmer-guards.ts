@@ -246,6 +246,13 @@ export const GLOSSARY: GlossaryEntry[] = [
 		line: '- "entre les deux" (la période/le prix intermédiaire) → នៅចន្លោះពេលទាំងពីរនោះ / នៅចន្លោះ',
 		src: /\bentre les deux\b/i, kh: /ចន្លោះ/, avoid: { kh: /ចំណោមពីរ/ },
 	},
+	// Message du 19/10/2026 : "ton billet d'avion" → សំបុត្រហ្មួងអូន (avion perdu), "payé en 4 fois" → បង់ជាដាច់៤.
+	{ line: '- billet d\'avion → សំបុត្រយន្តហោះ', src: /\bbillets? d'avion\b/i, kh: /សំបុត្រ(?:យន្តហោះ|ជើងហោះ)/, avoid: { kh: /ហ្មួង/ } },
+	{
+		line: '- payer en N fois (paiement échelonné) → បង់រំលស់ N ដង',
+		src: /\b(?:pay\w+|rembours\w+)\b[^.!?]{0,30}\ben\s+(?:\d+|deux|trois|quatre|cinq|six|plusieurs)\s+fois\b/i,
+		kh: /រំលស់|ដង/, avoid: { kh: /ជាដាច់/ },
+	},
 	{ line: '- "il faut que" (obligation) → ត្រូវ / ត្រូវតែ (jamais "បាត់បង់" qui veut dire "perdre")', src: /il faut que/i },
 	{ line: '- "mes/tes parents" (registre oral, intime) → ប៉ាម៉ាក់ (jamais "មាតាបិតា", trop formel/littéraire — réservé aux textes officiels)', src: /\b(mes|tes) parents\b/i },
 	{

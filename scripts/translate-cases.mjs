@@ -222,6 +222,10 @@ export const REGRESSION_CASES = [
 		check: (kh) => kh.includes('បន្ថែម') && !kh.includes('បង្អើល') },
 	{ name: '"entre les deux" → ចន្លោះ, pas "parmi ces deux" (bug réel 19/10)', author: 'Chet', text: "entre les deux, c'est trop cher xD",
 		check: (kh) => kh.includes('ចន្លោះ') && !kh.includes('ចំណោមពីរ') },
+	{ name: '"billet d\'avion" → សំបុត្រយន្តហោះ, pas un mot inventé (bug réel 19/10)', author: 'Chet', text: "que ce soit ton billet d'avion ou les billets pour DisneyLand Paris, je les ai payés",
+		check: (kh) => /សំបុត្រ(?:យន្តហោះ|ជើងហោះ)/.test(kh) && !kh.includes('ហ្មួង') },
+	{ name: '"payé en 4 fois" → បង់រំលស់/៤ដង, pas ជាដាច់ (bug réel 19/10)', author: 'Chet', text: "je les ai payés en 4 fois pour pouvoir tout prendre, je termine de tout payer en Janvier",
+		check: (kh) => /រំលស់|[4៤]\s*ដង|បួនដង/.test(kh) && !kh.includes('ជាដាច់') },
 	{
 		// Bug réel du 25/09/2026 : "couverture" absent du glossaire → mot inventé différent à chaque
 		// essai ("ភ្លុងវី", "គ្រែងរុំ"...), jamais ភួយ (le vrai mot). Ajouté au GLOSSARY.
