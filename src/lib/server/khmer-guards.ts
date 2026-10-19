@@ -194,6 +194,22 @@ export const GLOSSARY: GlossaryEntry[] = [
 	// "moins cher le 5 novembre" → ថោកជាងថ្ងៃទ៥ (ទី manquant, ordre qui change le sens).
 	{ line: '- avoir l\'habitude de / être habitué à → ធ្លាប់ (+ verbe, sans រួច)', src: /\bl'habitude\b|\bhabitu[ée]e?s?\b/i, kh: /ធ្លាប់/ },
 	{ line: '- une date (« le 5 novembre ») → ថ្ងៃទី៥ ខែវិច្ឆិកា : ទី toujours présent avant le numéro du jour', src: /\b\d{1,2}(?:er)?\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre)\b/i, kh: /ទី\s*[0-9០-៩]/ },
+	// Message du 19/10/2026 : "prends des places" / "billets à 60€" → ប្រអប់ (boîtes), "le double" → ឆ្ងាយជាងពីរដង
+	// (ឆ្ងាយ = loin), "ahah" laissé en lettres latines.
+	{
+		line: '- billet / place (spectacle, parc, train…) → សំបុត្រ',
+		src: /\bbillets?\b|\b(?:prend\w*|r[ée]serv\w*|ach[eè]t\w*)\s+(?:\w+\s+)?places?\b|\bplaces?\s+(?:de|pour)\s+(?:cin[ée]ma|concert|spectacle|train|match|parc)/i,
+		kh: /សំបុត្រ/, avoid: { kh: /ប្រអប់/ },
+	},
+	{
+		line: '- "le double" / "deux fois plus cher" (prix) → ថ្លៃទ្វេដង / ថ្លៃជាងពីរដង',
+		src: /\ble double\b|\bdeux fois (?:plus )?cher|\bdouble\b[^.!?]{0,30}\bprix|\bprix\b[^.!?]{0,30}\bdouble\b/i,
+		kh: /ទ្វេ|ពីរដង/, avoid: { kh: /ឆ្ងាយជាងពីរដង/ },
+	},
+	{
+		line: '- rire écrit (ahah, haha) → ហាហា (jamais en lettres latines)',
+		src: /\b(?:ah){2,}h?\b|\b(?:ha){2,}h?\b/i, avoid: { kh: /\b(?:ah){2,}h?\b|\b(?:ha){2,}h?\b/i },
+	},
 	{ line: '- "il faut que" (obligation) → ត្រូវ / ត្រូវតែ (jamais "បាត់បង់" qui veut dire "perdre")', src: /il faut que/i },
 	{ line: '- "mes/tes parents" (registre oral, intime) → ប៉ាម៉ាក់ (jamais "មាតាបិតា", trop formel/littéraire — réservé aux textes officiels)', src: /\b(mes|tes) parents\b/i },
 	{

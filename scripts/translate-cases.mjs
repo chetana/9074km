@@ -187,6 +187,21 @@ export const REGRESSION_CASES = [
 		check: (kh) => /ទី\s*[5៥]/.test(kh) && !/ថ្ងៃ[5៥]/.test(kh),
 	},
 	{
+		name: '"prends des places" → សំបុត្រ, pas ប្រអប់ (bug réel 19/10)', author: 'Chet',
+		text: "pour savoir si je prends des places ou pas ahah",
+		check: (kh) => kh.includes('សំបុត្រ') && !kh.includes('ប្រអប់') && !/ahah/i.test(kh),
+	},
+	{
+		name: '"billets à 60€ chacun" → សំបុត្រ (bug réel 19/10)', author: 'Chet',
+		text: "c'est le seul jour où on peut avoir des billets à 60€ chacun, ça fait 120€ à nous deux",
+		check: (kh) => kh.includes('សំបុត្រ') && !kh.includes('ប្រអប់'),
+	},
+	{
+		name: '"le double" (prix) ≠ ឆ្ងាយ=loin (bug réel 19/10)', author: 'Chet',
+		text: "le prix normal c'est plutôt le double",
+		check: (kh) => /ទ្វេ|ពីរដង/.test(kh) && !kh.includes('ឆ្ងាយ'),
+	},
+	{
 		// Bug réel du 25/09/2026 : "couverture" absent du glossaire → mot inventé différent à chaque
 		// essai ("ភ្លុងវី", "គ្រែងរុំ"...), jamais ភួយ (le vrai mot). Ajouté au GLOSSARY.
 		name: '"couverture" (lit) → ភួយ, pas un mot inventé (bug réel)', author: 'Chet',
