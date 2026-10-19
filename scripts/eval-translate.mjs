@@ -38,19 +38,22 @@ const ENV = Object.fromEntries(
 		})
 )
 
-// ── GLM (OpenCode Go) — moteur principal en prod ──
+// ── GLM — moteur principal en prod : ClinePass (CLINE_API_KEY), repli OpenCode Go si seule sa clé existe ──
+const CLINE_KEY = process.env.CLINE_API_KEY || ENV.CLINE_API_KEY
 async function callGlm(system, user) {
-	const r = await fetch('https://opencode.ai/zen/go/v1/chat/completions', {
+	const viaCline = !!CLINE_KEY
+	const r = await fetch(viaCline ? 'https://api.cline.bot/api/v1/chat/completions' : 'https://opencode.ai/zen/go/v1/chat/completions', {
 		method: 'POST',
-		headers: { Authorization: `Bearer ${ENV.OPENCODE_API_KEY}`, 'Content-Type': 'application/json', 'x-opencode-session': 'lys-eval-translate' },
+		headers: { Authorization: `Bearer ${viaCline ? CLINE_KEY : ENV.OPENCODE_API_KEY}`, 'Content-Type': 'application/json', 'x-opencode-session': 'lys-eval-translate' },
 		body: JSON.stringify({
-			model: 'glm-5.3-flash',
+			model: viaCline ? 'cline-pass/glm-5.3-flash' : 'glm-5.3-flash', stream: false,
 			messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
 			temperature: 0.2, max_tokens: 2048, reasoning_effort: 'low',
 		}),
 	})
-	const d = await r.json()
-	if (!r.ok) return `[ERR ${r.status} ${JSON.stringify(d).slice(0, 120)}]`
+	const body = await r.json()
+	const d = body?.data ?? body
+	if (!r.ok) return `[ERR ${r.status} ${JSON.stringify(body).slice(0, 120)}]`
 	return (d?.choices?.[0]?.message?.content ?? '').replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
 }
 

@@ -178,6 +178,18 @@ export const GLOSSARY: GlossaryEntry[] = [
 		// à chaque essai ("ភ្លុងវី", "គ្រែងរុំ"...), jamais le vrai mot ភួយ.
 		line: '- couverture (lit, pour dormir) → ភួយ', src: /\bcouvertures?\b/i, kh: /ភួយ/,
 	},
+	// Erreurs réelles du 16 au 19/10/2026 (messages de Chet, moteur léger) : mots inventés ou faux sens
+	// sur des mots courants. Formes cibles seulement ; `avoid` reste côté code.
+	{ line: '- visa → ទិដ្ឋាការ', src: /\bvisas?\b/i, kh: /ទិដ្ឋាការ/ },
+	{ line: '- croiser quelqu\'un (le rencontrer par hasard) → ជួប / ប្រទះជួប', src: /\bcrois(?:é|ée|er|ons|ez|ent|e)\b/i, kh: /ជួប|ប្រទះ/ },
+	{ line: '- bouchon (circulation) → ស្ទះចរាចរណ៍ (oral : ជាប់ផ្លូវ)', src: /\bbouchons?\b/i, kh: /ស្ទះ|ជាប់ផ្លូវ|ចរាចរណ៍/ },
+	{ line: '- chauffage (de la maison, du bureau) → ម៉ាស៊ីនកម្តៅ', src: /\bchauffage\b/i },
+	{ line: '- site (web) → គេហទំព័រ', src: /\bsites?\b/i, kh: /គេហទំព័រ|វេបសាយ|វេបសៃ/ },
+	{
+		// "encore 20 minutes à pied" rendu "នៅសល់ម៉ោងដើរទៀត ២០ នាទី" : ម៉ោង = heure, lue comme "1h + 20 min".
+		line: '- N minutes → N នាទី (ម៉ោង = heure, réservé aux heures)',
+		src: /^(?!.*(?:\d\s*h\b|\bheures?\b)).*\b\d+\s*(?:minutes?|min)\b/is, kh: /នាទី/, avoid: { kh: /ម៉ោង/ },
+	},
 	{ line: '- "il faut que" (obligation) → ត្រូវ / ត្រូវតែ (jamais "បាត់បង់" qui veut dire "perdre")', src: /il faut que/i },
 	{ line: '- "mes/tes parents" (registre oral, intime) → ប៉ាម៉ាក់ (jamais "មាតាបិតា", trop formel/littéraire — réservé aux textes officiels)', src: /\b(mes|tes) parents\b/i },
 	{

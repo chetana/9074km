@@ -135,6 +135,47 @@ export const REGRESSION_CASES = [
 		text: "Bonjour ma chérie, ah c'est bien si tu as dormi tôt, mais c'est dommage que tu aies eu mal à la tête, t'avais assez bu ? parfois dormir sans avoir bien bu de l'eau, ça nous assèche et ça fait mal à la tête",
 		check: (kh) => !/ច្រើនម៉ោង|ដេកយូរ/.test(kh) && !/កូន/.test(kh),
 	},
+	// Erreurs réelles du 16 au 19/10/2026 (messages de Chet en prod).
+	{
+		name: '"croisé le patron" → ជួប, pas "assis dans la rue" (bug réel 19/10)', author: 'Chet',
+		text: "j'ai arrêté de te parler, parce que j'ai croisé le patron de ma société en chemin",
+		check: (kh) => /ជួប|ប្រទះ/.test(kh) && !kh.includes('បង្គុយនៅផ្លូវ'),
+	},
+	{
+		name: '"bouchon" → ស្ទះ/ជាប់ផ្លូវ, pas un mot inventé (bug réel 19/10)', author: 'Chet',
+		text: "ah non c'est pas un bouchon, mon patron m'a appelé dans la rue",
+		check: (kh) => /ស្ទះ|ជាប់ផ្លូវ|ចរាចរណ៍/.test(kh) && !kh.includes('គ្រាប់ចំលង'),
+	},
+	{
+		name: '"20 minutes" → នាទី, pas ម៉ោង (bug réel 19/10)', author: 'Chet',
+		text: "Je viens de descendre du train, encore 20 minutes à pied",
+		check: (kh) => kh.includes('នាទី') && !kh.includes('ម៉ោង'),
+	},
+	{
+		name: '"visa" → ទិដ្ឋាការ (bug réel 16/10)', author: 'Chet',
+		text: "Je suis trop content que tu aies ton visa pour la France, on va pouvoir t'acheter le billet d'avion bientôt",
+		check: (kh) => kh.includes('ទិដ្ឋាការ'),
+	},
+	{
+		name: '"restés dormir" ≠ venus dormir (bug réel 19/10)', author: 'Chet',
+		text: "Ils sont restés dormir, ils sont encore chez moi, je les ramène ce soir après le travail",
+		check: (kh) => !kh.includes('ចុះមកដេក') && !containsForeignScript(kh) && !containsGluedLatin(kh),
+	},
+	{
+		name: '"4 degrés là" : "là" n\'est pas un mot khmer (bug réel 19/10)', author: 'Chet',
+		text: "Il commence à faire froid le matin, 4 degrés là, on est passé sous les 10 degrés",
+		check: (kh) => !kh.includes('តាស'),
+	},
+	{
+		name: '"chauffage" ≠ climatisation chaude (bug réel 19/10)', author: 'Chet',
+		text: "dès que j'arriverai au bureau, il y aura du chauffage comme à la maison",
+		check: (kh) => /កម្[តដ]ៅ|កំ[តដ]ៅ/.test(kh) && !kh.includes('ត្រជាក់ក្ដៅ') && !kh.includes('ត្រជាក់ក្តៅ'),
+	},
+	{
+		name: '"site" → គេហទំព័រ, pas សាយ (bug réel 18/10)', author: 'Chet',
+		text: "j'ai fait ce site pour ta maman, tu pourras l'installer sur son téléphone",
+		check: (kh) => /គេហទំព័រ|វេបសាយ|វេបសៃ/.test(kh),
+	},
 	{
 		// Bug réel du 25/09/2026 : "couverture" absent du glossaire → mot inventé différent à chaque
 		// essai ("ភ្លុងវី", "គ្រែងរុំ"...), jamais ភួយ (le vrai mot). Ajouté au GLOSSARY.
