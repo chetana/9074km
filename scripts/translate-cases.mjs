@@ -218,6 +218,10 @@ export const REGRESSION_CASES = [
 		check: () => true, checkFrEn: (fr) => !/ballonn/i.test(fr) && /demand|bizarre|étrang|intrigu|étonn|curieu/i.test(fr) },
 	{ name: 'kh→fr : ឆ្ងន់ (typo de ឆ្ងាញ់) = délicieux, pas difficile (audit 14/10)', author: 'Lys', text: 'មែនហើយបងវាឆ្ងន់ខ្លាំងណាស់',
 		check: () => true, checkFrEn: (fr) => /délicieu|bon/i.test(fr) && !/difficile/i.test(fr) },
+	{ name: '"monte de 20€" → បន្ថែម, pas un mot douteux (bug réel 19/10)', author: 'Chet', text: "en vrai, si on monte encore de 20€, on peut y aller fin novembre",
+		check: (kh) => kh.includes('បន្ថែម') && !kh.includes('បង្អើល') },
+	{ name: '"entre les deux" → ចន្លោះ, pas "parmi ces deux" (bug réel 19/10)', author: 'Chet', text: "entre les deux, c'est trop cher xD",
+		check: (kh) => kh.includes('ចន្លោះ') && !kh.includes('ចំណោមពីរ') },
 	{
 		// Bug réel du 25/09/2026 : "couverture" absent du glossaire → mot inventé différent à chaque
 		// essai ("ភ្លុងវី", "គ្រែងរុំ"...), jamais ភួយ (le vrai mot). Ajouté au GLOSSARY.

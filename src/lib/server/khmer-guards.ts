@@ -235,6 +235,17 @@ export const GLOSSARY: GlossaryEntry[] = [
 	{ line: '- ឆ្ងល់ → se demander, trouver ça bizarre', src: /ឆ្ងល់/, fr: /demand|bizarre|étrang|etrang|intrigu|étonn|curieu/i, avoid: { fr: /ballonn/i }, direction: 'fromKh' },
 	{ line: '- ឆ្ងន់ (faute de frappe courante de ឆ្ងាញ់) → délicieux, très bon (nourriture)', src: /ឆ្ងន់|ឆ្ងាញ់/, fr: /délicieu|delicieu|\bbon\b|\bbonne\b/i, avoid: { fr: /difficile/i }, direction: 'fromKh' },
 	{ line: '- ថ្ងាស់ → front (partie du visage) ; ចង្កា → menton', src: /ថ្ងាស់/, fr: /\bfront\b/i, en: /forehead/i, avoid: { fr: /menton/i }, direction: 'fromKh' },
+	// Message du 19/10/2026 : "si on monte encore de 20€" → បើបង្អើលថ្លៃឡើងទៀត (mot douteux, "le prix monte") ;
+	// "entre les deux, c'est trop cher" → ចំណោមពីរនោះ (= parmi ces deux, change le sens).
+	{
+		line: '- "monter de 20€" / "20€ de plus" / "encore 20€" (dépenser plus) → បន្ថែម ២០ អឺរ៉ូ (យើងបន្ថែម = nous ajoutons)',
+		src: /\bmont\w*\s+(?:encore\s+)?de\s+\d+\s*(?:€|euros?)|\b\d+\s*(?:€|euros?)\s+de plus\b|\bencore\s+\d+\s*(?:€|euros?)/i,
+		kh: /បន្ថែម/, avoid: { kh: /បង្អើល/ },
+	},
+	{
+		line: '- "entre les deux" (la période/le prix intermédiaire) → នៅចន្លោះពេលទាំងពីរនោះ / នៅចន្លោះ',
+		src: /\bentre les deux\b/i, kh: /ចន្លោះ/, avoid: { kh: /ចំណោមពីរ/ },
+	},
 	{ line: '- "il faut que" (obligation) → ត្រូវ / ត្រូវតែ (jamais "បាត់បង់" qui veut dire "perdre")', src: /il faut que/i },
 	{ line: '- "mes/tes parents" (registre oral, intime) → ប៉ាម៉ាក់ (jamais "មាតាបិតា", trop formel/littéraire — réservé aux textes officiels)', src: /\b(mes|tes) parents\b/i },
 	{
