@@ -1,7 +1,7 @@
 // Stockage objet — Scaleway Object Storage (S3-compatible).
 // Migré depuis @google-cloud/storage : adaptateur minimal imitant l'API Bucket GCS
 // (sous-ensemble utilisé par lys : file().save/download/delete/exists, getFiles) + presigned URLs SigV4.
-import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand, type ListObjectsV2CommandOutput } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { env } from '$env/dynamic/private'
 
@@ -62,13 +62,22 @@ export function getGcsBucket() {
     // Émule bucket.getFiles GCS : renvoie [files, nextQuery, apiResponse{prefixes}].
     // Les "dossiers" (années/mois/jours) = CommonPrefixes S3, lus par les routes via apiResponse.prefixes.
     async getFiles(opts?: { prefix?: string; delimiter?: string; autoPaginate?: boolean }) {
-      const out = await client.send(new ListObjectsV2Command({ Bucket, Prefix: opts?.prefix, Delimiter: opts?.delimiter }))
-      const files = (out.Contents ?? []).map(o =>
+      // ListObjectsV2 plafonne à 1000 clés par page : on suit ContinuationToken jusqu'au bout.
+      const contents: NonNullable<ListObjectsV2CommandOutput['Contents']> = []
+      const prefixes = new Set<string>()
+      let token: string | undefined
+      for (let page = 0; page < 1000; page++) {
+        const out: ListObjectsV2CommandOutput = await client.send(new ListObjectsV2Command({ Bucket, Prefix: opts?.prefix, Delimiter: opts?.delimiter, ContinuationToken: token }))
+        contents.push(...(out.Contents ?? []))
+        for (const p of out.CommonPrefixes ?? []) prefixes.add(p.Prefix as string)
+        if (!out.IsTruncated || !out.NextContinuationToken) break
+        token = out.NextContinuationToken
+      }
+      const files = contents.map(o =>
         Object.assign(file(o.Key as string), {
           metadata: { size: Number(o.Size ?? 0), contentType: '', updated: o.LastModified ? new Date(o.LastModified).toISOString() : '' },
         }))
-      const prefixes = (out.CommonPrefixes ?? []).map(p => p.Prefix as string)
-      return [files, null, { prefixes }] as const
+      return [files, null, { prefixes: [...prefixes] }] as const
     },
   }
 }

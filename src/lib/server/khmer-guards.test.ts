@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { buildEventNameUser } from './khmer-guards'
 import {
 	containsForeignScript, containsGluedLatin, cleanKhmer, detectIsChet,
 	pickTranslation, pickSuggestion, termsEchoed, splitIntoChunks, translateBudget,
@@ -313,5 +314,21 @@ describe('pronounSwapped', () => {
 		// faux positif mesuré à l'éval : « ma chérie » s'adresse à Lys sans « tu »
 		expect(pronounSwapped('Bonjour ma chérie, je suis rentré vers 22h', 'សួស្តីអូនសម្លាញ់ បងត្រឡប់មកផ្ទះវិញម៉ោង១០យប់', true)).toBe(false)
 		expect(pronounSwapped('អូនហត់', 'អូនហត់', true)).toBe(false)
+	})
+})
+
+describe('buildEventNameUser', () => {
+	it('contient le nom, le contexte évènement et la consigne noms propres/translittération', () => {
+		const u = buildEventNameUser('Disneyland Paris')
+		expect(u).toContain('Message : "Disneyland Paris"')
+		expect(u).toContain("NOM d'un évènement de couple")
+		expect(u).toContain('noms propres')
+		expect(u).toContain('translittère')
+	})
+	it('neutralise les guillemets du nom (ne casse pas la citation)', () => {
+		expect(buildEventNameUser('Le "Grand" soir')).toContain('Message : "Le \'Grand\' soir"')
+	})
+	it('conserve le khmer tel quel', () => {
+		expect(buildEventNameUser('ដំណើរកម្សាន្ត')).toContain('"ដំណើរកម្សាន្ត"')
 	})
 })

@@ -202,10 +202,11 @@ async function attemptTranslate(
 // silencieusement le texte source comme si c'était du khmer (ancien bug : aucune trace en cas
 // d'échec total, l'utilisatrice recevait du français affiché comme "khmer").
 async function translateWithEscalation(
-  text: string, author: string | undefined, previousMessage: string | undefined, budgetFactor = 4
+  text: string, author: string | undefined, previousMessage: string | undefined, budgetFactor = 4,
+  buildUser?: (text: string) => string
 ): Promise<Translations> {
   const system = buildTranslateSystem(author)
-  const user = buildTranslateUser(text, previousMessage)
+  const user = buildUser ? buildUser(text) : buildTranslateUser(text, previousMessage)
   const budget = translateBudget(text, budgetFactor)
   const isChet = detectIsChet(author)
 
@@ -260,24 +261,26 @@ async function translateWithEscalation(
   return { fr: strong.t.fr, en: strong.t.en, kh: cleanKhmer(strong.t.kh), lang: strong.t.lang }
 }
 
-export async function geminiTranslateAll(text: string, author?: string, previousMessage?: string): Promise<Translations> {
+export async function geminiTranslateAll(
+  text: string, author?: string, previousMessage?: string, buildUser?: (text: string) => string
+): Promise<Translations> {
   try {
-    return await translateWithEscalation(text, author, previousMessage)
+    return await translateWithEscalation(text, author, previousMessage, 4, buildUser)
   } catch (e) {
     // Échec même après escalade Gemini fort (le plus souvent : message très long → JSON tronqué
     // des deux côtés). On découpe en phrases, on traduit chaque morceau, et on recolle.
     console.warn(`[translate] échec même après escalade Gemini fort (${(e as Error).message}) — découpage en morceaux`)
-    return translateInChunks(text, author, previousMessage)
+    return translateInChunks(text, author, previousMessage, buildUser)
   }
 }
 
-async function translateInChunks(text: string, author?: string, previousMessage?: string): Promise<Translations> {
+async function translateInChunks(text: string, author?: string, previousMessage?: string, buildUser?: (text: string) => string): Promise<Translations> {
   const chunks = splitIntoChunks(text, 700)
   const parts: Translations[] = []
   let ctx = previousMessage
   for (const chunk of chunks) {
     try {
-      const t = await translateWithEscalation(chunk, author, ctx, 4)
+      const t = await translateWithEscalation(chunk, author, ctx, 4, buildUser)
       parts.push(t)
       ctx = `${ctx ? ctx + '\n' : ''}${author ?? '?'}: ${chunk}` // enchaîne le contexte pour la cohérence
     } catch (e) {
