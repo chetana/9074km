@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox, Ellipsis, Download, Languages, GalleryHorizontal, LayoutGrid, CalendarDays, ChevronDown, Check, X } from 'lucide-svelte';
+	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Ellipsis, Download, Languages, GalleryHorizontal, LayoutGrid, CalendarDays, ChevronDown, Check, X } from 'lucide-svelte';
 	import BottomSheet from '$lib/BottomSheet.svelte';
 	import { toasts } from '$lib/toast.svelte';
 	import { ogImageUrl } from '$lib/api';
@@ -111,6 +111,11 @@
 		suggestionBar.open = () => (suggOpen = true);
 		return () => { suggestionBar.count = 0; suggestionBar.open = null; };
 	});
+	$effect(() => {
+		suggestionBar.todo = unclassified;
+		suggestionBar.openSort = () => void openSort();
+		return () => { suggestionBar.todo = 0; suggestionBar.openSort = null; };
+	});
 	const total = $derived(eventsStore.list.length);
 	const shown = $derived(
 		sortEvents(
@@ -144,15 +149,6 @@
 			<Ellipsis size={22} />
 		</button>
 	</div>
-
-	{#if unclassified > 0}
-		<div class="tools">
-			<button class="todo" onclick={openSort}>
-				<Inbox size={20} aria-hidden="true" />
-				<span class="todo-n">{unclassified}</span> {T.toClassify.fr} · <span class="kh" lang="km">{T.toClassify.kh}</span>
-			</button>
-		</div>
-	{/if}
 
 	{#if total > 0}
 		<div class="filters">
@@ -331,18 +327,6 @@
 		flex-shrink: 0;
 		font-weight: 600;
 	}
-	.todo {
-		min-height: var(--btn-tap);
-		display: flex; align-items: center; gap: var(--space-2);
-		padding: 0 var(--space-4);
-		border-radius: var(--radius-full);
-		background: var(--lavender); color: var(--on-lavender);
-		font-size: var(--fs-lg); font-weight: 600;
-		align-self: flex-start;
-	}
-	.todo .kh { font-size: var(--fs-xl); }
-	.todo-n { font-family: var(--font-display); font-size: var(--fs-xl); }
-	.tools { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 	.sugg-list { display: flex; flex-direction: column; gap: var(--space-3); }
 	.filters { display: flex; gap: var(--space-2); }
 	.fbtn { flex: 1; min-width: 0; display: flex; align-items: stretch; border-radius: var(--radius-full); background: var(--raised); color: var(--text-secondary); }
@@ -367,7 +351,7 @@
 	.opt .ol .kh { font-size: var(--fs-xl); }
 	.opt .oc { font-size: var(--fs-md); opacity: 0.8; }
 	.opt.clear { color: var(--accent-text); }
-	.count { font-size: var(--fs-md); color: var(--text-secondary); padding: 0 var(--space-1); }
+	.count { font-size: var(--fs-md); color: var(--text-secondary); align-self: flex-start; padding: 2px var(--space-3); border-radius: var(--radius-full); background: var(--surface); }
 	.count span { font-size: 1rem; }
 	.empty-filter { padding: var(--space-6) 0; }
 	.empty-filter .kh { font-size: var(--fs-xl); }
