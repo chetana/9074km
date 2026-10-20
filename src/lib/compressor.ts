@@ -1,7 +1,7 @@
 import type { ExifData } from './exif';
 
-const MAX_DIM = 2048;
-const QUALITY = 0.85;
+const MAX_DIM = 1600;
+const QUALITY = 0.75;
 const SKIP_COMPRESS_BYTES = 500_000; // < 500 Ko → pas la peine de compresser
 
 export interface CompressResult {
@@ -15,8 +15,8 @@ export interface CompressOptions {
 	reinjectExif?: boolean;
 }
 
-// Le canvas efface l'EXIF : on remet l'utile dans le JPEG de sortie. Le WebP n'en porte pas : une photo qui a
-// de l'EXIF (date, GPS, appareil) sort donc en JPEG, jamais en WebP (Chrome/Android perdait date et GPS).
+// Sortie toujours en JPEG (Safari ne sait pas encoder le WebP, et le JPEG garde son EXIF) : le canvas efface
+// l'EXIF, on remet date, GPS et appareil dans le fichier réduit.
 async function withExif(blob: Blob, exif: ExifData | null | undefined, opts?: CompressOptions): Promise<Blob> {
 	if (!exif || opts?.reinjectExif === false) return blob;
 	try {
@@ -34,6 +34,11 @@ export async function compressImage(file: File, exif?: ExifData | null, opts?: C
 		return { blob: file, contentType: file.type, filename: file.name };
 	}
 
+	// GIF : une seule image serait gardée, l'animation perdue
+	if (file.type === 'image/gif') {
+		return { blob: file, contentType: file.type, filename: file.name };
+	}
+
 	// Skip compression for small files
 	if (file.size < SKIP_COMPRESS_BYTES) {
 		return { blob: file, contentType: file.type, filename: file.name };
@@ -43,7 +48,7 @@ export async function compressImage(file: File, exif?: ExifData | null, opts?: C
 		const bitmap = await createImageBitmap(file);
 		const { width, height } = bitmap;
 
-		// Calculate new dimensions (max 2048px on longest side)
+		// Calculate new dimensions (max 1600px on longest side)
 		let newW = width;
 		let newH = height;
 		if (width > MAX_DIM || height > MAX_DIM) {
@@ -70,18 +75,12 @@ export async function compressImage(file: File, exif?: ExifData | null, opts?: C
 			ctx = (canvas as HTMLCanvasElement).getContext('2d') as CanvasRenderingContext2D;
 		}
 
+		ctx.fillStyle = '#fff';
+		ctx.fillRect(0, 0, newW, newH);
 		ctx.drawImage(bitmap, 0, 0, newW, newH);
 		bitmap.close();
 
 		const originalBytes = file.size;
-
-		// WebP seulement si l'EXIF n'a rien à conserver (Safari ignore image/webp et retourne un PNG à la place)
-		const keepsExif = !!exif && opts?.reinjectExif !== false && (!!exif.takenAt || exif.lat != null || !!exif.make || !!exif.model);
-		const webpBlob = keepsExif ? null : await canvasToBlob(canvas, 'image/webp', QUALITY);
-		if (webpBlob && webpBlob.type === 'image/webp' && webpBlob.size < originalBytes) {
-			const filename = replaceExt(file.name, '.webp');
-			return { blob: webpBlob, contentType: 'image/webp', filename };
-		}
 
 		// Try JPEG
 		const jpegBlob = await canvasToBlob(canvas, 'image/jpeg', QUALITY);
