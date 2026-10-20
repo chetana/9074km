@@ -334,6 +334,8 @@ pour les « faux » (à valider à la main, jamais appliquées).
 - **Lot 2** : `scripts/index-coffre-media.mjs` rétro-indexe les photos déjà dans S3 dans `media` (`--dry-run` par défaut, `--apply --yes` atomique en une transaction, `--limit`, `--year` ; `ON CONFLICT DO NOTHING`, relançable). `GET /api/coffre/media/unclassified` alimente le chip « N à classer » (liste simple ; le mode trier = lot 4). Le sheet d'upload a une ligne « Cet envoi : évènement » pré-sélectionnée d'après la date ; le rattachement part APRÈS l'upload avec les chemins réellement envoyés, en mode `keep` : une photo déjà rangée dans un AUTRE évènement n'est jamais déplacée en silence (toast + « Déplacer ici ») ; échec ou délai de 15 s = toast « Réessayer », jamais silencieux.
 - **Lots 3-4** : `server/event-suggest.ts` (PUR, déterministe : jours denses ≥ 4 photos ou ≥ 2 avec vidéo, fusion des jours consécutifs, tranches de 7 jours, « ajouter à » si un évènement recouvre, refus `suggestion_dismissals` (003-suggestions.sql) qui reviennent à +50 %, 3 max) ; `GET /api/coffre/events/suggestions` + `POST …/dismiss` ; carte « Suggestion » (`SuggestionCard`, confirmation avec le nombre de photos, mode `keep`) ; mode tri plein écran (`SortMode`, chunk dynamique : chip « N à classer », swipe ←/→, « Passer » = `media.skipped_at` pour 30 jours via `POST /api/coffre/media/skip`, annulation 5 s) ; `GET /api/coffre/events/export` (JSON, 6/h/utilisateur, sans GPS) ; couverture ☆ dans le viewer ; retraduction à la demande du nom. Jour-dossier = date du chemin, jamais `uploaded_at`.
 
+- **Lot 5 (vérification iPhone)** : bypass d'auth `E2E_AUTH_USER` (`server/dev-auth.ts`, hook `devAuth`) lu UNIQUEMENT si `dev` SvelteKit ET `NODE_ENV !== 'production'` ; absent du bundle client (grep `build/` et `.svelte-kit/output/client`, vérifié) ; `node build` avec la variable = 401. Jamais dans `infra/box/env`. Specs `coffre-*` rejouées en iPhone ; `coffre-measure` (44 px, khmer, scroll horizontal, zone sûre) ; `src/lib/safe-area.test.ts` ; `scripts/bundle-budget.mjs`. Le header du coffre réserve `safe-area-inset-top` (PWA black-translucent).
+
 ## Env vars
 
 Secrets injectés via `infra/box/env/*.env` sur chetbox (jamais commités). Voir
@@ -348,8 +350,11 @@ npm run build          # build production
 npm run preview        # preview build local
 npm run check          # svelte-check — doit être à 0 erreur avant de committer
 npm run test           # vitest — unitaire/intégration, mocké, aucun secret requis
-npm run test:e2e       # playwright — smoke tests (e2e/), tape un vrai serveur dev + vraies infra,
-                       # jamais en CI. Voir e2e/README.md.
+npm run test:e2e       # playwright, 2 projets (chromium + iphone-14-pro), serveurs dev 5173 (sans session)
+                       # et 5174 (bypass E2E_AUTH_USER, DB/S3 injoignables), jamais en CI. Voir e2e/README.md.
+npm run test:e2e:iphone # seulement l'émulation iPhone 14 Pro (393×852 @3x, Chromium, pas WebKit)
+SHOTS_DIR=/tmp/x npm run shots:coffre  # 14 captures du coffre, hors dépôt
+npm run build && npm run check:bundle  # budget bundle initial du coffre (+15 % max)
 npm run eval:translate # rejoue les cas de régression de traduction + réplique de vrais messages
                        # (--replay N), coûte de vrais appels GLM/Gemini, jamais en CI.
 ```

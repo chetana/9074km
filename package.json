@@ -12,6 +12,9 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
 		"test:e2e": "playwright test",
+		"test:e2e:iphone": "playwright test --project=iphone-14-pro",
+		"shots:coffre": "SHOTS_DIR=${SHOTS_DIR:-/tmp/lys-coffre-shots} playwright test e2e/shots-coffre.spec.ts --project=iphone-14-pro --workers=1",
+		"check:bundle": "node scripts/bundle-budget.mjs",
 		"eval:translate": "node --experimental-strip-types scripts/eval-translate.mjs"
 	},
 	"devDependencies": {
