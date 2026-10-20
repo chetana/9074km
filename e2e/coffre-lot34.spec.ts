@@ -19,6 +19,7 @@ const days = (d: string, n: number) => Array.from({ length: n }, (_, i) => `${d.
 
 interface Opts { suggestions?: any[]; unclassified?: any[]; big?: number; skipStatus?: () => number; conflictPath?: string; exportStatus?: number; patchTranslation?: string; mediaPaths?: string[]; attachSkip?: boolean }
 async function setup(page: Page, o: Opts = {}) {
+	await page.addInitScript(() => { try { localStorage.setItem('coffre-events-view', 'grid') } catch { /* sans stockage */ } }) // ces specs testent la GRILLE de secours
 	const calls: { m: string; url: string; body: any }[] = []
 	const taken = new Set<string>() // photos rangées ou passées (mock du serveur : elles ne sont plus « à classer »)
 	const bigItems = o.big ? Array.from({ length: o.big }, (_, i) => ({ path: `2026/${String((i % 10) + 1).padStart(2, '0')}/${String((i % 27) + 1).padStart(2, '0')}/p${String(i).padStart(4, '0')}.jpg`, day: `2026-${String((i % 10) + 1).padStart(2, '0')}-${String((i % 27) + 1).padStart(2, '0')}`, kind: 'image', size: 1, uploadedBy: 'Chet' })) : null

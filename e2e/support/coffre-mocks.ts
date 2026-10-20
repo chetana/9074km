@@ -23,6 +23,8 @@ export interface CoffreMockOptions {
 	/** 'intercept' : __data.json et sign-in simulés (specs historiques). 'real' : la vraie pile, session E2E_AUTH_USER du serveur dev. */
 	auth?: 'intercept' | 'real'
 	user?: string
+	/** Vue Évènements forcée via localStorage : 'grid' par défaut (specs historiques), 'album' = carrousel, null = ne touche à rien. */
+	view?: 'grid' | 'album' | null
 	events?: any[]
 	suggestions?: any[]
 	unclassified?: any[]
@@ -33,6 +35,8 @@ export interface CoffreMockOptions {
 export interface MockCalls { m: string; url: string; body: any }
 
 export async function mockCoffre(page: Page, o: CoffreMockOptions = {}) {
+	const view = o.view === undefined ? 'grid' : o.view
+	if (view !== null) await page.addInitScript((v) => { try { localStorage.setItem('coffre-events-view', v) } catch { /* sans stockage */ } }, view)
 	const calls: MockCalls[] = []
 	const events = o.events ?? ALL_EVENTS
 	const rec = (r: any) => { const p = r.request().postData(); calls.push({ m: r.request().method(), url: new URL(r.request().url()).pathname, body: p ? JSON.parse(p) : null }) }

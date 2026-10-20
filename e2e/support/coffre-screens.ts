@@ -36,6 +36,7 @@ export const SCREENS: Screen[] = [
 	{ id: '02-dates-mois', open: async (p) => { await p.goto('/coffre'); await p.locator('.list .card').first().click(); await settle(p, 900) } },
 	{ id: '03-dates-vue-jour', open: async (p) => { await p.goto('/coffre?y=2026&m=10&d=11'); await p.waitForSelector('.tile img'); await settle(p, 900) } },
 	{ id: '04-evenements-vide', mock: { events: [] }, open: async (p) => { await p.goto('/coffre?v=events'); await p.waitForSelector('.state'); await settle(p) } },
+	{ id: '05b-evenements-carrousel', mock: { view: 'album' }, open: async (p) => { await p.goto('/coffre?v=events'); await p.waitForSelector('.slot[data-center]'); await settle(p, 900) } },
 	{ id: '05-evenements-grille', open: async (p) => { await p.goto('/coffre?v=events'); await p.waitForSelector('.card'); await settle(p, 900) } },
 	{ id: '06-evenement-vue', open: async (p) => { await p.goto('/coffre?v=events&e=2'); await p.waitForSelector('.cell img'); await settle(p, 900) } },
 	{
