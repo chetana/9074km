@@ -116,9 +116,13 @@ describe('parsePathsBody', () => {
 	})
 	it('doublons fusionnés, ordre conservé, unicode accepté', () => {
 		const r = p(['2026/11/30/b.jpg', '2026/11/30/a.jpg', '2026/11/30/b.jpg', '2026/11/30/ភូមិ.jpg'])
-		expect(r).toEqual({ ok: true, value: { paths: ['2026/11/30/b.jpg', '2026/11/30/a.jpg', '2026/11/30/ភូមិ.jpg'] } })
+		expect(r).toEqual({ ok: true, value: { paths: ['2026/11/30/b.jpg', '2026/11/30/a.jpg', '2026/11/30/ភូមិ.jpg'], mode: 'move' } })
 	})
 	it('clé inconnue refusée', () => ko(parsePathsBody({ paths: ['2026/11/30/a.jpg'], x: 1 })))
+	it('mode : move (défaut) ou keep, rien d\'autre', () => {
+		expect(parsePathsBody({ paths: ['2026/11/30/a.jpg'], mode: 'keep' })).toEqual({ ok: true, value: { paths: ['2026/11/30/a.jpg'], mode: 'keep' } })
+		for (const mode of ['overwrite', '', 1, null, true]) ko(parsePathsBody({ paths: ['2026/11/30/a.jpg'], mode }))
+	})
 })
 
 describe('parsePatchEvent', () => {

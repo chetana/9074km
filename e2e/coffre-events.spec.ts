@@ -22,6 +22,7 @@ async function mock(page: Page, user = 'Chetana Yin') {
 	await page.route('**/api/version', (r) => json(r, { version: '1.0.333' }))
 	await page.route('**/api/coffre/og-image*', (r) => r.fulfill({ contentType: 'image/svg+xml', body: SVG }))
 	await page.route('**/api/coffre/sign-download*', (r) => json(r, { url: 'data:image/svg+xml;base64,' + Buffer.from(SVG).toString('base64') }))
+	await page.route('**/api/coffre/media/unclassified*', (r) => json(r, { total: 0, items: [], nextCursor: null }))
 	await page.route('**/api/coffre/cover*', (r) => json(r, { cover: null }))
 	await page.route('**/api/coffre/list*', (r) => {
 		const prefix = new URL(r.request().url()).searchParams.get('prefix')

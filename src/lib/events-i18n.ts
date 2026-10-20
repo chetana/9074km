@@ -54,7 +54,12 @@ export const T = {
 	tooLong: { fr: 'Trop long', kh: 'វែងពេក' },
 	selected: { fr: 'sélectionné(s)', kh: 'បានជ្រើស' },
 	namesIn3: { fr: 'Nom dans les 3 langues', kh: 'ឈ្មោះជា ៣ ភាសា' },
-	more: { fr: 'Plus d’options', kh: 'ជម្រើសបន្ថែម' }
+	more: { fr: 'Plus d’options', kh: 'ជម្រើសបន្ថែម' },
+	toClassify: { fr: 'à classer', kh: 'មិនទាន់រៀបចំ' },
+	unclassifiedTitle: { fr: 'Photos à classer', kh: 'រូបថតមិនទាន់រៀបចំ' },
+	viewDay: { fr: 'Voir ce jour', kh: 'មើលថ្ងៃនោះ' },
+	loadMore: { fr: 'Voir plus', kh: 'មើលបន្ថែម' },
+	allSorted: { fr: 'Tout est classé', kh: 'បានរៀបចំអស់ហើយ' }
 } as const;
 
 export type TKey = keyof typeof T;

@@ -73,12 +73,33 @@ export async function createEvent(userId: number, input: CreateEventInput, names
   })
 }
 
-async function attachMedia(tx: Tx, eventId: number, userId: number, paths: string[]) {
-  await tx.execute(sql`
+export type AttachMode = 'move' | 'keep'
+export interface AttachResult { added: string[]; skipped: { path: string; eventId: number }[] }
+
+/**
+ * Rattache des photos. `move` = déplacement explicite (une photo quitte son ancien évènement) ;
+ * `keep` = ne touche JAMAIS une photo déjà rangée dans un AUTRE évènement vivant (deux appareils, même nom
+ * de fichier) : elle est rendue dans `skipped`. Tout se décide dans un seul INSERT … ON CONFLICT (atomique).
+ */
+async function attachMedia(tx: Tx, eventId: number, userId: number, paths: string[], mode: AttachMode = 'move'): Promise<AttachResult> {
+  const guard = mode === 'move' ? sql`true`
+    : sql`event_media.event_id = EXCLUDED.event_id OR NOT EXISTS (SELECT 1 FROM events ev WHERE ev.id = event_media.event_id AND ev.deleted_at IS NULL)`
+  const ins = rows(await tx.execute(sql`
     INSERT INTO event_media (media_path, event_id, added_by)
     SELECT p, ${eventId}, ${userId} FROM unnest(${textArray(paths)}) AS p
-    ON CONFLICT (media_path) DO UPDATE SET event_id = EXCLUDED.event_id, added_by = EXCLUDED.added_by, added_at = now()`)
-  await tx.execute(sql`UPDATE events SET cover_path = NULL WHERE id <> ${eventId} AND cover_path = ANY(${textArray(paths)})`)
+    ON CONFLICT (media_path) DO UPDATE SET event_id = EXCLUDED.event_id, added_by = EXCLUDED.added_by, added_at = now()
+    WHERE ${guard}
+    RETURNING media_path`))
+  const added = ins.map((r) => r.media_path as string)
+  const addedSet = new Set(added)
+  const left = paths.filter((p) => !addedSet.has(p))
+  let skipped: { path: string; eventId: number }[] = []
+  if (left.length) {
+    skipped = rows(await tx.execute(sql`SELECT media_path, event_id FROM event_media WHERE media_path = ANY(${textArray(left)})`))
+      .map((r) => ({ path: r.media_path as string, eventId: r.event_id as number }))
+  }
+  if (added.length) await tx.execute(sql`UPDATE events SET cover_path = NULL WHERE id <> ${eventId} AND cover_path = ANY(${textArray(added)})`)
+  return { added, skipped }
 }
 
 export type PatchOutcome =
@@ -154,12 +175,11 @@ export async function listEventMedia(id: number): Promise<string[] | null> {
   return res.map((r) => r.media_path as string)
 }
 
-export async function addEventMedia(id: number, userId: number, paths: string[]): Promise<boolean> {
+export async function addEventMedia(id: number, userId: number, paths: string[], mode: AttachMode = 'move'): Promise<AttachResult | false> {
   return getDB().transaction(async (tx) => {
     const ev = rows(await tx.execute(sql`SELECT 1 FROM events WHERE id = ${id} AND deleted_at IS NULL FOR SHARE`))
     if (!ev.length) return false
-    await attachMedia(tx, id, userId, paths)
-    return true
+    return attachMedia(tx, id, userId, paths, mode)
   })
 }
 

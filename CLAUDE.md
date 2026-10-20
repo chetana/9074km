@@ -331,6 +331,7 @@ pour les « faux » (à valider à la main, jamais appliquées).
   arrière-plan après écriture (`events-names.ts`, plafonds 20/min et 200/jour/utilisateur). Test d'intégration
   Postgres : `TEST_PG_URL=postgres://…@127.0.0.1:…/… npx vitest run events-store.pg` (base locale jetable seulement).
 - **EXIF à l'upload** (lot 1b) : `lib/exif.ts` (parseur/injecteur JPEG pur, chargé en import dynamique) lit date/offset/GPS/marque sur l'ORIGINAL avant la compression Canvas ; `FabUpload` propose la date de prise de vue (jamais imposée), `compressor.ts` réinjecte l'EXIF utile dans le JPEG réduit (Orientation=1 ; pas dans le WebP), `POST /api/coffre/media` indexe dans la table `media` (`002-media.sql`, `taken_at` = heure murale locale sans fuseau, best-effort). Les previews og-image (publiques) n'ont aucune métadonnée : test `og-image/server.test.ts`.
+- **Lot 2** : `scripts/index-coffre-media.mjs` rétro-indexe les photos déjà dans S3 dans `media` (`--dry-run` par défaut, `--apply --yes` atomique en une transaction, `--limit`, `--year` ; `ON CONFLICT DO NOTHING`, relançable). `GET /api/coffre/media/unclassified` alimente le chip « N à classer » (liste simple ; le mode trier = lot 4). Le sheet d'upload a une ligne « Cet envoi : évènement » pré-sélectionnée d'après la date ; le rattachement part APRÈS l'upload avec les chemins réellement envoyés, en mode `keep` : une photo déjà rangée dans un AUTRE évènement n'est jamais déplacée en silence (toast + « Déplacer ici ») ; échec ou délai de 15 s = toast « Réessayer », jamais silencieux.
 
 ## Env vars
 
