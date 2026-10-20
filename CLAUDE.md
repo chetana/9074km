@@ -56,7 +56,7 @@ src/
     swr.svelte.ts       — utilitaire SWR maison (Svelte 5 runes) — typer explicitement T sur
                           createSWR<T>(...) si getCached() renvoie unknown, sinon toutes les
                           dérivées de swr.data deviennent unknown (piège vécu le 22/09)
-    compressor.ts       — Compression image Canvas (WebP/JPEG, max 2048px)
+    compressor.ts       — Compression image Canvas (toujours JPEG, max 1600 px, q75, EXIF réinjecté, original en secours)
     thumbnailer.ts      — Thumbnail vidéo via HTMLVideoElement
     semaphore.ts        — Queue async (max 3 signed URL fetches)
     i18n.ts             — Labels FR + Khmer, COUPLE_START, STATUS, REACTIONS
