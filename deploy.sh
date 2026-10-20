@@ -44,7 +44,7 @@ VER=$(DRY=$DRYENV node -e '
   const c=fs.readFileSync(p,"utf8");
   const m=c.match(/APP_VERSION\s*=\s*["\x27](\d+)\.(\d+)\.(\d+)["\x27]/);
   if(!m){console.error("APP_VERSION introuvable dans "+p);process.exit(1);}
-  const next=m[1]+"."+m[2]+"."+(Number(m[3])+1);
+  const next=process.env.FORCE_VER||m[1]+"."+m[2]+"."+(Number(m[3])+1);
   if(process.env.DRY!=="1"){
     fs.writeFileSync(p,"// Bump patch +1 a chaque deploiement (via deploy.sh).\nexport const APP_VERSION = \x27"+next+"\x27;\n");
   }
