@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { ExifData } from './exif'
-import { planUploadDates, recordUploads, loadExif } from './upload-exif'
+import { planUploadDates, recordUploads, loadExif, countsLabel } from './upload-exif'
 
 const f = (n: string, type = 'image/jpeg') => new File(['x'], n, { type })
 const ex = (takenAt: string | null): ExifData => ({ takenAt, offset: null, lat: null, lng: null, make: null, model: null, orientation: null })
@@ -72,5 +72,27 @@ describe('recordUploads (best-effort)', () => {
 		expect(fetchMock).not.toHaveBeenCalled()
 		await recordUploads(Array.from({ length: 1001 }, (_, i) => ({ path: `2026/11/02/p${i}.jpg`, size: 1, exif: null })))
 		expect(fetchMock).toHaveBeenCalledTimes(3)
+	})
+})
+
+describe('arrondi GPS (F6)', () => {
+	afterEach(() => vi.unstubAllGlobals())
+	it('lat/lng arrondis à 6 décimales avant l\'envoi', async () => {
+		const fetchMock = vi.fn(async () => new Response('{}'))
+		vi.stubGlobal('fetch', fetchMock)
+		await recordUploads([{ path: '2026/10/02/a.jpg', size: 1, exif: { ...ex('2026-10-02T07:15:30'), lat: 11.55641234567891, lng: -104.92829999999 } }])
+		const it = JSON.parse((fetchMock.mock.calls[0] as any)[1].body).items[0]
+		expect(it.lat).toBe(11.556412)
+		expect(it.lng).toBe(-104.9283)
+	})
+})
+
+describe('countsLabel (F5)', () => {
+	const img = (n: string) => new File(['x'], n, { type: 'image/jpeg' })
+	const vid = (n: string) => new File(['x'], n, { type: 'video/mp4' })
+	it('photos et vidéos comptées séparément, pluriels et khmer', () => {
+		expect(countsLabel([img('a'), img('b'), vid('v')])).toEqual({ fr: '2 photos · 1 vidéo', kh: '2 រូបថត · 1 វីដេអូ' })
+		expect(countsLabel([img('a')])).toEqual({ fr: '1 photo', kh: '1 រូបថត' })
+		expect(countsLabel([vid('a'), vid('b')])).toEqual({ fr: '2 vidéos', kh: '2 វីដេអូ' })
 	})
 })

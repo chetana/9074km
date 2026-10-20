@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BottomSheet from '$lib/BottomSheet.svelte';
 	import { Plus, ImagePlus, Sparkles, Hourglass } from 'lucide-svelte';
-	import { loadExif, planUploadDates, type ExifMap, type UploadPlan, type DateGroup } from '$lib/upload-exif';
+	import { loadExif, planUploadDates, countsLabel, type ExifMap, type UploadPlan, type DateGroup } from '$lib/upload-exif';
 	import { formatRange } from '$lib/events-ui';
 	import { U } from '$lib/upload-i18n';
 
@@ -110,7 +110,7 @@
 				{#each pending.plan.byTaken as g (g.date)}
 					<li>
 						<span class="taken-date">{label(g.date).fr} · <span lang="km">{label(g.date).kh}</span></span>
-						<span class="taken-n">{g.files.length} {g.files.length > 1 ? U.photos.fr : 'photo'} · <span lang="km">{U.photos.kh}</span></span>
+						<span class="taken-n">{countsLabel(g.files).fr} · <span lang="km">{countsLabel(g.files).kh}</span></span>
 					</li>
 				{/each}
 			</ul>
@@ -267,8 +267,10 @@
 	.taken { text-align: center; display: flex; flex-direction: column; gap: var(--space-1); }
 	.taken-title { font-family: var(--font-display); font-size: var(--fs-2xl); color: var(--text); }
 	.taken-title-kh { font-size: var(--fs-xl); color: var(--text-secondary); line-height: var(--lh-kh); }
-	.taken-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-2) 0; }
-	.taken-list li { background: var(--surface-2); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); display: flex; flex-direction: column; }
+	.taken-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-2) 0; max-height: 34dvh; overflow-y: auto; flex-shrink: 1; min-height: 0; }
+	.taken-list li { flex-shrink: 0; }
+	.btn-confirm, .btn-keep, .btn-cancel { flex-shrink: 0; }
+	.taken-list li { background: var(--surface-2); border-radius: var(--radius-md); padding: var(--space-1) var(--space-3); display: flex; flex-direction: column; }
 	.taken-date { font-size: var(--fs-xl); font-weight: 600; color: var(--accent-text); }
 	.taken-date span { font-size: var(--fs-xl); }
 	.taken-n { font-size: var(--fs-md); color: var(--muted-text); }

@@ -1,4 +1,5 @@
 import type { ExifData } from './exif';
+import { U } from './upload-i18n';
 
 export type ExifMap = Map<File, ExifData | null>;
 
@@ -49,6 +50,8 @@ export function planUploadDates(files: File[], exif: ExifMap, chosen: string): U
 	return { needsConfirm: true, byTaken, keep };
 }
 
+const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
+
 export interface UploadedItem {
 	path: string;
 	size: number;
@@ -64,7 +67,7 @@ export async function recordUploads(items: UploadedItem[]): Promise<void> {
 				path,
 				size,
 				...(exif?.takenAt ? { takenAt: exif.takenAt, ...(exif.offset ? { takenOffset: exif.offset } : {}) } : {}),
-				...(exif?.lat != null && exif?.lng != null ? { lat: exif.lat, lng: exif.lng } : {}),
+				...(exif?.lat != null && exif?.lng != null ? { lat: round6(exif.lat), lng: round6(exif.lng) } : {}),
 				...(exif?.make ? { make: exif.make } : {}),
 				...(exif?.model ? { model: exif.model } : {})
 			}));
@@ -78,4 +81,15 @@ export async function recordUploads(items: UploadedItem[]): Promise<void> {
 	} catch {
 		// l'upload est déjà réussi : l'index EXIF se rattrapera
 	}
+}
+
+/** « 2 photos · 1 vidéo » (fr) et équivalent khmer : photos et vidéos comptées séparément. */
+export function countsLabel(files: File[]): { fr: string; kh: string } {
+	const videos = files.filter((f) => f.type.startsWith('video/')).length;
+	const photos = files.length - videos;
+	const fr: string[] = [];
+	const kh: string[] = [];
+	if (photos) { fr.push(`${photos} ${photos > 1 ? 'photos' : 'photo'}`); kh.push(`${photos} ${U.photos.kh}`); }
+	if (videos) { fr.push(`${videos} ${videos > 1 ? 'vidéos' : 'vidéo'}`); kh.push(`${videos} ${U.videos.kh}`); }
+	return { fr: fr.join(' · '), kh: kh.join(' · ') };
 }

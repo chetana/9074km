@@ -47,10 +47,10 @@ async function openSheetAndPick(page: Page, files: { name: string; mimeType: str
 
 test('EXIF d\'un autre jour : la date de prise de vue est proposée, pas imposée ; acceptée → envoi à cette date + index EXIF', async ({ page }) => {
 	const { puts, media } = await setup(page)
-	await openSheetAndPick(page, [{ name: 'IMG_1.jpg', mimeType: 'image/jpeg', buffer: await photo('2026-11-02T07:15:30') }])
+	await openSheetAndPick(page, [{ name: 'IMG_1.jpg', mimeType: 'image/jpeg', buffer: await photo('2026-10-02T07:15:30') }])
 	await page.waitForSelector('.taken')
 	await expect(page.locator('.taken-title')).toHaveText('Photos prises le')
-	await expect(page.locator('.taken-date')).toContainText('2 novembre 2026')
+	await expect(page.locator('.taken-date')).toContainText('2 octobre 2026')
 	await expect(page.locator('.taken-n')).toContainText('1 photo ·')
 	await expect(page.locator('.fab')).toHaveCount(0) // le FAB ne passe plus par-dessus la feuille
 	expect(puts).toEqual([]) // rien n'est parti avant la réponse
@@ -60,14 +60,14 @@ test('EXIF d\'un autre jour : la date de prise de vue est proposée, pas imposé
 	await page.waitForTimeout(700)
 	if (SHOTS) await page.screenshot({ path: `${SHOTS}/01-confirmation-date-unique.png` })
 	await page.getByRole('button', { name: /^Oui, / }).click()
-	await expect.poll(() => puts).toEqual(['2026/11/02/IMG_1.jpg'])
+	await expect.poll(() => puts).toEqual(['2026/10/02/IMG_1.jpg'])
 	await expect.poll(() => media.length).toBe(1)
-	expect(media[0].items[0]).toMatchObject({ path: '2026/11/02/IMG_1.jpg', takenAt: '2026-11-02T07:15:30', takenOffset: '+07:00', lat: 11.5564, lng: 104.9282, make: 'Apple', model: 'iPhone 14 Pro' })
+	expect(media[0].items[0]).toMatchObject({ path: '2026/10/02/IMG_1.jpg', takenAt: '2026-10-02T07:15:30', takenOffset: '+07:00', lat: 11.5564, lng: 104.9282, make: 'Apple', model: 'iPhone 14 Pro' })
 })
 
 test('« garder la date choisie » : envoi à la date du sheet, EXIF quand même indexée', async ({ page }) => {
 	const { puts, media } = await setup(page)
-	await openSheetAndPick(page, [{ name: 'IMG_2.jpg', mimeType: 'image/jpeg', buffer: await photo('2026-11-02T07:15:30') }])
+	await openSheetAndPick(page, [{ name: 'IMG_2.jpg', mimeType: 'image/jpeg', buffer: await photo('2026-10-02T07:15:30') }])
 	await page.waitForSelector('.taken')
 	await page.locator('.btn-keep').click()
 	await expect.poll(() => puts).toEqual(['2026/11/20/IMG_2.jpg'])
@@ -77,7 +77,7 @@ test('« garder la date choisie » : envoi à la date du sheet, EXIF quand même
 
 test('annuler : rien n\'est envoyé', async ({ page }) => {
 	const { puts, media } = await setup(page)
-	await openSheetAndPick(page, [{ name: 'IMG_3.jpg', mimeType: 'image/jpeg', buffer: await photo('2026-11-02T07:15:30') }])
+	await openSheetAndPick(page, [{ name: 'IMG_3.jpg', mimeType: 'image/jpeg', buffer: await photo('2026-10-02T07:15:30') }])
 	await page.waitForSelector('.taken')
 	await page.locator('.sheet .btn-cancel').last().click()
 	await page.waitForTimeout(500)
@@ -88,8 +88,8 @@ test('annuler : rien n\'est envoyé', async ({ page }) => {
 test('plusieurs jours : un envoi par date après confirmation', async ({ page }) => {
 	const { puts } = await setup(page)
 	await openSheetAndPick(page, [
-		{ name: 'a.jpg', mimeType: 'image/jpeg', buffer: await photo('2026-11-02T07:15:30') },
-		{ name: 'b.jpg', mimeType: 'image/jpeg', buffer: await photo('2026-11-03T21:00:00', '+07:00', '#cdf') },
+		{ name: 'a.jpg', mimeType: 'image/jpeg', buffer: await photo('2026-10-02T07:15:30') },
+		{ name: 'b.jpg', mimeType: 'image/jpeg', buffer: await photo('2026-10-03T21:00:00', '+07:00', '#cdf') },
 		{ name: 'c.jpg', mimeType: 'image/jpeg', buffer: await photo(null) },
 	])
 	await page.waitForSelector('.taken')
@@ -98,7 +98,7 @@ test('plusieurs jours : un envoi par date après confirmation', async ({ page })
 	await page.waitForTimeout(700)
 	if (SHOTS) await page.screenshot({ path: `${SHOTS}/02-confirmation-plusieurs-jours.png` })
 	await page.getByRole('button', { name: /^Oui, / }).click()
-	await expect.poll(() => [...puts].sort()).toEqual(['2026/11/02/a.jpg', '2026/11/03/b.jpg', '2026/11/20/c.jpg'])
+	await expect.poll(() => [...puts].sort()).toEqual(['2026/10/02/a.jpg', '2026/10/03/b.jpg', '2026/11/20/c.jpg'])
 })
 
 test('sans EXIF : comportement actuel, aucune question, envoi direct à la date choisie', async ({ page }) => {
@@ -117,3 +117,35 @@ test('l\'index EXIF en échec ne casse pas l\'envoi', async ({ page }) => {
 	await expect.poll(() => puts).toEqual(['2026/11/20/IMG_5.jpg'])
 	await expect(page.locator('.fab')).toBeVisible()
 })
+
+for (const n of [4, 6]) {
+	test(`${n} dates : la liste défile, les boutons gardent leur hauteur et restent dans l'écran`, async ({ page }) => {
+		await setup(page)
+		const colors = ['#fcd', '#cdf', '#dfc', '#fdc', '#cff', '#ffc']
+		const files = await Promise.all(Array.from({ length: n }, async (_, i) => ({ name: `p${i}.jpg`, mimeType: 'image/jpeg', buffer: await photo(`2026-10-0${i + 1}T10:00:00`, '+07:00', colors[i]) })))
+		if (n === 6) files.push({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: Buffer.from('fake-video') })
+		await openSheetAndPick(page, files)
+		await page.waitForSelector('.taken')
+		await page.waitForTimeout(700)
+		const m = await page.evaluate(() => {
+			const h = (s: string) => document.querySelector<HTMLElement>(s)!.getBoundingClientRect()
+			const list = document.querySelector<HTMLElement>('.taken-list')!
+			return { confirm: h('.sheet .btn-confirm:not(:has(.kh:empty))').height, keep: h('.btn-keep').height, cancelBottom: h('.sheet .btn-cancel').bottom, vh: innerHeight, scrolls: list.scrollHeight > list.clientHeight, sheetScrolls: (() => { const sh = document.querySelector<HTMLElement>('.sheet:has(.taken)')!; return sh.scrollHeight > sh.clientHeight + 1 })(), listH: list.clientHeight }
+		})
+		expect(m.sheetScrolls, 'la feuille ne doit pas défiler : les boutons restent visibles').toBe(false)
+		expect(m.keep).toBeGreaterThanOrEqual(44)
+		expect(m.cancelBottom).toBeLessThanOrEqual(m.vh)
+		expect(m.listH).toBeLessThanOrEqual(0.34 * 852 + 1)
+		if (n === 6) expect(m.scrolls).toBe(true)
+		if (n === 4) expect(m.scrolls).toBe(false) // 4 dates tiennent sans défiler
+		// vidéo comptée à part, jamais « 1 photo »
+		if (SHOTS) await page.screenshot({ path: `${SHOTS}/03-confirmation-${n}-dates.png` })
+		if (n === 6) {
+			const last = page.locator('.taken-list li', { hasText: '20 novembre 2026' })
+			await last.scrollIntoViewIfNeeded()
+			await expect(last).toContainText('1 vidéo')
+			await expect(last).not.toContainText('photo')
+			if (SHOTS) await page.screenshot({ path: `${SHOTS}/03b-confirmation-6-dates-defile-video.png` })
+		}
+	})
+}
