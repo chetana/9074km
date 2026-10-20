@@ -7,21 +7,36 @@ import { fileURLToPath } from 'node:url'
 import { S3Client, ListObjectsV2Command, PutObjectCommand } from '@aws-sdk/client-s3'
 import sharp from 'sharp'
 import { parseExif } from '../src/lib/exif.ts'
+import { detectStages, DEFAULT_STAGE_OPTIONS } from '../src/lib/server/trip-stages.ts'
 
 const USAGE = `Usage : node --experimental-strip-types scripts/import-photos.mjs <dossier> [--event ID] [--apply]
   (défaut)   plan seul : rien n'est envoyé ni écrit
   --apply    envoie vers S3, sauvegarde la base sur la box, applique le SQL en UNE transaction
+  --date YYYY-MM-DD  date des photos sans EXIF ni date dans le nom (midi) ; sinon elles sont ignorées
   --event ID rattache les photos du dossier à l'évènement, sans déplacer une photo d'un autre évènement
+  --auto-events  crée un évènement par étape de voyage détectée au GPS (déplacement > rayon, ou pause de plus de 3 jours)
+     --radius-km N (60)  --min-photos N (5)  --names "Chengdu,Chongqing" (noms dans l'ordre des étapes)
+     --geocode  nomme les étapes via Nominatim/OpenStreetMap (envoie les coordonnées de chaque étape, rien d'autre)
 Photos : 2048 px max, JPEG q85, EXIF conservé, rangées dans YYYY/MM/DD/ (date EXIF, sinon nom IMG_YYYYMMDD_HHMMSS).
 GIF envoyés tels quels, vidéos ignorées. Relançable : un nom déjà dans le bucket n'est jamais renvoyé.
 Env (ou .env) : GCS_BUCKET_NAME, S3_ENDPOINT, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY ; BOX, BOX_KEY pour la base.`
 
 const args = process.argv.slice(2)
 const evIdx = args.indexOf('--event')
-const dir = args.find((a, i) => !a.startsWith('--') && i !== evIdx + 1)
+const valueOf = (flag) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined)
+const VALUE_FLAGS = ['--event', '--radius-km', '--min-photos', '--names', '--date']
+const dir = args.find((a, i) => !a.startsWith('--') && !VALUE_FLAGS.includes(args[i - 1]))
+const AUTO = args.includes('--auto-events')
+const GEOCODE = args.includes('--geocode')
+const fallbackDay = valueOf('--date')
+const names = valueOf('--names')?.split(',').map((x) => x.trim()).filter(Boolean) ?? []
+const stageOpts = {
+	radiusKm: Number(valueOf('--radius-km') ?? DEFAULT_STAGE_OPTIONS.radiusKm),
+	minPhotos: Number(valueOf('--min-photos') ?? DEFAULT_STAGE_OPTIONS.minPhotos)
+}
 const APPLY = args.includes('--apply')
 const eventId = evIdx >= 0 ? Number(args[evIdx + 1]) : null
-if (!dir || !existsSync(dir) || (evIdx >= 0 && !Number.isInteger(eventId))) {
+if (!dir || !existsSync(dir) || (evIdx >= 0 && !Number.isInteger(eventId)) || (fallbackDay && !/^\d{4}-\d{2}-\d{2}$/.test(fallbackDay)) || (AUTO && eventId) || !(stageOpts.radiusKm > 0) || !(stageOpts.minPhotos >= 1)) {
 	console.error(USAGE)
 	process.exit(2)
 }
@@ -60,21 +75,28 @@ const files = all.filter((f) => /\.(jpe?g|gif)$/i.test(f)).sort()
 const stats = { envoyees: 0, deja: 0, sansDate: 0, erreurs: 0, videos: all.filter((f) => /\.(mp4|mov)$/i.test(f)).length }
 const sql = ['BEGIN;']
 const paths = []
+const records = []
 let next = 0
 
 async function one(f) {
 	const buf = readFileSync(`${dir}/${f}`)
 	const ex = /\.jpe?g$/i.test(f) ? parseExif(new Uint8Array(buf.subarray(0, 262144))) : null
-	const m = f.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/)
-	const takenAt = ex?.takenAt ?? (m ? `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}` : null)
+	const m = f.match(/((?:19|20)\d{2})(\d{2})(\d{2})[-_](\d{2})(\d{2})(\d{2})/) ?? f.match(/((?:19|20)\d{2})(\d{2})(\d{2})/)
+	const epoch = f.match(/^(1[5-9]\d{11})\b/)
+	const fromName = m ? `${m[1]}-${m[2]}-${m[3]}T${m[4] ?? '12'}:${m[5] ?? '00'}:${m[6] ?? '00'}` : epoch ? new Date(Number(epoch[1]) + 8 * 3600000).toISOString().slice(0, 19) : null
+	const validDay = (iso) => iso && Number.isFinite(Date.parse(iso)) && new Date(Date.parse(iso)).toISOString().startsWith(iso.slice(0, 10)) && iso >= '1990' && iso < '2036'
+	const takenAt = ex?.takenAt ?? (validDay(fromName) ? fromName : fallbackDay ? `${fallbackDay}T12:00:00` : null)
 	if (!takenAt) { stats.sansDate++; console.log('SANS DATE (ignorée) :', f); return }
 	const day = takenAt.slice(0, 10)
 	const taken = q(takenAt.replace('T', ' '))
 	const existing = have.get(stem(f))
+	const keyPath = existing ?? `${day.replaceAll('-', '/')}/${f}`
+	records.push({ path: keyPath, takenAt, lat: ex?.lat ?? null, lng: ex?.lng ?? null })
 	if (existing) {
 		stats.deja++
 		paths.push(existing)
-		sql.push(`UPDATE media SET taken_at=${taken},taken_offset=${q(ex?.offset)},lat=${num(ex?.lat)},lng=${num(ex?.lng)},make=${q(ex?.make)},model=${q(ex?.model)} WHERE path=${q(existing)} AND taken_at IS NULL;`)
+		const cols = `${taken},${q(ex?.offset)},${num(ex?.lat)},${num(ex?.lng)},${q(ex?.make)},${q(ex?.model)}`
+		sql.push(`INSERT INTO media (path,day,kind,uploaded_by,taken_at,taken_offset,lat,lng,make,model) VALUES (${q(existing)},${q(existing.slice(0, 10).replaceAll('/', '-'))},'image',${q(UPLOADER)},${cols}) ON CONFLICT (path) DO UPDATE SET taken_at=COALESCE(media.taken_at,EXCLUDED.taken_at),taken_offset=COALESCE(media.taken_offset,EXCLUDED.taken_offset),lat=COALESCE(media.lat,EXCLUDED.lat),lng=COALESCE(media.lng,EXCLUDED.lng),make=COALESCE(media.make,EXCLUDED.make),model=COALESCE(media.model,EXCLUDED.model);`)
 		return
 	}
 	const isGif = /\.gif$/i.test(f)
@@ -98,9 +120,36 @@ if (eventId) {
 	const list = paths.map(q).join(',') || "''"
 	sql.push(`INSERT INTO event_media (media_path,event_id) SELECT path,${eventId} FROM media WHERE path IN (${list}) AND deleted_at IS NULL AND path NOT IN (SELECT media_path FROM event_media) ON CONFLICT DO NOTHING;`)
 }
+if (AUTO) {
+	const email = env('IMPORT_UPLOADER_EMAIL', 'chetana.yin@gmail.com')
+	const stages = detectStages(records, stageOpts)
+	const geocode = async (lat, lng) => {
+		const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=fr&lat=${lat}&lon=${lng}`, { headers: { 'User-Agent': 'chetana-lys-import/1.0' } })
+		const a = (await r.json()).address ?? {}
+		await new Promise((ok) => setTimeout(ok, 1100))
+		return a.city ?? a.town ?? a.municipality ?? a.county ?? a.state ?? null
+	}
+	const used = new Map()
+	const inStage = new Set(stages.flatMap((st) => st.paths))
+	console.log(`\nÉtapes détectées : ${stages.length} (${records.filter((r) => !inStage.has(r.path)).length} photos isolées laissées hors évènement)`)
+	for (const [i, st] of stages.entries()) {
+		let name = names[i] ?? (GEOCODE && st.lat !== null ? await geocode(st.lat, st.lng).catch(() => null) : null)
+		name ??= `Étape ${i + 1}`
+		const seen = used.get(name) ?? 0
+		used.set(name, seen + 1)
+		if (seen) name = `${name} (${seen + 1})`
+		const cityOf = (n) => n.replace(/^.*·\s*/, '').replace(/\s*\(.*\)$/, '').trim()
+		const place = name.includes('·') ? cityOf(name) : st.lat === null ? null : `${st.lat.toFixed(3)},${st.lng.toFixed(3)}`
+		console.log(`  ${i + 1}. ${name} · ${st.dateStart} → ${st.dateEnd} · ${st.paths.length} photos · ${place ?? 'sans GPS'}`)
+		const lookup = `(SELECT id FROM events WHERE name_fr=${q(name)} AND date_start=${q(st.dateStart)} AND deleted_at IS NULL ORDER BY id LIMIT 1)`
+		sql.push(`INSERT INTO events (name_fr,name_en,name_kh,name_src_lang,names_pending,date_start,date_end,place,created_by) SELECT ${q(name)},${q(name)},${q(name)},'fr',true,${q(st.dateStart)},${q(st.dateEnd)},${q(place)},(SELECT id FROM users WHERE email=${q(email)}) WHERE NOT EXISTS (SELECT 1 FROM events WHERE name_fr=${q(name)} AND date_start=${q(st.dateStart)} AND deleted_at IS NULL);`)
+		sql.push(`INSERT INTO event_media (media_path,event_id) SELECT path,${lookup} FROM media WHERE path IN (${st.paths.map(q).join(',')}) AND deleted_at IS NULL AND path NOT IN (SELECT media_path FROM event_media) ON CONFLICT DO NOTHING;`)
+	}
+}
 sql.push('COMMIT;')
 
 console.log(`${APPLY ? 'S3 :' : 'PLAN :'} ${stats.envoyees} à envoyer/envoyées, ${stats.deja} déjà dans S3, ${stats.sansDate} sans date, ${stats.erreurs} erreurs, ${stats.videos} vidéos ignorées`)
+if (args.includes('--print-sql')) console.log(sql.join('\n'))
 if (!APPLY) process.exit(stats.erreurs ? 1 : 0)
 if (stats.erreurs) { console.error('Erreurs : base NON modifiée. Relance le script (reprise sans doublon).'); process.exit(1) }
 
