@@ -27,7 +27,7 @@ test('carrousel par défaut : carte centrale = premier évènement, au moins 45 
 	expect(await centerName(page)).toBe('Disneyland Paris')
 	await expect(page.locator('.count')).toContainText('14 évènement(s)')
 	const stage = await page.locator('.stage').boundingBox()
-	expect(stage!.height).toBeGreaterThanOrEqual(0.4 * 852)
+	expect(stage!.height).toBeGreaterThanOrEqual(0.33 * 852) // la scène remplit la place disponible (voir le test « tient entre le compteur et le dock »)
 	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(393)
 	expect(await page.locator('.stage').evaluate((e) => getComputedStyle(e).touchAction)).toBe('pan-y')
 	expect(await page.locator('.slot').count()).toBeLessThanOrEqual(8) // |d| ≤ 3,6 seulement
@@ -141,3 +141,25 @@ test('khmer ≥ 18 px, cibles ≥ 44 px (bascule, curseur, puces, carte centrale
 	const small = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.events .chip .kh, .events .t2, .events .empty-filter .kh')].map((e) => parseFloat(getComputedStyle(e).fontSize)).filter((s) => s < 18))
 	expect(small).toEqual([])
 })
+
+for (const [w, h] of [[393, 852], [375, 667]] as const) {
+	test(`tout tient entre le compteur et le dock, sans défiler : ${w}×${h}`, async ({ page }) => {
+		await page.setViewportSize({ width: w, height: h })
+		await open(page)
+		await page.waitForTimeout(400)
+		const m = await page.evaluate(() => {
+			const r = (s: string) => { const b = document.querySelector(s)!.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, h: b.height } }
+			const sc = [...document.querySelectorAll('*')].find((e) => /(auto|scroll)/.test(getComputedStyle(e).overflowY) && e.contains(document.querySelector('.stage')!)) as HTMLElement | undefined
+			return { count: r('.count'), stage: r('.stage'), scrub: r('.scrub'), card: r('.slot[data-center] .album'), dock: r('.nav-dock'), chips: [...document.querySelectorAll<HTMLElement>('.chips')].map((c) => c.clientHeight), scrollTop: sc?.scrollTop ?? 0 }
+		})
+		expect(m.scrub.bottom, 'curseur au-dessus du dock').toBeLessThanOrEqual(m.dock.top - 8 + 0.5)
+		expect(m.card.top, 'carte entièrement dans la scène (haut)').toBeGreaterThanOrEqual(m.stage.top - 0.5)
+		expect(m.card.bottom, 'carte entièrement dans la scène (bas)').toBeLessThanOrEqual(m.stage.bottom + 0.5)
+		expect(m.card.left).toBeGreaterThanOrEqual(0); expect(m.card.right).toBeLessThanOrEqual(w)
+		expect(m.stage.top, 'après le compteur').toBeGreaterThanOrEqual(m.count.bottom - 0.5)
+		expect(m.scrollTop, 'aucun défilement nécessaire').toBe(0)
+		expect(m.stage.h).toBeGreaterThanOrEqual(120)
+		if (h < 700) for (const c of m.chips) expect(c, 'petit écran : rangées de filtres réduites à 1 ligne').toBeLessThanOrEqual(44 + 1)
+		if (SHOTS) await page.screenshot({ path: `${SHOTS}/carrousel-tient-${w}x${h}.png` })
+	})
+}
