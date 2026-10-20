@@ -63,18 +63,20 @@ function dms(r: Reader, e?: Entry): number | null {
 	return Number.isFinite(v) ? v : null;
 }
 
-function localIso(s: string | null): string | null {
+// Horloge d'appareil fausse : avant 1990 ou après demain (UTC) → date ignorée.
+function localIso(s: string | null, now: number): string | null {
 	const m = s && /^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(s);
 	if (!m) return null;
 	const [y, mo, d, h, mi, se] = m.slice(1).map(Number);
-	if (y < 1970 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || se > 59) return null;
+	if (y < 1990 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || se > 59) return null;
 	const t = new Date(Date.UTC(y, mo - 1, d));
 	if (t.getUTCMonth() !== mo - 1 || t.getUTCDate() !== d) return null;
+	if (t.getTime() > Math.floor(now / 86_400_000) * 86_400_000 + 86_400_000) return null;
 	return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`;
 }
 
 /** Lit l'EXIF d'un JPEG (octets du début du fichier suffisent). null si absent, vide ou illisible. */
-export function parseExif(bytes: Uint8Array): ExifData | null {
+export function parseExif(bytes: Uint8Array, now: number = Date.now()): ExifData | null {
 	try {
 		const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 		if (v.byteLength < 4 || v.getUint16(0) !== 0xffd8) return null;
@@ -93,7 +95,7 @@ export function parseExif(bytes: Uint8Array): ExifData | null {
 		const ifd0 = readIfd(r, r.u32(4));
 		const sub = (tag: number) => { const e = ifd0.get(tag); return e && e.type === 4 ? readIfd(r, r.u32(e.at)) : new Map<number, Entry>(); };
 		const exif = sub(TAG.exifPtr), gps = sub(TAG.gpsPtr);
-		const dt = localIso(ascii(r, exif.get(TAG.dto)) ?? ascii(r, exif.get(TAG.dtd)));
+		const dt = localIso(ascii(r, exif.get(TAG.dto)) ?? ascii(r, exif.get(TAG.dtd)), now);
 		const off = ascii(r, exif.get(TAG.offsetO));
 		let lat = dms(r, gps.get(TAG.lat)), lng = dms(r, gps.get(TAG.lng));
 		if (lat !== null && ascii(r, gps.get(TAG.latRef))?.[0] === 'S') lat = -lat;

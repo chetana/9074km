@@ -4,7 +4,7 @@ import sharp from 'sharp'
 import { compressImage } from './compressor'
 import { injectExif, parseExif, type ExifData } from './exif'
 
-const EXIF: ExifData = { takenAt: '2026-11-02T07:15:30', offset: '+07:00', lat: 11.5564, lng: 104.9282, make: 'Apple', model: 'iPhone 14 Pro', orientation: 6 }
+const EXIF: ExifData = { takenAt: '2026-10-02T07:15:30', offset: '+07:00', lat: 11.5564, lng: 104.9282, make: 'Apple', model: 'iPhone 14 Pro', orientation: 6 }
 let reduced: Uint8Array
 
 beforeEach(async () => {
@@ -26,7 +26,7 @@ describe('compressImage + EXIF', () => {
 		const r = await compressImage(big(), EXIF)
 		expect(r.contentType).toBe('image/jpeg')
 		const out = parseExif(new Uint8Array(await r.blob.arrayBuffer()))!
-		expect(out).toMatchObject({ takenAt: '2026-11-02T07:15:30', offset: '+07:00', make: 'Apple', model: 'iPhone 14 Pro', orientation: 1 })
+		expect(out).toMatchObject({ takenAt: '2026-10-02T07:15:30', offset: '+07:00', make: 'Apple', model: 'iPhone 14 Pro', orientation: 1 })
 		expect(out.lat).toBeCloseTo(11.5564, 4)
 		const meta = await sharp(Buffer.from(await r.blob.arrayBuffer())).metadata()
 		expect([meta.width, meta.height]).toEqual([64, 48]) // toujours décodable
@@ -46,7 +46,7 @@ describe('compressImage + EXIF', () => {
 		const r = await compressImage(small, EXIF)
 		expect(r.blob).toBe(small)
 		const { readExif } = await import('./exif')
-		expect((await readExif(r.blob))?.takenAt).toBe('2026-11-02T07:15:30')
+		expect((await readExif(r.blob))?.takenAt).toBe('2026-10-02T07:15:30')
 	})
 	it('vidéo : rien (ni compression ni EXIF)', async () => {
 		const v = new File(['v'], 'v.mp4', { type: 'video/mp4' })

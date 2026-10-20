@@ -6,7 +6,7 @@ import { injectExif, parseExif } from '$lib/exif'
 vi.mock('$lib/server/gcs', () => ({ signedGetUrl: async (p: string) => `https://s3.test/${p}` }))
 import { GET } from './+server'
 
-const GPS = { takenAt: '2026-11-02T07:15:30', offset: '+07:00', lat: 11.5564, lng: 104.9282, make: 'Apple', model: 'iPhone 14 Pro', orientation: 1 }
+const GPS = { takenAt: '2026-10-02T07:15:30', offset: '+07:00', lat: 11.5564, lng: 104.9282, make: 'Apple', model: 'iPhone 14 Pro', orientation: 1 }
 let original: Buffer
 
 beforeEach(async () => {
@@ -35,7 +35,7 @@ describe('og-image : aucune métadonnée dans les previews publiques', () => {
 			expect(meta.exif).toBeUndefined()
 			expect(out.includes(Buffer.from('Exif'))).toBe(false)
 			expect(out.includes(Buffer.from('iPhone'))).toBe(false)
-			expect(out.includes(Buffer.from('2026:11:02'))).toBe(false)
+			expect(out.includes(Buffer.from('2026:10:02'))).toBe(false)
 		})
 	}
 })

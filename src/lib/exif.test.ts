@@ -53,11 +53,11 @@ const gpsFor = (lat: [number, number, number, string], lng: [number, number, num
 
 describe('parseExif', () => {
 	it('date + offset (heure murale conservée, pas de conversion UTC)', () => {
-		const r = parseExif(jpeg(phone(true, { dt: '2026:11:02 07:15:30', off: '+07:00', make: 'Apple', model: 'iPhone 14 Pro' })))
-		expect(r).toMatchObject({ takenAt: '2026-11-02T07:15:30', offset: '+07:00', make: 'Apple', model: 'iPhone 14 Pro', lat: null, lng: null })
+		const r = parseExif(jpeg(phone(true, { dt: '2026:10:02 07:15:30', off: '+07:00', make: 'Apple', model: 'iPhone 14 Pro' })))
+		expect(r).toMatchObject({ takenAt: '2026-10-02T07:15:30', offset: '+07:00', make: 'Apple', model: 'iPhone 14 Pro', lat: null, lng: null })
 	})
 	it('sans offset : offset null', () => {
-		expect(parseExif(jpeg(phone(true, { dt: '2026:11:02 23:59:59' })))).toMatchObject({ takenAt: '2026-11-02T23:59:59', offset: null })
+		expect(parseExif(jpeg(phone(true, { dt: '2026:10:02 23:59:59' })))).toMatchObject({ takenAt: '2026-10-02T23:59:59', offset: null })
 	})
 	it('big-endian (Motorola) identique à little-endian', () => {
 		const a = parseExif(jpeg(phone(true, { dt: '2026:03:04 10:00:00', off: '-05:00', orient: 6, make: 'X' })))
@@ -88,7 +88,7 @@ describe('parseExif', () => {
 		expect(parseExif(jpeg(undefined, true))).toBeNull()
 	})
 	it('EXIF placé après un APP0 JFIF', () => {
-		expect(parseExif(jpeg(phone(true, { dt: '2026:11:02 07:15:30' }), true))?.takenAt).toBe('2026-11-02T07:15:30')
+		expect(parseExif(jpeg(phone(true, { dt: '2026:10:02 07:15:30' }), true))?.takenAt).toBe('2026-10-02T07:15:30')
 	})
 	it('dates impossibles ou nulles : takenAt null', () => {
 		for (const dt of ['0000:00:00 00:00:00', '2026:02:31 10:00:00', '2026:13:01 10:00:00', '2026:01:01 25:00:00', 'pas une date', '2026:01:01']) {
@@ -99,7 +99,7 @@ describe('parseExif', () => {
 		for (const off of ['0700', '+7:00', '+25:00', '+07:61', 'UTC']) expect(parseExif(jpeg(phone(true, { dt: '2026:01:01 10:00:00', off })))?.offset, off).toBeNull()
 	})
 	it('EXIF tronqué à chaque longueur : jamais d\'exception', () => {
-		const full = jpeg(phone(true, { dt: '2026:11:02 07:15:30', off: '+07:00', make: 'Apple', model: 'iPhone', orient: 6, gps: gpsFor([48, 51, 30, 'N'], [2, 21, 0, 'E']) }))
+		const full = jpeg(phone(true, { dt: '2026:10:02 07:15:30', off: '+07:00', make: 'Apple', model: 'iPhone', orient: 6, gps: gpsFor([48, 51, 30, 'N'], [2, 21, 0, 'E']) }))
 		for (let n = 0; n < full.length; n++) expect(() => parseExif(full.slice(0, n))).not.toThrow()
 		expect(parseExif(full.slice(0, 30))).toBeNull()
 	})
@@ -114,25 +114,25 @@ describe('parseExif', () => {
 		expect(parseExif(Uint8Array.of(1, 2, 3, 4))).toBeNull()
 	})
 	it('IFD pointant en dehors du fichier ou en boucle : null/pas de boucle infinie', () => {
-		const t = phone(true, { dt: '2026:11:02 07:15:30' })
+		const t = phone(true, { dt: '2026:10:02 07:15:30' })
 		const loop = [...t]; loop[4] = 8; loop[5] = 0 // IFD0 → lui-même : lisible, mais pas de récursion
 		expect(() => parseExif(jpeg(loop))).not.toThrow()
 		const out = [...t]; out[4] = 0xff; out[5] = 0xff; out[6] = 0xff; out[7] = 0x7f
 		expect(parseExif(jpeg(out))).toBeNull()
 	})
 	it('readExif (Blob) : lit les premiers octets', async () => {
-		const blob = new Blob([jpeg(phone(true, { dt: '2026:11:02 07:15:30' })) as BlobPart])
-		expect((await readExif(blob))?.takenAt).toBe('2026-11-02T07:15:30')
+		const blob = new Blob([jpeg(phone(true, { dt: '2026:10:02 07:15:30' })) as BlobPart])
+		expect((await readExif(blob))?.takenAt).toBe('2026-10-02T07:15:30')
 		expect(await readExif(new Blob([Uint8Array.of(1, 2, 3) as BlobPart]))).toBeNull()
 	})
 })
 
 describe('injectExif', () => {
-	const full: ExifData = { takenAt: '2026-11-02T07:15:30', offset: '+07:00', lat: -33.86667, lng: -70.65, make: 'Apple', model: 'iPhone 14 Pro', orientation: 6 }
+	const full: ExifData = { takenAt: '2026-10-02T07:15:30', offset: '+07:00', lat: -33.86667, lng: -70.65, make: 'Apple', model: 'iPhone 14 Pro', orientation: 6 }
 	it('relecture : tout est conservé, Orientation remise à 1', () => {
 		const out = injectExif(jpeg(undefined, true), full)
 		const r = parseExif(out)!
-		expect(r).toMatchObject({ takenAt: '2026-11-02T07:15:30', offset: '+07:00', make: 'Apple', model: 'iPhone 14 Pro', orientation: 1 })
+		expect(r).toMatchObject({ takenAt: '2026-10-02T07:15:30', offset: '+07:00', make: 'Apple', model: 'iPhone 14 Pro', orientation: 1 })
 		expect(r.lat).toBeCloseTo(-33.86667, 4)
 		expect(r.lng).toBeCloseTo(-70.65, 4)
 	})
@@ -152,7 +152,7 @@ describe('injectExif', () => {
 		expect(parseExif(out)?.lat).toBeNull()
 	})
 	it('partiel : date seule, ou rien d\'utile → JPEG inchangé', () => {
-		expect(parseExif(injectExif(jpeg(), { ...full, offset: null, lat: null, lng: null, make: null, model: null }))?.takenAt).toBe('2026-11-02T07:15:30')
+		expect(parseExif(injectExif(jpeg(), { ...full, offset: null, lat: null, lng: null, make: null, model: null }))?.takenAt).toBe('2026-10-02T07:15:30')
 		const src = jpeg()
 		expect(injectExif(src, { takenAt: null, offset: null, lat: null, lng: null, make: null, model: null, orientation: 6 })).toBe(src)
 	})
@@ -173,7 +173,7 @@ describe('injectExif', () => {
 		const meta = await sharp(Buffer.from(out)).metadata()
 		expect([meta.width, meta.height]).toEqual([64, 48])
 		expect(meta.exif).toBeTruthy()
-		expect(parseExif(out)?.takenAt).toBe('2026-11-02T07:15:30')
+		expect(parseExif(out)?.takenAt).toBe('2026-10-02T07:15:30')
 	})
 })
 
@@ -189,15 +189,38 @@ describe('lecteur indépendant (ImageMagick, si installé)', () => {
 		const dir = mkdtempSync(join(tmpdir(), 'exif-'))
 		try {
 			const base = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#fcd' } }).jpeg().toBuffer()
-			const out = injectExif(new Uint8Array(base), { takenAt: '2026-11-02T07:15:30', offset: '+07:00', lat: 48.5, lng: -2.25, make: 'Apple', model: 'iPhone', orientation: 6 })
+			const out = injectExif(new Uint8Array(base), { takenAt: '2026-10-02T07:15:30', offset: '+07:00', lat: 48.5, lng: -2.25, make: 'Apple', model: 'iPhone', orientation: 6 })
 			const f = join(dir, 'x.jpg')
 			writeFileSync(f, out)
 			const id = (fmt: string) => execFileSync('magick', ['identify', '-format', fmt, f]).toString()
-			expect(id('%[EXIF:DateTimeOriginal]')).toBe('2026:11:02 07:15:30')
+			expect(id('%[EXIF:DateTimeOriginal]')).toBe('2026:10:02 07:15:30')
 			expect(id('%[EXIF:OffsetTimeOriginal]')).toBe('+07:00')
 			expect(id('%[EXIF:GPSLatitudeRef]%[EXIF:GPSLongitudeRef]')).toBe('NW')
 			expect(id('%[EXIF:Make]/%[EXIF:Model]')).toBe('Apple/iPhone')
 			expect(id('%[orientation]')).toBe('TopLeft')
 		} finally { rmSync(dir, { recursive: true, force: true }) }
+	})
+})
+
+describe('horloge d\'appareil fausse (F4)', () => {
+	const NOW = Date.UTC(2026, 9, 20, 12, 0, 0) // 20/10/2026 12:00 UTC
+	const at = (dt: string) => parseExif(jpeg(phone(true, { dt, make: 'Apple' })), NOW)?.takenAt
+	it('aujourd\'hui, hier et demain (décalage horaire) acceptés', () => {
+		expect(at('2026:10:20 09:00:00')).toBe('2026-10-20T09:00:00')
+		expect(at('2026:10:19 23:59:59')).toBe('2026-10-19T23:59:59')
+		expect(at('2026:10:21 05:00:00')).toBe('2026-10-21T05:00:00')
+	})
+	it('après-demain et au-delà : écartées (null), le reste de l\'EXIF est gardé', () => {
+		expect(at('2026:10:22 00:00:00')).toBeNull()
+		expect(at('2030:01:01 00:00:00')).toBeNull()
+		expect(parseExif(jpeg(phone(true, { dt: '2030:01:01 00:00:00', make: 'Apple' })), NOW)).toMatchObject({ takenAt: null, make: 'Apple' })
+	})
+	it('avant 1990 (horloge à zéro) : écartées', () => {
+		expect(at('1989:12:31 23:59:59')).toBeNull()
+		expect(at('1970:01:01 00:00:00')).toBeNull()
+		expect(at('1990:01:01 00:00:00')).toBe('1990-01-01T00:00:00')
+	})
+	it('une date écartée n\'emporte pas l\'offset', () => {
+		expect(parseExif(jpeg(phone(true, { dt: '2030:01:01 00:00:00', off: '+07:00', make: 'M' })), NOW)?.offset).toBeNull()
 	})
 })

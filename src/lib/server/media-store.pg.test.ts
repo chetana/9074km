@@ -57,8 +57,22 @@ describe.skipIf(!isLocal)('media-store (Postgres local jetable)', () => {
 		expect((r.rows ?? r)[0].n).toBe(500)
 	})
 
-	it('contraintes : lat hors bornes et kind inconnu refusés par la base', async () => {
-		await expect(getDB().execute(sql`INSERT INTO media (path, day, kind, lat, lng) VALUES ('2026/01/01/x.jpg', '2026-01-01', 'image', 95, 0)`)).rejects.toBeTruthy()
+	it('contraintes en base : lat/lng hors bornes refusés (CHECK), bornes incluses acceptées, kind inconnu refusé', async () => {
+		const ins = (path: string, lat: number, lng: number) => getDB().execute(sql`INSERT INTO media (path, day, kind, lat, lng) VALUES (${path}, '2026-01-01', 'image', ${lat}, ${lng})`)
+		await expect(ins('2026/01/01/a.jpg', 90.0001, 0)).rejects.toBeTruthy()
+		await expect(ins('2026/01/01/b.jpg', -90.0001, 0)).rejects.toBeTruthy()
+		await expect(ins('2026/01/01/c.jpg', 0, 180.0001)).rejects.toBeTruthy()
+		await expect(ins('2026/01/01/d.jpg', 0, -180.0001)).rejects.toBeTruthy()
+		await ins('2026/01/01/e.jpg', 90, 180)
+		await ins('2026/01/01/f.jpg', -90, -180)
 		await expect(getDB().execute(sql`INSERT INTO media (path, day, kind) VALUES ('2026/01/01/y.jpg', '2026-01-01', 'doc')`)).rejects.toBeTruthy()
+	})
+
+	it('taken_at est un timestamp SANS fuseau (heure murale), pas timestamptz', async () => {
+		const r: any = await getDB().execute(sql`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'media' AND column_name IN ('taken_at', 'uploaded_at', 'day')`)
+		const types = Object.fromEntries((r.rows ?? r).map((x: any) => [x.column_name, x.data_type]))
+		expect(types.taken_at).toBe('timestamp without time zone')
+		expect(types.uploaded_at).toBe('timestamp with time zone')
+		expect(types.day).toBe('date')
 	})
 })
