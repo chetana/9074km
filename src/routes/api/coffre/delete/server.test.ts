@@ -11,12 +11,16 @@ vi.mock('$lib/server/coffre-db', () => ({ ensureCoffreSchema: () => ensureMock()
 const forgetMock = vi.fn()
 vi.mock('$lib/server/events-store', () => ({ forgetMediaPath: (p: string) => forgetMock(p) }))
 
+const markMock = vi.fn()
+vi.mock('$lib/server/media-store', () => ({ markMediaDeleted: (p: string) => markMock(p) }))
+
 import { DELETE } from './+server'
 
 const ev = (path: string | null) => ({ url: new URL('http://t/api/coffre/delete' + (path ? `?path=${encodeURIComponent(path)}` : '')), request: {} }) as any
 
 beforeEach(() => {
-	for (const m of [requireAuthMock, s3Delete, ensureMock, forgetMock]) m.mockReset()
+	for (const m of [requireAuthMock, s3Delete, ensureMock, forgetMock, markMock]) m.mockReset()
+	markMock.mockResolvedValue(undefined)
 	requireAuthMock.mockResolvedValue({ id: 1 })
 	s3Delete.mockResolvedValue(undefined)
 	ensureMock.mockResolvedValue(undefined)
@@ -29,6 +33,14 @@ describe('DELETE /api/coffre/delete', () => {
 		expect((await res.json()).success).toBe(true)
 		expect(s3Delete).toHaveBeenCalledWith('2026/10/11/a.jpg')
 		expect(forgetMock).toHaveBeenCalledWith('2026/10/11/a.jpg')
+		expect(markMock).toHaveBeenCalledWith('2026/10/11/a.jpg') // media.deleted_at
+	})
+
+	it('échec du marquage media : succès quand même', async () => {
+		const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+		markMock.mockRejectedValue(new Error('pg down'))
+		expect((await DELETE(ev('2026/10/11/a.jpg'))).status).toBe(200)
+		err.mockRestore()
 	})
 
 	it('S3 OK + Postgres KO : la route répond quand même succès (erreur journalisée)', async () => {

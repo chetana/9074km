@@ -168,3 +168,51 @@ describe('utilitaires', () => {
 		expect(todayInParis(new Date('2026-07-01T12:00:00Z'))).toBe('2026-07-01')
 	})
 })
+
+import { parseMediaBatch } from './events-validate'
+
+describe('parseMediaBatch', () => {
+	const item = (o: Record<string, unknown> = {}) => ({ path: '2026/11/02/a.jpg', size: 1234, takenAt: '2026-11-02T07:15:30', takenOffset: '+07:00', lat: 11.55, lng: 104.9, make: 'Apple', model: 'iPhone 14 Pro', ...o })
+	const batch = (...items: unknown[]) => parseMediaBatch({ items })
+	it('item complet et item minimal acceptés', () => {
+		ok(batch(item()))
+		const r = batch({ path: '2026/11/02/b.mp4' })
+		expect(r).toEqual({ ok: true, value: [{ path: '2026/11/02/b.mp4', size: null, takenAt: null, takenOffset: null, lat: null, lng: null, make: null, model: null }] })
+	})
+	it('chemin : isValidCoffrePath, média seulement, jour réel', () => {
+		for (const path of ['chat/2026/09/22.json', '../2026/11/02/a.jpg', '2026/11/02/meta.json', '2026/11/02/x/a.jpg', '2026/13/45/a.jpg', '2026/02/31/a.jpg', 5, undefined]) ko(batch(item({ path })))
+	})
+	it('takenAt : ISO local strict (pas de Z, pas de date impossible)', () => {
+		for (const takenAt of ['2026-11-02T07:15:30Z', '2026-11-02 07:15:30', '2026-02-31T07:15:30', '2026-11-02T24:00:00', '2026-11-02T07:60:00', '2026-11-02', 12, '']) ko(batch(item({ takenAt })))
+	})
+	it('offset ±HH:MM', () => {
+		for (const takenOffset of ['0700', '+7:00', '+15:00', '+07:60', 'UTC', 7]) ko(batch(item({ takenOffset })))
+		ok(batch(item({ takenOffset: '-05:30' })))
+	})
+	it('lat/lng : bornes, nombres finis, ensemble', () => {
+		for (const o of [{ lat: 91 }, { lat: -91 }, { lng: 181 }, { lng: -181 }, { lat: NaN }, { lat: '11' }, { lat: Infinity }]) ko(batch(item(o)))
+		ko(batch(item({ lat: 10, lng: null })))
+		ok(batch(item({ lat: -90, lng: 180 })))
+		ok(batch(item({ lat: null, lng: null })))
+	})
+	it('size : entier ≥ 0', () => {
+		for (const size of [-1, 1.5, '12', Infinity]) ko(batch(item({ size })))
+		ok(batch(item({ size: 0 })))
+	})
+	it('make/model : une ligne ≤ 64 points de code', () => {
+		ko(batch(item({ make: 'a'.repeat(65) })))
+		ko(batch(item({ model: 'a\nb' })))
+	})
+	it('clé inconnue, 0 ou > 500 éléments, corps invalide', () => {
+		ko(batch(item({ gps: 1 })))
+		ko(parseMediaBatch({ items: [] }))
+		ko(parseMediaBatch({ items: Array.from({ length: 501 }, (_, i) => item({ path: `2026/11/02/p${i}.jpg` })) }))
+		ok(parseMediaBatch({ items: Array.from({ length: 500 }, (_, i) => item({ path: `2026/11/02/p${i}.jpg` })) }))
+		for (const b of [null, [], 'x', { items: 'x' }, { items: [null] }, { items: [1] }, { items: [item()], extra: 1 }]) ko(parseMediaBatch(b))
+	})
+	it('doublons de chemin fusionnés (le dernier gagne)', () => {
+		const r = batch(item({ size: 1 }), item({ size: 2 }))
+		expect(r.ok && r.value).toHaveLength(1)
+		expect(r.ok && r.value[0].size).toBe(2)
+	})
+})
