@@ -382,6 +382,12 @@
 		selectionMode = s.size > 0;
 	}
 
+	// Le jour ENTIER (tous les médias listés, pas seulement ceux visibles à l'écran).
+	function selectAllDay() {
+		selected = new Set(mediaItems.map((m) => m.name));
+		selectionMode = selected.size > 0;
+	}
+
 	function clearSelection() {
 		selected = new Set();
 		selectionMode = false;
@@ -549,6 +555,9 @@
 		<div class="selection-bar">
 			<span>{selected.size} sélectionné(s)</span>
 			<div class="selection-actions">
+				{#if selected.size < mediaItems.length}
+					<button onclick={selectAllDay} class="select-all">{T.selectAll.fr} ({mediaItems.length}) <span lang="km">{T.selectAll.kh}</span></button>
+				{/if}
 				<button onclick={() => (pickerOpen = true)} class="event-btn">{T.addTo.fr} <span lang="km">{T.addTo.kh}</span></button>
 				<button onclick={deleteSelected} class="delete-btn">🗑 Supprimer</button>
 				<button onclick={clearSelection}>Annuler</button>
@@ -695,7 +704,7 @@
 		color: #ff6b6b;
 	}
 
-	.event-btn {
+	.event-btn, .select-all {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -715,11 +724,12 @@
 
 	.selection-actions {
 		width: 100%;
+		flex-wrap: wrap;
 		justify-content: space-between;
 	}
 
-	.event-btn { flex: 1; }
-	.event-btn span { font-size: var(--fs-xl); line-height: var(--lh-kh); }
+	.event-btn, .select-all { flex: 1; }
+	.event-btn span, .select-all span { font-size: var(--fs-xl); line-height: var(--lh-kh); }
 
 	/* Grid */
 	.grid {

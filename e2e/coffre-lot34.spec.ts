@@ -36,6 +36,7 @@ async function setup(page: Page, o: Opts = {}) {
 	await page.route('**/api/coffre/events/suggestions/dismiss', (r) => { rec(r); json(r, { success: true }) })
 	await page.route('**/api/coffre/events/suggestions', (r) => json(r, { suggestions: calls.some((c) => c.url.endsWith('/dismiss') || (c.url.endsWith('/media') && c.m === 'POST')) ? [] : (o.suggestions ?? []) }))
 	await page.route('**/api/coffre/events/export', (r) => { rec(r); if (o.exportStatus && o.exportStatus !== 200) return r.fulfill({ status: o.exportStatus, body: 'x' }); return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'content-disposition': 'attachment; filename="evenements-coffre-2026-10-20.json"' }, body: JSON.stringify({ format: 'coffre-evenements', formatVersion: 1, count: 3, events: ALL.map((e) => ({ id: e.id, names: e.names, photos: [] })) }) }) })
+	await page.route(/\/api\/coffre\/events\/\d+\/dates-media/, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0 }) }))
 	await page.route(/\/api\/coffre\/events\/\d+\/media/, (r) => {
 		rec(r)
 		if (r.request().method() === 'GET') return json(r, { paths: o.mediaPaths ?? ['2026/10/11/a.jpg', '2026/10/11/b.jpg', '2026/10/12/clip.mp4'] })

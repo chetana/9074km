@@ -106,6 +106,18 @@ export async function addEventMedia(id: number, paths: string[], mode: 'move' | 
 	return { added: r.added ?? paths.length, skipped: r.skipped ?? [] };
 }
 
+/** Nombre de photos du coffre dans les dates de l'évènement qui n'ont AUCUN évènement (calculé par le serveur). */
+export async function fetchDatesMediaCount(id: number): Promise<number> {
+	const { count } = await call<{ count: number }>(`/api/coffre/events/${id}/dates-media`);
+	return count;
+}
+
+/** Rattache ces photos (mode keep côté serveur : jamais de déplacement depuis un autre évènement). */
+export async function attachDatesMedia(id: number): Promise<number> {
+	const { added } = await call<{ added: number }>(`/api/coffre/events/${id}/dates-media`, { method: 'POST' });
+	return added;
+}
+
 export async function removeEventMedia(id: number, paths: string[]): Promise<void> {
 	await call(`/api/coffre/events/${id}/media`, { method: 'DELETE', body: JSON.stringify({ paths }) });
 }
