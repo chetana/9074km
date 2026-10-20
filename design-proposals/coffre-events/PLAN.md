@@ -32,5 +32,16 @@ Objectif : taguer/regrouper les photos du coffre par ÉVÈNEMENT (ex. « Disneyl
 - Accessibilité : libellés FR + khmer (`lang="km"`, jamais italique, ≥ 18 px sur noms/actions primaires), contraste (--accent-text), aria-label, zones sûres (Dynamic Island, barre d'accueil), transitions courtes seulement, aucune animation infinie.
 
 ## Lots
-0 Socle (schema, ensureCoffreSchema, events-validate, pagination ContinuationToken dans gcs.ts getFiles + test) · 1 MVP (routes + UI ci-dessus) · 2 index média + upload « Cet envoi : [évènement ▾] » · 3 fiche/polish/export · 4 suggestions + mode tri · 5 projet Playwright iPhone 14 Pro + bypass auth dev · 6 EXIF + cache miniatures (optionnel).
+0 Socle (schema, ensureCoffreSchema, events-validate, pagination ContinuationToken dans gcs.ts getFiles + test) · 1 MVP (routes + UI ci-dessus) · **1b Capture EXIF à l'upload (priorité 2, voir ci-dessous)** · 2 index média + upload « Cet envoi : [évènement ▾] » · 3 fiche/polish/export · 4 suggestions + mode tri · 5 projet Playwright iPhone 14 Pro + bypass auth dev.
+Ordre recommandé : 0 → 1 → **1b** → 2 → 3 → 4 → 5 (décision du 2026-10-20 : les photos de l'arrivée de Lys, le 2/11, doivent garder leurs métadonnées ; l'ancien lot 6 « EXIF + cache miniatures » est absorbé par 1b, le cache miniatures reste optionnel après le lot 5).
 Règles : ne jamais utiliser LastModified S3 (UTC) comme date de prise de vue ; la date reste la date murale locale.
+
+## Lot 1b — capture EXIF à l'upload (priorité 2)
+- Lecture côté client AVANT la compression (compressor.ts, Canvas, supprime l'EXIF) : parseur JPEG APP1 maison (~150 lignes, import dynamique, sans dépendance) pour `DateTimeOriginal` + `OffsetTimeOriginal` (heure murale locale, jamais convertie en UTC), GPS (lat/lng), marque/modèle.
+- Les champs partent avec l'upload et sont stockés en base : table `media` créée à ce lot (`taken_at` heure murale, `taken_offset`, `lat`, `lng`, marque/modèle), même migration idempotente que les évènements (`002-media.sql`).
+- Le sheet d'upload pré-remplit la date avec la date de prise de vue.
+- Option : réinjecter le segment EXIF dans le JPEG compressé avec `Orientation` remise à 1 (sinon double rotation).
+- Photos < 500 Ko (non compressées) : EXIF déjà présent dans le fichier, lecture identique. Vidéos : rien (pas de compression, pas de lecture EXIF).
+- Vie privée : sharp retire les métadonnées des previews og-image (route publique) ; les originaux restent derrière auth ; le GPS n'est stocké qu'en base.
+- Tests : 3+ fichiers fixtures (avec offset, sans offset, JPEG sans EXIF, orientation 6/8).
+- Points non vérifiables en CI : HEIC→JPEG iOS (le navigateur peut convertir et perdre l'EXIF), rendu sur iPhone réel.
