@@ -132,9 +132,9 @@ async function one(t) {
 	rmSync(out)
 	stats.avant += statSync(t.f).size
 	stats.apres += size
-	const taken = t.iso.replace('T', ' ')
 	if (t.existing) { sql.push(`UPDATE media SET size=${size} WHERE path=${q(key)};`); stats.remplacees++ }
 	else {
+		const taken = t.iso.replace('T', ' ')
 		sql.push(`INSERT INTO media (path,day,kind,size,uploaded_by,taken_at) VALUES (${q(key)},${q(t.iso.slice(0, 10))},'video',${size},${q(UPLOADER)},${q(taken)}) ON CONFLICT (path) DO UPDATE SET size=EXCLUDED.size;`)
 		sql.push(`INSERT INTO event_media (media_path,event_id) SELECT ${q(key)},(SELECT em.event_id FROM media m JOIN event_media em ON em.media_path=m.path WHERE m.day=${q(t.iso.slice(0, 10))} AND m.kind='image' AND m.taken_at IS NOT NULL ORDER BY abs(extract(epoch FROM m.taken_at - ${q(taken)}::timestamp)) LIMIT 1) WHERE EXISTS (SELECT 1 FROM media m JOIN event_media em ON em.media_path=m.path WHERE m.day=${q(t.iso.slice(0, 10))} AND m.kind='image') AND ${q(key)} NOT IN (SELECT media_path FROM event_media) ON CONFLICT DO NOTHING;`)
 		stats.neuves++
