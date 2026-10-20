@@ -14,6 +14,14 @@ URL=https://lys.chetana.fr
 DRY=${1:-}
 [ "$DRY" = "--dry" ] && DRYENV=1 || DRYENV=0
 
+# 00. NODE_ENV hérité d'un shell de dev (ex. `development`) : le build en serait faussé (const dev = true figé
+# dans le bundle serveur) et activerait le bypass d'auth de test E2E_AUTH_USER. On refuse net.
+if [ -n "${NODE_ENV:-}" ] && [ "$NODE_ENV" != "production" ]; then
+  echo "❌ NODE_ENV=$NODE_ENV dans l'environnement (attendu : absent ou production) — déploiement annulé."
+  echo "   Lancer : env -u NODE_ENV bash deploy.sh"
+  exit 1
+fi
+
 # 0. Garde-fou avant tout : le hook pre-commit ne protège que les commits, pas ce script — et il
 # a tourné en CRLF depuis sa création (22/09/2026) sans jamais réellement bloquer quoi que ce soit.
 # svelte-check ici bloque AVANT de bumper la version et de builder l'image de prod.
@@ -48,6 +56,18 @@ echo "→ nouvelle version : $VER"
 # 2. Build (--context default : le socket Docker est parfois mort)
 echo "→ build $REG:$VER"
 docker --context default build -t "$REG:$VER" .
+
+# 2b. L'image ne doit JAMAIS contenir un build en mode dev (bypass E2E_AUTH_USER) : on inspecte le bundle serveur
+# de l'image qui va partir en prod, et NODE_ENV du runtime.
+if docker --context default run --rm --entrypoint sh "$REG:$VER" -c 'grep -rlE "const dev = true" /app/build/server' | grep -q .; then
+  echo "❌ 'const dev = true' trouvé dans build/server de l'image — build en mode dev, push annulé."
+  exit 1
+fi
+IMG_ENV=$(docker --context default run --rm --entrypoint sh "$REG:$VER" -c 'printf %s "$NODE_ENV"')
+if [ "$IMG_ENV" != "production" ]; then
+  echo "❌ NODE_ENV='$IMG_ENV' dans l'image (attendu : production) — push annulé."
+  exit 1
+fi
 
 # 3. Push
 echo "→ push"

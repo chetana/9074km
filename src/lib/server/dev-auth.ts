@@ -1,9 +1,10 @@
 import type { Handle } from '@sveltejs/kit'
 
 // Bypass d'authentification RÉSERVÉ aux tests e2e en développement : E2E_AUTH_USER injecte locals.dbUser
-// sans passer par Logto. Triple garde : mode dev SvelteKit, NODE_ENV différent de « production », et la
-// variable explicitement définie. En production (build, Docker, chetbox) aucune de ces conditions n'est
-// réunie : la variable est ignorée, le 401 d'origine est conservé. Voir e2e/README.md.
+// sans passer par Logto. Garde POSITIF : actif seulement si `dev` (SvelteKit, figé au build) vaut true ET
+// NODE_ENV vaut exactement « development » (posé par le serveur Vite dev) ET la variable est définie et valide.
+// NODE_ENV absent, « production », « Production », « test »… : inerte, le 401 d'origine est conservé.
+// Le Dockerfile pose NODE_ENV=production en plus. Voir e2e/README.md.
 export interface DevAuthEnv {
 	dev: boolean
 	nodeEnv: string | undefined
@@ -16,7 +17,7 @@ const INT_MAX = 2147483647
 
 /** Utilisateur de test issu de E2E_AUTH_USER (JSON `{id,email,name,picture}` ou simple nom), sinon null. */
 export function resolveDevAuthUser(e: DevAuthEnv): DbUser | null {
-	if (e.dev !== true || e.nodeEnv === 'production') return null
+	if (e.dev !== true || e.nodeEnv !== 'development') return null
 	const raw = e.raw?.trim()
 	if (!raw) return null
 	if (raw.startsWith('{')) {

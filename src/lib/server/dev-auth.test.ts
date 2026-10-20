@@ -14,13 +14,23 @@ describe('resolveDevAuthUser : jamais en production', () => {
 			expect(resolveDevAuthUser({ dev: false, nodeEnv: 'development', raw })).toBeNull() // build (dev=false) même avec NODE_ENV étrange
 		}
 	})
+	it('garde positif : seul (dev true, NODE_ENV exactement « development ») active le bypass', () => {
+		const raw = '{"id":4,"name":"Valide"}'
+		expect(resolveDevAuthUser({ dev: true, nodeEnv: undefined, raw })).toBeNull()
+		expect(resolveDevAuthUser({ dev: true, nodeEnv: 'production', raw })).toBeNull()
+		expect(resolveDevAuthUser({ dev: true, nodeEnv: 'Production', raw })).toBeNull()
+		expect(resolveDevAuthUser({ dev: true, nodeEnv: 'test', raw })).toBeNull()
+		expect(resolveDevAuthUser({ dev: true, nodeEnv: 'Development', raw })).toBeNull()
+		expect(resolveDevAuthUser({ dev: true, nodeEnv: '', raw })).toBeNull()
+		expect(resolveDevAuthUser({ dev: false, nodeEnv: 'development', raw })).toBeNull()
+		expect(resolveDevAuthUser({ dev: true, nodeEnv: 'development', raw })).toMatchObject({ id: 4, name: 'Valide' })
+	})
 	it('variable absente ou vide : rien', () => {
 		for (const raw of [undefined, '', '   ']) expect(resolveDevAuthUser({ ...DEVENV, raw })).toBeNull()
 	})
 	it('dev + variable : utilisateur de test (nom seul, ou JSON complet)', () => {
 		expect(resolveDevAuthUser({ ...DEVENV, raw: 'Chet E2E' })).toEqual({ id: 1, email: 'e2e@example.test', name: 'Chet E2E', picture: '' })
 		expect(resolveDevAuthUser({ ...DEVENV, raw: '{"id":7,"email":"l@x.test","name":"Lys","picture":"p"}' })).toEqual({ id: 7, email: 'l@x.test', name: 'Lys', picture: 'p' })
-		expect(resolveDevAuthUser({ dev: true, nodeEnv: undefined, raw: 'X' })).toMatchObject({ name: 'X' })
 	})
 	it('JSON invalide, id hors bornes, types faux, nom démesuré : null (jamais d\'exception)', () => {
 		for (const raw of ['{pas du json', '{"id":0}', '{"id":-3}', '{"id":1.5}', '{"id":"2"}', '{"id":99999999999}', 'x'.repeat(81)]) {
@@ -86,6 +96,19 @@ describe('hooks.server.ts réel', () => {
 		vi.stubEnv('NODE_ENV', 'production')
 		state.dev = true
 		state.env = { E2E_AUTH_USER: 'Chet' }
+		expect((await mount()).dbUser).toBeUndefined()
+	})
+	it('NODE_ENV absent (cas du Dockerfile d\'avant) : jamais de session même avec dev true', async () => {
+		vi.stubEnv('NODE_ENV', undefined as any)
+		delete process.env.NODE_ENV
+		state.dev = true
+		state.env = { E2E_AUTH_USER: 'Pirate' }
+		expect((await mount()).dbUser).toBeUndefined()
+	})
+	it('build de production (dev réel du module = false) : aucune session même si NODE_ENV=development est posé', async () => {
+		vi.stubEnv('NODE_ENV', 'development')
+		state.dev = false
+		state.env = { E2E_AUTH_USER: 'Pirate' }
 		expect((await mount()).dbUser).toBeUndefined()
 	})
 	it('développement + variable : la session de test est injectée (ce que les specs e2e utilisent)', async () => {
