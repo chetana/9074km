@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox, Ellipsis, Download, Languages, GalleryHorizontal, LayoutGrid, CalendarDays, ChevronDown, Check, X, Sparkles } from 'lucide-svelte';
+	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox, Ellipsis, Download, Languages, GalleryHorizontal, LayoutGrid, CalendarDays, ChevronDown, Check, X } from 'lucide-svelte';
 	import BottomSheet from '$lib/BottomSheet.svelte';
 	import { toasts } from '$lib/toast.svelte';
 	import { ogImageUrl } from '$lib/api';
@@ -8,6 +8,7 @@
 	import { fetchUnclassified, fetchSuggestions, downloadExport, EventApiError } from '$lib/events-api';
 	import type { SuggestionDTO, EventDTO } from '$lib/events-types';
 	import SuggestionCard from './SuggestionCard.svelte';
+	import { suggestionBar } from '$lib/suggestion-bar.svelte';
 	import EventCarousel from './EventCarousel.svelte';
 	import { T } from '$lib/events-i18n';
 	import { MONTHS_FR, MONTHS_KH } from '$lib/i18n';
@@ -104,6 +105,12 @@
 	// Suggestions : un bouton à droite du chip « à classer », la liste complète dans une fenêtre.
 	let suggOpen = $state(false);
 	$effect(() => { if (suggOpen && suggestions.length === 0) suggOpen = false; });
+	// Le bouton vit dans la barre du haut : on lui donne le compteur et l'ouverture de la fenêtre.
+	$effect(() => {
+		suggestionBar.count = suggestions.length;
+		suggestionBar.open = () => (suggOpen = true);
+		return () => { suggestionBar.count = 0; suggestionBar.open = null; };
+	});
 	const total = $derived(eventsStore.list.length);
 	const shown = $derived(
 		sortEvents(
@@ -138,20 +145,12 @@
 		</button>
 	</div>
 
-	{#if unclassified > 0 || suggestions.length}
+	{#if unclassified > 0}
 		<div class="tools">
-			{#if unclassified > 0}
-				<button class="todo" onclick={openSort}>
-					<Inbox size={20} aria-hidden="true" />
-					<span class="todo-n">{unclassified}</span> {T.toClassify.fr} · <span class="kh" lang="km">{T.toClassify.kh}</span>
-				</button>
-			{/if}
-			{#if suggestions.length}
-				<button class="sugg-btn" onclick={() => (suggOpen = true)} aria-haspopup="dialog">
-					<Sparkles size={18} aria-hidden="true" />
-					<span class="st"><span>{T.suggTitle.fr} · {suggestions.length}</span><span class="kh" lang="km">{T.suggTitle.kh}</span></span>
-				</button>
-			{/if}
+			<button class="todo" onclick={openSort}>
+				<Inbox size={20} aria-hidden="true" />
+				<span class="todo-n">{unclassified}</span> {T.toClassify.fr} · <span class="kh" lang="km">{T.toClassify.kh}</span>
+			</button>
 		</div>
 	{/if}
 
@@ -344,9 +343,6 @@
 	.todo .kh { font-size: var(--fs-xl); }
 	.todo-n { font-family: var(--font-display); font-size: var(--fs-xl); }
 	.tools { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-	.sugg-btn { margin-left: auto; min-height: var(--btn-tap); display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-4) 0 var(--space-3); border-radius: var(--radius-full); background: linear-gradient(150deg, var(--accent), var(--accent-warm)); color: var(--on-accent); box-shadow: var(--shadow-accent); font-weight: 600; flex-shrink: 0; }
-	.st { display: flex; flex-direction: column; line-height: 1.15; text-align: left; font-size: var(--fs-md); }
-	.st .kh { font-size: var(--fs-xl); line-height: var(--lh-kh); }
 	.sugg-list { display: flex; flex-direction: column; gap: var(--space-3); }
 	.filters { display: flex; gap: var(--space-2); }
 	.fbtn { flex: 1; min-width: 0; display: flex; align-items: stretch; border-radius: var(--radius-full); background: var(--raised); color: var(--text-secondary); }
