@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { userStore, auth } from '$lib/auth';
 	import { ogImageUrl, signUpload, uploadFile, saveMeta, invalidateListCache } from '$lib/api';
 	import { compressImage } from '$lib/compressor';
@@ -135,6 +135,8 @@
 		} else {
 			year = null; month = null; day = null; view = 'dates'; eventId = null;
 		}
+		// Sans ça, le prochain vrai changement de vue (ex. ouvrir un évènement) n'ajoutait aucune entrée d'historique.
+		void tick().then(() => { skipPush = false; });
 	}
 
 	// --- FAB Upload (vues liste : year/month/day) ---

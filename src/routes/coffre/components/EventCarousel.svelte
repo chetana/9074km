@@ -25,8 +25,8 @@
 	const MEM_KEY = 'coffre-carousel-pos';
 	let mem: Remembered | null = null;
 	try { mem = parseRemembered(localStorage.getItem(MEM_KEY)); } catch { /* stockage indisponible : la page marche sans */ }
-	function commit() {
-		const e = events[Math.round(pos)];
+	function commit(i = Math.round(target)) {
+		const e = events[i];
 		if (!e) return;
 		mem = { id: e.id, start: e.dates.start };
 		try { localStorage.setItem(MEM_KEY, JSON.stringify(mem)); } catch { /* idem */ }
@@ -78,7 +78,7 @@
 		};
 		raf = requestAnimationFrame(step);
 	}
-	function go(i: number) { target = clampPos(Math.round(i), events.length); settle(); }
+	function go(i: number) { target = clampPos(Math.round(i), events.length); commit(); settle(); }
 
 	onMount(() => {
 		const mq = matchMedia('(prefers-reduced-motion: reduce)');
@@ -124,11 +124,11 @@
 		dragging = false;
 		if (performance.now() - lastT > 80) vel = 0; // doigt immobile avant de relâcher : pas d'élan
 		suppressClick = moved >= 6;
-		if (suppressClick) { target = snapTarget(pos, vel, events.length); settle(); setTimeout(() => (suppressClick = false), 0); }
+		if (suppressClick) { target = snapTarget(pos, vel, events.length); commit(); settle(); setTimeout(() => (suppressClick = false), 0); }
 	}
 	function cardClick(i: number, id: number) {
 		if (suppressClick) return;
-		if (i === center) onOpen(id); else go(i);
+		if (i === center) { commit(i); onOpen(id); } else go(i);
 	}
 	function key(e: KeyboardEvent) {
 		if (e.key === 'ArrowRight') { e.preventDefault(); go(Math.round(target) + 1); }
