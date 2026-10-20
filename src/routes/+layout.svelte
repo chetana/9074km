@@ -247,7 +247,7 @@
 	}
 
 	.dock-label-kh {
-		font-size: 0.65rem;
+		font-size: var(--fs-base);
 		text-transform: none;
 		letter-spacing: normal;
 		color: inherit;

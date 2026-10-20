@@ -84,6 +84,8 @@
 		flex-shrink: 0;
 		transition: border-color 0.15s, color 0.15s;
 		min-width: var(--btn-tap);
+		min-height: var(--btn-tap);
+		justify-content: center;
 		position: relative;
 	}
 

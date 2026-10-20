@@ -416,6 +416,11 @@
 		font-size: var(--fs-3xl);
 		color: rgba(255, 255, 255, 0.7);
 		padding: var(--space-2) var(--space-3);
+		min-width: var(--btn-tap);
+		min-height: var(--btn-tap);
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		background: rgba(0, 0, 0, 0.3);
 		border-radius: var(--radius-sm);
 		z-index: 10;

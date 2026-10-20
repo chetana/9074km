@@ -44,8 +44,8 @@ interface Props {
 	.nav-btn {
 		font-size: 1.5rem;
 		color: var(--accent-text);
-		width: var(--btn-icon);
-		height: var(--btn-icon);
+		width: var(--btn-tap);
+		height: var(--btn-tap);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -69,8 +69,8 @@ interface Props {
 	.grid-btn {
 		font-size: var(--fs-xl);
 		color: var(--muted);
-		width: var(--btn-icon);
-		height: var(--btn-icon);
+		width: var(--btn-tap);
+		height: var(--btn-tap);
 		display: flex;
 		align-items: center;
 		justify-content: center;
