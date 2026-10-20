@@ -84,6 +84,11 @@ export function randomOther(len: number, current: number, rnd: number): number {
 	return i >= current ? i + 1 : i;
 }
 
+/** Repère « MM/AA » d'une date ISO (début d'évènement). */
+export function monthTag(iso: string): string {
+	return `${iso.slice(5, 7)}/${iso.slice(2, 4)}`;
+}
+
 export const clampPos = (p: number, len: number) => Math.min(Math.max(0, len - 1), Math.max(0, p));
 
 /** Fin de glissement : carte la plus proche, prolongée par la vitesse (px/ms, signe de l'écran). */

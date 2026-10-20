@@ -6,7 +6,7 @@
 	import { T } from '$lib/events-i18n';
 	import { displayNames, formatRange, type ReaderLang } from '$lib/events-ui';
 	import type { EventDTO } from '$lib/events-types';
-	import { layoutAt, cssTransform, clampPos, snapTarget, restoreIndex, parseRemembered, pickPreview, randomOther, cardSize, fitStage, CARD_W, type Remembered } from '$lib/carousel-layout';
+	import { layoutAt, cssTransform, clampPos, snapTarget, restoreIndex, parseRemembered, monthTag, pickPreview, randomOther, cardSize, fitStage, CARD_W, type Remembered } from '$lib/carousel-layout';
 
 	interface Props {
 		events: EventDTO[];
@@ -195,6 +195,7 @@
 		{/each}
 	</div>
 	<div class="scrub-row">
+	<span class="mtag" aria-hidden="true">{centerEvent ? monthTag(centerEvent.dates.start) : ''}</span>
 	<input
 		class="scrub" type="range" min="0" max={max} step="0.01" value={pos} disabled={events.length < 2}
 		aria-label="{T.browse.fr} · {T.browse.kh}"
@@ -234,6 +235,7 @@
 	.gloss { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: linear-gradient(115deg, transparent 35%, #ffffff55 48%, transparent 62%); transform: translateX(var(--gx, -40%)); }
 	.stage.reduced .gloss { display: none; }
 	.scrub-row { display: flex; align-items: center; gap: var(--space-1); }
+	.mtag { flex-shrink: 0; min-width: 3.4rem; text-align: center; font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; }
 	.rand { width: var(--btn-tap); height: var(--btn-tap); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-full); background: var(--lavender); color: var(--on-lavender); }
 	.rand:disabled { opacity: 0.4; }
 	.strip { position: absolute; left: 26px; z-index: 3; display: flex; gap: 6px; animation: strip-in 0.25s ease-out; }

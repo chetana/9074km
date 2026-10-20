@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickPreview, randomOther, layoutAt, ALBUM, snapTarget, clampPos, nearestByDate, cssTransform, cardSize, fitStage, TIGHT_BELOW, restoreIndex, parseRemembered } from './carousel-layout'
+import { monthTag, pickPreview, randomOther, layoutAt, ALBUM, snapTarget, clampPos, nearestByDate, cssTransform, cardSize, fitStage, TIGHT_BELOW, restoreIndex, parseRemembered } from './carousel-layout'
 
 describe('layoutAt (carrousel Album)', () => {
 	it('d = 0 : carte centrale neutre, agrandie, opaque, au premier plan', () => {
@@ -109,5 +109,12 @@ describe('pickPreview / randomOther', () => {
 		for (const r of [0, 0.3, 0.99]) expect(randomOther(5, 2, r)).not.toBe(2);
 		expect(new Set([0, 0.25, 0.5, 0.75, 0.99].map((r) => randomOther(5, 2, r)))).toEqual(new Set([0, 1, 3, 4]));
 		expect(randomOther(1, 0, 0.5)).toBe(0);
+	});
+});
+
+describe('monthTag', () => {
+	it('MM/AA depuis la date de début', () => {
+		expect(monthTag('2025-05-14')).toBe('05/25');
+		expect(monthTag('2026-12-01')).toBe('12/26');
 	});
 });
