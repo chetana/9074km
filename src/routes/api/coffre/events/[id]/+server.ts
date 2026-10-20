@@ -35,8 +35,9 @@ export const PATCH: RequestHandler = async (event) => {
   if (out.kind === 'invalid') throw error(400, out.message)
   event.setHeaders({ 'cache-control': 'no-store' })
   if (out.kind === 'conflict') return json({ current: out.current }, { status: 409 })
-  if (translate) scheduleNameTranslation(user.id, id, translate.lang, translate.text)
-  return json({ event: out.event })
+  // translation : « scheduled » (lancée en arrière-plan) ou « limited » (plafond atteint : le nom source reste, names_pending)
+  const translation = translate ? (scheduleNameTranslation(user.id, id, translate.lang, translate.text) ? 'scheduled' : 'limited') : undefined
+  return json({ event: out.event, translation })
 }
 
 export const DELETE: RequestHandler = async (event) => {

@@ -89,11 +89,6 @@
 		if (v === view) return;
 		view = v; eventId = null; pushState();
 	}
-	function openDay(d: string) {
-		const [y, m, dd] = d.split('-');
-		view = 'dates'; eventId = null; year = y; month = m; day = dd; initialFile = null;
-		pushState();
-	}
 	function openEvent(id: number) { eventId = id; pushState(); }
 	function closeEvent() { eventId = null; pushState(); }
 
@@ -305,7 +300,7 @@
 			{#if view === 'events'}
 				{#if eventId === null}
 					<div class="list-scroll">
-						<EventsGrid {readerLang} onOpen={openEvent} onCreate={() => openCreate()} onOpenDay={openDay} />
+						<EventsGrid {readerLang} onOpen={openEvent} onCreate={() => openCreate()} />
 					</div>
 				{:else}
 					{#key eventId}

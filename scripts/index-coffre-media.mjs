@@ -222,11 +222,11 @@ export async function run({ s3, bucket, client, apply = false, limit = null, yea
 			report.unclassifiedNew += r ? r.rows.length : freshPaths.slice(i, i + BATCH).length
 		}
 		if (apply) {
-			const r = await client.query(`SELECT count(*)::int AS n FROM media m WHERE m.deleted_at IS NULL AND m.skipped_at IS NULL AND NOT EXISTS (
+			const r = await client.query(`SELECT count(*)::int AS n FROM media m WHERE m.deleted_at IS NULL AND (m.skipped_at IS NULL OR m.skipped_at < now() - interval '30 days') AND NOT EXISTS (
 				SELECT 1 FROM event_media e JOIN events ev ON ev.id = e.event_id AND ev.deleted_at IS NULL WHERE e.media_path = m.path)`)
 			report.unclassifiedTotal = r.rows[0].n
 		} else {
-			const r = await tryQuery(client, `SELECT count(*)::int AS n FROM media m WHERE m.deleted_at IS NULL AND m.skipped_at IS NULL AND NOT EXISTS (
+			const r = await tryQuery(client, `SELECT count(*)::int AS n FROM media m WHERE m.deleted_at IS NULL AND (m.skipped_at IS NULL OR m.skipped_at < now() - interval '30 days') AND NOT EXISTS (
 				SELECT 1 FROM event_media e JOIN events ev ON ev.id = e.event_id AND ev.deleted_at IS NULL WHERE e.media_path = m.path)`)
 			report.unclassifiedTotal = (r ? r.rows[0].n : 0) + report.unclassifiedNew
 		}

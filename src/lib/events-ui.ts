@@ -1,4 +1,4 @@
-import { MONTHS_FR, MONTHS_KH } from './i18n';
+import { MONTHS_FR, MONTHS_KH, DAYS_FR, DAYS_KH } from './i18n';
 import type { EventColor, EventDTO } from './events-types';
 
 export type ReaderLang = 'fr' | 'kh';
@@ -55,6 +55,13 @@ export function dayHeading(date: string): { fr: string; kh: string } {
 	return { fr: `${p.d} ${MONTHS_FR[p.m - 1].toLowerCase()}`, kh: `${p.d} ${MONTHS_KH[p.m - 1]}` };
 }
 
+/** « dimanche 11 octobre » · « អាទិត្យ 11 តុលា » : jour de la semaine + date, pour l'en-tête d'un fil par jour. */
+export function dayHeadingLong(date: string): { fr: string; kh: string } {
+	const p = parts(date);
+	const dow = (new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay() + 6) % 7;
+	return { fr: `${DAYS_FR[dow].toLowerCase()} ${p.d} ${MONTHS_FR[p.m - 1].toLowerCase()}`, kh: `${DAYS_KH[dow]} ${p.d} ${MONTHS_KH[p.m - 1]}` };
+}
+
 /** À venir en tête (le plus proche d'abord), puis le passé, le plus récent d'abord. */
 export function sortEvents(events: EventDTO[]): EventDTO[] {
 	const up = events.filter((e) => e.upcoming).sort((a, b) => a.dates.start.localeCompare(b.dates.start) || a.id - b.id);
@@ -85,11 +92,48 @@ export function groupByMonth(sorted: EventDTO[]): MonthGroup[] {
 	return out;
 }
 
-export function matchesQuery(ev: EventDTO, q: string): boolean {
-	const needle = norm(q.trim());
-	if (!needle) return true;
-	return [ev.names.fr, ev.names.en, ev.names.kh, ev.place ?? ''].some((s) => norm(s).includes(needle));
+/** Texte cherchable d'un évènement : noms, lieu, mois (complets, abrégés, khmer), jours et années couverts, dates ISO. */
+export function searchHaystack(ev: EventDTO): string {
+	const out: string[] = [ev.names.fr, ev.names.en, ev.names.kh, ev.place ?? '', ev.dates.start, ev.dates.end];
+	const a = Date.parse(`${ev.dates.start}T00:00:00Z`);
+	const days = Math.min(Math.round((Date.parse(`${ev.dates.end}T00:00:00Z`) - a) / 86_400_000), 366);
+	const months = new Set<number>();
+	const nums = new Set<number>();
+	const years = new Set<number>();
+	for (let i = 0; i <= days; i++) {
+		const d = new Date(a + i * 86_400_000);
+		nums.add(d.getUTCDate());
+		years.add(d.getUTCFullYear());
+		months.add(d.getUTCMonth());
+	}
+	out.push(...[...nums].map(String), ...[...years].map(String));
+	for (const m of months) out.push(MONTHS_FR[m], SHORT_FR[m], MONTHS_KH[m]);
+	return norm(out.join(' | '));
 }
+
+/** Tous les mots de la requête doivent se retrouver (« 30 nov », « lyon », « 2026 »…), sans accents ni casse. */
+export function matchesQuery(ev: EventDTO, q: string): boolean {
+	const tokens = norm(q.trim()).split(/\s+/).filter(Boolean);
+	if (tokens.length === 0) return true;
+	const hay = searchHaystack(ev);
+	return tokens.every((t) => hay.includes(t));
+}
+
+/** Lieux distincts (casse ignorée), du plus fréquent au moins fréquent. */
+export function placesOf(events: EventDTO[]): { key: string; label: string; count: number }[] {
+	const m = new Map<string, { key: string; label: string; count: number }>();
+	for (const e of events) {
+		const label = e.place?.trim();
+		if (!label) continue;
+		const key = norm(label);
+		const cur = m.get(key);
+		if (cur) cur.count++;
+		else m.set(key, { key, label, count: 1 });
+	}
+	return [...m.values()].sort((x, y) => y.count - x.count || x.label.localeCompare(y.label));
+}
+
+export const samePlace = (ev: EventDTO, key: string) => !!ev.place && norm(ev.place.trim()) === key;
 
 export function yearsOf(events: EventDTO[]): number[] {
 	return [...new Set(events.map((e) => Number(e.dates.start.slice(0, 4))))].sort((a, b) => b - a);
@@ -148,4 +192,13 @@ export function validateEventForm(f: { name: string; dateStart: string; dateEnd:
 	const days = (Date.parse(f.dateEnd) - Date.parse(f.dateStart)) / 86_400_000;
 	if (days > 366) return 'range-long';
 	return null;
+}
+
+/** Remplit {n} {d} {x} {r} {t} d'un libellé ; le français accorde « photo(s) » et « ajoutée(s) » avec n. */
+export function fillT(label: string, vars: Record<string, string | number>): string {
+	const n = typeof vars.n === 'number' ? vars.n : Number(vars.n ?? 0);
+	return label
+		.replace('photo(s)', n > 1 ? 'photos' : 'photo')
+		.replace('ajoutée(s)', n > 1 ? 'ajoutées' : 'ajoutée')
+		.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
 }

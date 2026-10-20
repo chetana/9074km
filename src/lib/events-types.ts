@@ -17,6 +17,18 @@ export interface EventDTO {
 	upcoming: boolean
 }
 
+export interface SuggestionDTO {
+	id: string;
+	start: string;
+	end: string;
+	days: number;
+	count: number;
+	kind: 'attach' | 'create';
+	eventId: number | null;
+	proposedName: string;
+	paths: string[];
+}
+
 export interface ForDateResult {
 	events: EventDTO[]
 	tags: Record<string, number>

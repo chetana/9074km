@@ -156,6 +156,13 @@ describe('PATCH /events/:id', () => {
 			{ names: { fr: 'Mariage de Sophie', en: 'Mariage de Sophie', kh: 'Mariage de Sophie' }, srcLang: 'fr', namesPending: true }, expect.any(String))
 		expect(translateMock).toHaveBeenCalledWith(5, 4, 'fr', 'Mariage de Sophie')
 		expect(calls.indexOf('patch')).toBeLessThan(calls.indexOf('translate'))
+		expect((await res.json()).translation).toBe('scheduled')
+	})
+	it('retraduction demandée au-delà des plafonds : réponse « limited » (le nom source reste, names_pending)', async () => {
+		store.patchEvent.mockResolvedValue({ kind: 'ok', event: dto({ version: 2 }) })
+		translateMock.mockReturnValue(false)
+		const res = await PATCH(ev({ params: p, body: { ifVersion: 1, name: 'Mariage' } }))
+		expect((await res.json()).translation).toBe('limited')
 	})
 	it('names manuels : jamais retraduits, pending levé', async () => {
 		store.patchEvent.mockResolvedValue({ kind: 'ok', event: dto() })

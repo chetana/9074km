@@ -49,3 +49,8 @@ Règles : ne jamais utiliser LastModified S3 (UTC) comme date de prise de vue ; 
 
 ## Lot 2 — implémenté sur `feat/coffre-lot2`
 - Script de rétro-indexation (`scripts/index-coffre-media.mjs`), `GET /api/coffre/media/unclassified`, chip « N à classer » (liste simple, mode trier au lot 4), ligne « Cet envoi : évènement » dans le sheet d'upload. Choix : l'évènement couvrant n'est pré-sélectionné que s'il a « ajouter ici » activé (auto_attach) ; les autres évènements restent choisissables dans la liste.
+
+## Lots 3 et 4 — implémentés sur `feat/coffre-lot3-4`
+- Lot 3 : couverture ☆ dans le viewer (une vidéo est refusée avec un message), retraduction à la demande (`PATCH name`, plafonds respectés, message si limite atteinte), suppression avec confirmation puis toast Annuler 5 s, export JSON, recherche par lieu et par date, chips année et lieu.
+- Lot 4 : suggestions (algorithme pur `event-suggest.ts`) et mode tri carte par carte. Choix : « Passer » ne revient pas avant 30 jours (règle SQL commune au compteur, à la liste et au script d'indexation) ; les rattachements du mode tri et des suggestions se font en mode `keep`.
+

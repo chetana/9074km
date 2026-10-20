@@ -3,7 +3,7 @@
 	import BottomSheet from '$lib/BottomSheet.svelte';
 	import LangTag from '$lib/LangTag.svelte';
 	import { eventsStore } from '$lib/events.svelte';
-	import { createEvent, patchEvent, EventApiError, type EventFormBody } from '$lib/events-api';
+	import { createEvent, patchEvent, retranslateEvent, EventApiError, type EventFormBody } from '$lib/events-api';
 	import type { EventDTO, EventColor } from '$lib/events-types';
 	import { T } from '$lib/events-i18n';
 	import { toasts } from '$lib/toast.svelte';
@@ -57,6 +57,34 @@
 
 	function onStartChange() {
 		if (dateEnd < dateStart) dateEnd = dateStart;
+	}
+
+	// Retraduction sur demande : repart du texte de la langue SOURCE (modifiable avant), jamais automatique.
+	async function retranslate() {
+		if (!event || saving) return;
+		const src = event.nameSrcLang;
+		const text = (src === 'fr' ? nameFr : src === 'en' ? nameEn : nameKh).trim();
+		if (!text || Array.from(text).length > 80) { error = ERR.name; return; }
+		saving = true;
+		error = null;
+		try {
+			const r = await retranslateEvent(event.id, event.version, text, src);
+			eventsStore.upsert(r.event);
+			toasts.push(r.translation === 'limited'
+				? { message: T.translateLimited.fr, messageKh: T.translateLimited.kh, duration: 6000 }
+				: { message: T.translateStarted.fr, messageKh: T.translateStarted.kh });
+			// La traduction arrive en arrière-plan : on recharge la liste deux fois pour la récupérer.
+			for (const ms of [7000, 20000]) setTimeout(() => void eventsStore.load(), ms);
+			onclose();
+		} catch (e) {
+			if (e instanceof EventApiError && e.status === 409 && e.current) {
+				eventsStore.upsert(e.current);
+				toasts.push({ message: T.conflict.fr, messageKh: T.conflict.kh });
+				onclose();
+			} else error = e instanceof EventApiError && e.status === 0 ? T.offlineAction.fr : T.genericError.fr;
+		} finally {
+			saving = false;
+		}
 	}
 
 	const ERR: Record<string, string> = {
@@ -127,6 +155,7 @@
 				<label class="lang-row"><LangTag lang="fr" /><input bind:value={nameFr} maxlength="80" aria-label="Nom en français" /></label>
 				<label class="lang-row"><LangTag lang="en" /><input bind:value={nameEn} maxlength="80" aria-label="Nom en anglais" /></label>
 				<label class="lang-row"><LangTag lang="kh" /><input bind:value={nameKh} maxlength="80" lang="km" class="kh-input" aria-label="Nom en khmer" /></label>
+				<button type="button" class="retr" disabled={saving} onclick={retranslate}>{T.retranslate.fr} <span class="kh" lang="km">{T.retranslate.kh}</span></button>
 			</fieldset>
 		{:else}
 			<label class="field">
@@ -210,6 +239,9 @@
 	.lang-row { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-1); }
 	.pending span { font-size: 1rem; }
 	.pending { font-size: var(--fs-md); color: var(--gold-text); background: color-mix(in srgb, var(--gold) 35%, var(--surface)); padding: 2px var(--space-2); border-radius: var(--radius-sm); }
+	.retr { min-height: var(--btn-tap); margin-top: var(--space-2); border-radius: var(--radius-full); background: var(--lavender); color: var(--on-lavender); font-weight: 600; font-size: var(--fs-lg); display: flex; align-items: center; justify-content: center; gap: var(--space-2); }
+	.retr .kh { font-size: var(--fs-xl); }
+	.retr:disabled { opacity: 0.6; }
 	.dates { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 	.quick { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
 	.emo {

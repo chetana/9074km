@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { X } from 'lucide-svelte';
+	import { X, Star } from 'lucide-svelte';
 	import { REACTIONS } from '$lib/i18n';
 
 	interface FileItem {
@@ -22,6 +22,9 @@
 		onCopyLink: (filename: string) => void;
 		onPrevDay: () => void;
 		onNextDay: () => void;
+		/** Évènement : pose la photo courante comme couverture (☆) ; coverName = couverture actuelle. */
+		onSetCover?: (name: string) => void;
+		coverName?: string | null;
 	}
 
 	let {
@@ -36,7 +39,9 @@
 		onShare,
 		onCopyLink,
 		onPrevDay,
-		onNextDay
+		onNextDay,
+		onSetCover,
+		coverName = null
 	}: Props = $props();
 
 	let currentIndex = $state(initialIndex);
@@ -191,6 +196,9 @@
 			<button class="bar-btn" onclick={onClose} aria-label="Fermer"><X size={18} /></button>
 			<span class="filename">{currentItem?.name?.split('/').pop() ?? ''}</span>
 			<div class="bar-actions">
+				{#if onSetCover}
+					<button class="bar-btn cover-btn" onclick={() => onSetCover(currentItem.name)} aria-pressed={coverName === currentItem?.name} aria-label="Couverture · រូបគម្រប" title="Couverture · រូបគម្រប"><Star size={20} fill={coverName === currentItem?.name ? 'currentColor' : 'none'} /></button>
+				{/if}
 				<button class="bar-btn" onclick={handleCopyLink} aria-label="Copier le lien">🔗</button>
 				<button class="bar-btn" onclick={handleShare} aria-label="Partager">⬆</button>
 			</div>
@@ -315,6 +323,27 @@
 	.bar-actions {
 		display: flex;
 		gap: 4px;
+	}
+
+	/* Tous les boutons de la barre du haut : jamais écrasés par le nom du fichier, cibles ≥ 44 px (iPhone 393 px). */
+	.top-bar .bar-btn {
+		flex-shrink: 0;
+		min-width: var(--btn-tap);
+		min-height: var(--btn-tap);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.top-bar .filename {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.cover-btn[aria-pressed='true'] {
+		color: var(--gold);
 	}
 
 	.bar-btn {

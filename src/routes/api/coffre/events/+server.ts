@@ -35,7 +35,7 @@ export const POST: RequestHandler = async (event) => {
   const created = await createEvent(
     user.id, input, { fr: input.name, en: input.name, kh: input.name, srcLang, pending: true }, todayInParis()
   )
-  scheduleNameTranslation(user.id, created.id, srcLang, input.name)
+  const translation = scheduleNameTranslation(user.id, created.id, srcLang, input.name) ? 'scheduled' : 'limited'
   event.setHeaders({ 'cache-control': 'no-store' })
-  return json({ event: created }, { status: 201 })
+  return json({ event: created, translation }, { status: 201 })
 }
