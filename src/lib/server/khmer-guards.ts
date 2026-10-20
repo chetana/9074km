@@ -486,3 +486,8 @@ export function buildTranslateUser(text: string, previousMessage?: string): stri
 		: ''
 	return `${ctxLine}Message : "${text}"`
 }
+
+// Message utilisateur pour traduire le NOM d'un évènement de couple (pas une phrase de chat).
+export function buildEventNameUser(name: string): string {
+	return `CONTEXTE : le texte ci-dessous est le NOM d'un évènement de couple (sortie, voyage, fête, rendez-vous), pas une phrase. Donne un nom court et naturel dans chaque langue, sans point final ni pronom ajouté. Garde les noms propres (ex : "Disneyland Paris"), translittère-les en khmer si utile.\n\nMessage : "${name.replace(/"/g, "'")}"`
+}

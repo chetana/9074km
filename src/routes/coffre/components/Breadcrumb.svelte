@@ -28,7 +28,7 @@
 	{/if}
 	<div class="breadcrumb-txt">
 		<span class="title">
-			{title}{#if fileCount !== null}&thinsp;<span class="count">({fileCount})</span>{/if}
+			{#if !day && !month && !year}Coffre · <span lang="km">ប្រអប់</span>{:else}{title}{/if}{#if fileCount !== null}&thinsp;<span class="count">({fileCount})</span>{/if}
 		</span>
 		{#if trail !== title}<span class="trail">{trail}</span>{/if}
 	</div>

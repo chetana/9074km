@@ -18,6 +18,8 @@ const COFFRE_LIST_PREFIX = `${PREFIX}clist_`;
 const COFFRE_NOTE_PREFIX = `${PREFIX}cnote_`;
 const COFFRE_META_PREFIX = `${PREFIX}cmeta_`;
 const COFFRE_REACT_PREFIX = `${PREFIX}creact_`;
+const EVENTS_KEY = `${PREFIX}events`;
+const EVENT_MEDIA_PREFIX = `${PREFIX}evmedia_`;
 const LESSONS_KEY = `${PREFIX}lessons_v1`;
 const XP_KEY = `${PREFIX}xp_v1`;
 
@@ -193,6 +195,21 @@ export function getCachedReactions(y: string, m: string, d: string): Record<stri
 }
 export function setCachedReactions(y: string, m: string, d: string, reactions: Record<string, string[]>): void {
   set(dayKey(COFFRE_REACT_PREFIX, y, m, d), reactions);
+}
+
+// ── Coffre évènements ─────────────────────────────────────────────────────
+
+export function getCachedEvents(): unknown[] | null {
+  return get<unknown[]>(EVENTS_KEY);
+}
+export function setCachedEvents(events: unknown[]): void {
+  set(EVENTS_KEY, events);
+}
+export function getCachedEventMedia(id: number): string[] | null {
+  return get<string[]>(`${EVENT_MEDIA_PREFIX}${id}`);
+}
+export function setCachedEventMedia(id: number, paths: string[]): void {
+  set(`${EVENT_MEDIA_PREFIX}${id}`, paths);
 }
 
 // ── Lessons & XP ──────────────────────────────────────────────────────────

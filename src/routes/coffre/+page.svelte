@@ -9,6 +9,13 @@
 	import DayFiles from './components/DayFiles.svelte';
 	import Breadcrumb from './components/Breadcrumb.svelte';
 	import FabUpload from './components/FabUpload.svelte';
+	import ViewToggle from './components/ViewToggle.svelte';
+	import EventsGrid from './components/EventsGrid.svelte';
+	import EventView from './components/EventView.svelte';
+	import EventForm from './components/EventForm.svelte';
+	import Toasts from '$lib/Toasts.svelte';
+	import { readerLangFor } from '$lib/events-ui';
+	import type { EventDTO } from '$lib/events-types';
 
 	let { data } = $props();
 
@@ -17,6 +24,14 @@
 	let day = $state<string | null>(null);
 	let initialFile = $state<string | null>(null); // consommé une seule fois au deep link
 	let dayFileCount = $state<number | null>(null);
+	let view = $state<'dates' | 'events'>('dates');
+	let eventId = $state<number | null>(null);
+	const readerLang = $derived(readerLangFor($userStore?.name));
+
+	// Fiche évènement (création / édition) hébergée ici pour la vue Évènements.
+	let formOpen = $state(false);
+	let formEvent = $state<EventDTO | null>(null);
+	let formInitial = $state<{ name?: string; dateStart?: string; dateEnd?: string; mediaPaths?: string[] } | undefined>(undefined);
 	let deepLinkApplied = false; // empêche de réappliquer le deep link si on revient à year=null
 	let skipPush = false; // éviter de pousser quand on revient via popstate
 
@@ -27,6 +42,17 @@
 	$effect(() => {
 		slideDir = navLevel >= prevNavLevel ? 'left' : 'right';
 		prevNavLevel = navLevel;
+	});
+
+	// Deep link évènements : /coffre?v=events[&e=12]
+	let eventsLinkApplied = false;
+	$effect(() => {
+		if (!eventsLinkApplied && data.v === 'events') {
+			eventsLinkApplied = true;
+			view = 'events';
+			const n = Number(data.e);
+			eventId = Number.isInteger(n) && n > 0 ? n : null;
+		}
 	});
 
 	// Handle deep link on first load — une seule fois
@@ -48,7 +74,28 @@
 
 	function pushState() {
 		if (skipPush) { skipPush = false; return; }
-		history.pushState({ year, month, day }, '');
+		const state = { year, month, day, view, eventId };
+		if (view === 'events') {
+			history.pushState(state, '', `/coffre?v=events${eventId !== null ? `&e=${eventId}` : ''}`);
+		} else if (location.search.includes('v=events')) {
+			history.pushState(state, '', '/coffre');
+		} else {
+			history.pushState(state, '');
+		}
+	}
+
+	function setView(v: 'dates' | 'events') {
+		if (v === view) return;
+		view = v; eventId = null; pushState();
+	}
+	function openEvent(id: number) { eventId = id; pushState(); }
+	function closeEvent() { eventId = null; pushState(); }
+
+	function openCreate(initial?: typeof formInitial) { formEvent = null; formInitial = initial; formOpen = true; }
+	function openEdit(ev: EventDTO) { formEvent = ev; formInitial = undefined; formOpen = true; }
+	function onFormSaved(ev: EventDTO, created: boolean) {
+		formOpen = false;
+		if (created && formInitial?.mediaPaths?.length) openEvent(ev.id);
 	}
 
 	function selectYear(y: string) { year = y; month = null; day = null; initialFile = null; pushState(); }
@@ -74,8 +121,10 @@
 			year = s.year ?? null;
 			month = s.month ?? null;
 			day = s.day ?? null;
+			view = s.view === 'events' ? 'events' : 'dates';
+			eventId = typeof s.eventId === 'number' ? s.eventId : null;
 		} else {
-			year = null; month = null; day = null;
+			year = null; month = null; day = null; view = 'dates'; eventId = null;
 		}
 	}
 
@@ -142,7 +191,7 @@
 		window.addEventListener('popstate', onPopState);
 		// Initialiser l'état history après que le deep link ait été appliqué
 		// (le $effect du deep link tourne avant onMount)
-		history.replaceState({ year, month, day }, '');
+		history.replaceState({ year, month, day, view, eventId }, '');
 	});
 
 	onDestroy(() => {
@@ -226,7 +275,7 @@
 				{#if day !== null}
 					<a href="/fiancailles?y={year}&m={month}&d={day}" class="icon-btn" title="Galerie PS3 · រូបថត">🎞️</a>
 				{/if}
-				{#if year === null}
+				{#if year === null && view === 'dates'}
 					<button class="icon-btn" onclick={goToday} title="Aujourd'hui · ថ្ងៃនេះ">📅</button>
 				{/if}
 				<button class="icon-btn" onclick={() => auth.signOut()} title="Déconnexion">
@@ -235,9 +284,30 @@
 			</div>
 		</header>
 
+		<!-- Sélecteur Dates | Évènements : seulement à la racine de chaque vue -->
+		{#if (view === 'dates' && year === null) || (view === 'events' && eventId === null)}
+			<ViewToggle {view} onChange={setView} />
+		{/if}
+
 		<!-- Content -->
 		<div class="content">
-			{#if day !== null && year !== null && month !== null}
+			{#if view === 'events'}
+				{#if eventId === null}
+					<div class="list-scroll">
+						<EventsGrid {readerLang} onOpen={openEvent} onCreate={() => openCreate()} />
+					</div>
+				{:else}
+					{#key eventId}
+						<EventView
+							{eventId}
+							{readerLang}
+							onBack={closeEvent}
+							onEdit={openEdit}
+							onCreateFor={(paths) => openCreate({ mediaPaths: paths })}
+						/>
+					{/key}
+				{/if}
+			{:else if day !== null && year !== null && month !== null}
 				<DayFiles
 					{year} {month} {day}
 					{initialFile}
@@ -270,6 +340,9 @@
 				/>
 			{/if}
 		</div>
+
+		<EventForm open={formOpen} event={formEvent} initial={formInitial} onclose={() => (formOpen = false)} onSaved={onFormSaved} />
+		<Toasts />
 	{/if}
 </div>
 

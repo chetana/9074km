@@ -325,6 +325,11 @@ pour les « faux » (à valider à la main, jamais appliquées).
 - Deep link : `/coffre?y=2026&m=02&d=22&f=photo.jpg`
 - Upload FAB : compress → signUpload → PUT S3 → saveMeta → invalidateListCache
 - Signed URLs : cache 1h, semaphore max 3 concurrent
+- **Évènements** (lots 0-1, `design-proposals/coffre-events/PLAN.md`) : `/coffre?v=events[&e=id]`, tables Postgres
+  `events`/`event_media` créées par `ensureCoffreSchema()` (`scripts/sql/001-events.sql`, idempotent, au 1er appel
+  d'une route), routes `api/coffre/events/**`, validation pure `server/events-validate.ts`, nom traduit en
+  arrière-plan après écriture (`events-names.ts`, plafonds 20/min et 200/jour/utilisateur). Test d'intégration
+  Postgres : `TEST_PG_URL=postgres://…@127.0.0.1:…/… npx vitest run events-store.pg` (base locale jetable seulement).
 
 ## Env vars
 

@@ -10,11 +10,12 @@
 		selected: boolean;
 		selectionMode: boolean;
 		thumbWidth: number;
+		eventTag?: { emoji: string | null; label: string; lang: string } | null;
 		onTap: () => void;
 		onLongPress: () => void;
 	}
 
-	let { name, signedUrl, uploader, reactions, selected, selectionMode, thumbWidth, onTap, onLongPress }: Props =
+	let { name, signedUrl, uploader, reactions, selected, selectionMode, thumbWidth, eventTag = null, onTap, onLongPress }: Props =
 		$props();
 
 	const isVideo = $derived(
@@ -112,6 +113,11 @@
 		</div>
 	{/if}
 
+	<!-- Pastille d'évènement -->
+	{#if eventTag}
+		<div class="event-tag" title={eventTag.label}>{#if eventTag.emoji}<span aria-hidden="true">{eventTag.emoji}</span>{/if}<span class="event-tag-txt" lang={eventTag.lang}>{eventTag.label}</span></div>
+	{/if}
+
 	<!-- Uploader badge -->
 	{#if uploader}
 		<div class="uploader-badge">{uploader}</div>
@@ -134,6 +140,9 @@
 		cursor: pointer;
 		border: 2px solid transparent;
 		transition: border-color 0.15s, transform 0.15s;
+		-webkit-touch-callout: none;
+		-webkit-user-select: none;
+		user-select: none;
 	}
 
 	/* Gradient de lisibilité (bas de la vignette) — seulement quand un badge est posé dessus,
@@ -159,6 +168,8 @@
 	}
 
 	.tile img {
+		-webkit-touch-callout: none;
+		-webkit-user-drag: none;
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
@@ -227,6 +238,27 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		z-index: 1;
+	}
+
+	.event-tag {
+		position: absolute;
+		top: var(--space-1);
+		left: var(--space-1);
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		max-width: calc(100% - 2.2rem);
+		padding: 1px 7px;
+		border-radius: var(--radius-full);
+		background: color-mix(in srgb, var(--bg) 90%, transparent);
+		color: var(--text);
+		font-size: var(--fs-base);
+		z-index: 1;
+	}
+	.event-tag-txt {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.reactions-badge {
