@@ -20,6 +20,7 @@ export function createUserLimiter(windowMs: number, max: number) {
 }
 
 export const eventCreateLimiter = createUserLimiter(HOUR, 30)
+export const exportLimiter = createUserLimiter(HOUR, 6)
 const translateMinute = createUserLimiter(MINUTE, 20)
 const translateDay = createUserLimiter(DAY, 200)
 
@@ -31,6 +32,7 @@ export function takeTranslation(userId: number, now = Date.now()): boolean {
 
 export function resetEventLimitsForTests() {
   eventCreateLimiter.reset()
+  exportLimiter.reset()
   translateMinute.reset()
   translateDay.reset()
 }

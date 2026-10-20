@@ -416,3 +416,32 @@ export function parseUnclassifiedQuery(params: URLSearchParams): Result<Unclassi
 		return fail('invalid cursor')
 	}
 }
+
+export const MAX_SUGGESTION_SPAN_DAYS = 31
+
+/** POST …/suggestions/dismiss : { start, end, count } d'une suggestion écartée. */
+export function parseDismissBody(body: unknown): Result<{ start: string; end: string; count: number }> {
+	if (!isPlainObject(body)) return fail('body must be an object')
+	const unk = noUnknownKeys(body, ['start', 'end', 'count'])
+	if (unk) return fail(unk)
+	const s = parseDate(body.start, 'start')
+	if (!s.ok) return s
+	const e = parseDate(body.end, 'end')
+	if (!e.ok) return e
+	const r = validateRange(s.value, e.value)
+	if (!r.ok) return r
+	if ((dayNumber(e.value) as number) - (dayNumber(s.value) as number) > MAX_SUGGESTION_SPAN_DAYS) return fail('range too long')
+	if (typeof body.count !== 'number' || !Number.isInteger(body.count) || body.count < 0 || body.count > 1_000_000) return fail('count must be an integer')
+	return { ok: true, value: { start: s.value, end: e.value, count: body.count } }
+}
+
+/** POST /api/coffre/media/skip : { paths (1..500), undo? } — « Passer » dans le mode tri, ou son annulation. */
+export function parseSkipBody(body: unknown): Result<{ paths: string[]; undo: boolean }> {
+	if (!isPlainObject(body)) return fail('body must be an object')
+	const unk = noUnknownKeys(body, ['paths', 'undo'])
+	if (unk) return fail(unk)
+	const p = parsePaths(body.paths, { min: 1 })
+	if (!p.ok) return p
+	if (body.undo !== undefined && typeof body.undo !== 'boolean') return fail('undo must be a boolean')
+	return { ok: true, value: { paths: p.value, undo: body.undo === true } }
+}

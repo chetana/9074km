@@ -220,3 +220,21 @@ describe('parseMediaBatch', () => {
 		expect(r.ok && r.value[0].size).toBe(2)
 	})
 })
+
+import { parseDismissBody, parseSkipBody } from './events-validate'
+
+describe('parseDismissBody / parseSkipBody', () => {
+	it('dismiss : plage valide ≤ 31 jours, count entier ≥ 0', () => {
+		ok(parseDismissBody({ start: '2026-11-02', end: '2026-11-02', count: 0 }))
+		ok(parseDismissBody({ start: '2026-11-01', end: '2026-12-02', count: 40 }))
+		ko(parseDismissBody({ start: '2026-11-01', end: '2026-12-03', count: 40 }))
+		ko(parseDismissBody({ start: '2026-11-02', end: '2026-11-01', count: 1 }))
+		ko(parseDismissBody({ start: '2026-11-02', end: '2026-11-02', count: -3 }))
+	})
+	it('skip : 1..500 chemins valides, undo booléen', () => {
+		expect(parseSkipBody({ paths: ['2026/10/02/a.jpg'], undo: true })).toEqual({ ok: true, value: { paths: ['2026/10/02/a.jpg'], undo: true } })
+		expect(parseSkipBody({ paths: ['2026/10/02/a.jpg'] })).toEqual({ ok: true, value: { paths: ['2026/10/02/a.jpg'], undo: false } })
+		ko(parseSkipBody({ paths: [] }))
+		ko(parseSkipBody({ paths: ['../a.jpg'] }))
+	})
+})
