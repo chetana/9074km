@@ -226,6 +226,8 @@ export const REGRESSION_CASES = [
 		check: (kh) => /សំបុត្រ(?:យន្តហោះ|ជើងហោះ)/.test(kh) && !kh.includes('ហ្មួង') },
 	{ name: '"payé en 4 fois" → បង់រំលស់/៤ដង, pas ជាដាច់ (bug réel 19/10)', author: 'Chet', text: "je les ai payés en 4 fois pour pouvoir tout prendre, je termine de tout payer en Janvier",
 		check: (kh) => /រំលស់|[4៤]\s*ដង|បួនដង/.test(kh) && !kh.includes('ជាដាច់') },
+	{ name: '"ton amie" → មិត្ត, pas អតិថិជន=cliente (bug réel 20/10)', author: 'Chet', text: "ne dis à ton amie quoi que ce soit, on les laisse gérer leur relation",
+		check: (kh) => kh.includes('មិត្ត') && !kh.includes('អតិថិជន') },
 	{
 		// Bug réel du 25/09/2026 : "couverture" absent du glossaire → mot inventé différent à chaque
 		// essai ("ភ្លុងវី", "គ្រែងរុំ"...), jamais ភួយ (le vrai mot). Ajouté au GLOSSARY.

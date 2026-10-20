@@ -253,6 +253,12 @@ export const GLOSSARY: GlossaryEntry[] = [
 		src: /\b(?:pay\w+|rembours\w+)\b[^.!?]{0,30}\ben\s+(?:\d+|deux|trois|quatre|cinq|six|plusieurs)\s+fois\b/i,
 		kh: /រំលស់|ដង/, avoid: { kh: /ជាដាច់/ },
 	},
+	// Message du 20/10/2026 : "ne dis rien à ton amie" → "កុំប្រាប់អតិថិជនសម្លាញ់" (= la cliente chérie) —
+	// même glissement vers le vocabulaire de la boutique que លក់ → dormir.
+	{
+		line: '- ami(e) / copine → មិត្តភក្តិ / មិត្តស្រី (អតិថិជន = client de la boutique, réservé aux clients)',
+		src: /^(?!.*\bclient).*\bamie?s?\b/is, kh: /មិត្ត/, avoid: { kh: /អតិថិជន/ },
+	},
 	{ line: '- "il faut que" (obligation) → ត្រូវ / ត្រូវតែ (jamais "បាត់បង់" qui veut dire "perdre")', src: /il faut que/i },
 	{ line: '- "mes/tes parents" (registre oral, intime) → ប៉ាម៉ាក់ (jamais "មាតាបិតា", trop formel/littéraire — réservé aux textes officiels)', src: /\b(mes|tes) parents\b/i },
 	{
