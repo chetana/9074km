@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { layoutAt, ALBUM, snapTarget, clampPos, nearestByDate, cssTransform } from './carousel-layout'
+import { layoutAt, ALBUM, snapTarget, clampPos, nearestByDate, cssTransform, cardScale, fitStage, CARD_FULL_H, TIGHT_BELOW } from './carousel-layout'
 
 describe('layoutAt (carrousel Album)', () => {
 	it('d = 0 : carte centrale neutre, agrandie, opaque, au premier plan', () => {
@@ -47,5 +47,24 @@ describe('snap et date', () => {
 		expect(nearestByDate(starts, '2026-07-01')).toBe(2)
 		expect(nearestByDate(starts, '2025-12-31')).toBe(3)
 		expect(nearestByDate([], '2026-01-01')).toBe(0); expect(nearestByDate(starts, null)).toBe(0)
+	})
+})
+
+describe('taille depuis la hauteur disponible', () => {
+	it('cardScale : jamais > 1, ratio conservé, plancher 0,4, proportionnelle entre les deux', () => {
+		expect(cardScale(1000)).toBe(1); expect(cardScale(10)).toBe(0.4)
+		expect(cardScale(CARD_FULL_H / 2)).toBeCloseTo(0.5)
+		expect(cardScale(300)).toBeLessThan(cardScale(340))
+	})
+	it('cssTransform : décalages, profondeur et échelle suivent k', () => {
+		const t = layoutAt(1)
+		expect(cssTransform(t, 0.5)).toBe(`translate3d(${122 * 0.5}px,0,${-70 * 0.5}px) rotateY(-44deg) scale(${t.scale * 0.5})`)
+	})
+	it('fitStage : scène = disponible − curseur, bornée ; serré sous le seuil, avec hystérésis', () => {
+		expect(fitStage(343, 44, false)).toEqual({ stageH: 295, tight: false })
+		expect(fitStage(900, 44, false).stageH).toBe(440); expect(fitStage(50, 44, false).stageH).toBe(120)
+		expect(fitStage(TIGHT_BELOW - 1, 44, false).tight).toBe(true)
+		expect(fitStage(TIGHT_BELOW + 50, 44, true).tight).toBe(true) // reste serré tant qu'on n'a pas regagné de la place
+		expect(fitStage(TIGHT_BELOW + 111, 44, true).tight).toBe(false)
 	})
 })

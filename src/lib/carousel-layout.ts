@@ -36,9 +36,27 @@ export function layoutAt(d: number, reduced = false): CardTransform {
 	};
 }
 
-export function cssTransform(t: CardTransform): string {
-	return `translate3d(${t.tx}px,0,${t.tz}px) rotateY(${t.rotY}deg) scale(${t.scale})`;
+/** `k` = échelle de la carte (taille calculée depuis la hauteur disponible) : décalages et profondeur suivent. */
+export function cssTransform(t: CardTransform, k = 1): string {
+	return `translate3d(${t.tx * k}px,0,${t.tz * k}px) rotateY(${t.rotY}deg) scale(${t.scale * k})`;
 }
+
+// Carte « Album » : 310 px de haut, agrandie de 10 % au centre ; marge pour le reflet et l'ombre.
+export const CARD_H = 310;
+export const CARD_FULL_H = Math.ceil(CARD_H * (1 + ALBUM.boost)) + 4;
+
+/** Échelle de la carte pour une scène de hauteur `stageH` (ratio conservé, jamais agrandie, plancher 0,4). */
+export function cardScale(stageH: number): number {
+	return Math.min(1, Math.max(0.4, stageH / CARD_FULL_H));
+}
+
+/** Hauteur de scène et mode serré pour `avail` px disponibles (scène + curseur). Hystérésis via `wasTight`. */
+export function fitStage(avail: number, scrubH: number, wasTight: boolean): { stageH: number; tight: boolean } {
+	const stageH = Math.min(440, Math.max(120, Math.floor(avail - scrubH - 4)));
+	const tight = wasTight ? avail < TIGHT_BELOW + 110 : avail < TIGHT_BELOW;
+	return { stageH, tight };
+}
+export const TIGHT_BELOW = 260;
 
 export const clampPos = (p: number, len: number) => Math.min(Math.max(0, len - 1), Math.max(0, p));
 

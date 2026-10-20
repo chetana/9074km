@@ -68,6 +68,7 @@
 	// Vue par défaut : carrousel « Album » ; la grille reste le secours. Choix mémorisé (localStorage facultatif).
 	const VIEW_KEY = 'coffre-events-view';
 	let view = $state<'album' | 'grid'>('album');
+	let tight = $state(false); // place trop petite pour le carrousel : filtres sur 1 ligne
 	function setView(v: 'album' | 'grid') {
 		view = v;
 		try { localStorage.setItem(VIEW_KEY, v); } catch { /* stockage indisponible : la page marche sans */ }
@@ -137,7 +138,7 @@
 	{/if}
 
 	{#if years.length > 1}
-		<div class="chips" use:moreHint role="group" aria-label="Année">
+		<div class="chips" class:compact={tight && view === 'album'} use:moreHint role="group" aria-label="Année">
 			<button class="chip all" class:on={year === null} aria-pressed={year === null} onclick={() => (year = null)}>
 				{T.allYears.fr} <span class="kh" lang="km">{T.allYears.kh}</span>
 			</button>
@@ -148,7 +149,7 @@
 	{/if}
 
 	{#if places.length > 1}
-		<div class="chips" use:moreHint role="group" aria-label="Lieu">
+		<div class="chips" class:compact={tight && view === 'album'} use:moreHint role="group" aria-label="Lieu">
 			<button class="chip all" class:on={place === null} aria-pressed={place === null} onclick={() => (place = null)}>
 				<MapPin size={16} aria-hidden="true" /> {T.allPlacesShort.fr} <span class="kh" lang="km">{T.allPlacesShort.kh}</span>
 			</button>
@@ -191,7 +192,7 @@
 		<div class="state empty-filter"><p>{T.noEventsFilter.fr}</p><p class="kh" lang="km">{T.noEventsFilter.kh}</p></div>
 	{:else if view === 'album'}
 		<p class="count" role="status">{countText.fr} · <span lang="km">{countText.kh}</span></p>
-		<EventCarousel events={shown} {readerLang} {onOpen} />
+		<EventCarousel events={shown} {readerLang} {onOpen} onTight={(v) => (tight = v)} />
 	{:else}
 		<p class="count" role="status">{countText.fr} · <span lang="km">{countText.kh}</span></p>
 		{#each groups as g (g.key)}
@@ -293,6 +294,7 @@
 	.todo-n { font-family: var(--font-display); font-size: var(--fs-xl); }
 	/* 2 lignes de puces au plus, défilement vertical, fondu en bas tant qu'il en reste. */
 	.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); max-height: calc(var(--btn-tap) * 2 + var(--space-2)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+	.chips.compact { max-height: var(--btn-tap); }
 	.chips:global([data-more='1']) { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 22px), transparent); }
 	.count { font-size: var(--fs-md); color: var(--text-secondary); padding: 0 var(--space-1); }
 	.count span { font-size: 1rem; }

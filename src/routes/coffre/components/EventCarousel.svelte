@@ -5,14 +5,16 @@
 	import { T } from '$lib/events-i18n';
 	import { displayNames, formatRange, type ReaderLang } from '$lib/events-ui';
 	import type { EventDTO } from '$lib/events-types';
-	import { layoutAt, cssTransform, clampPos, snapTarget, nearestByDate, ALBUM } from '$lib/carousel-layout';
+	import { layoutAt, cssTransform, clampPos, snapTarget, nearestByDate, cardScale, fitStage } from '$lib/carousel-layout';
 
 	interface Props {
 		events: EventDTO[];
 		readerLang: ReaderLang;
 		onOpen: (id: number) => void;
+		/** Place vraiment trop petite : le parent réduit ses rangées de filtres à 1 ligne. */
+		onTight?: (tight: boolean) => void;
 	}
-	let { events, readerLang, onOpen }: Props = $props();
+	let { events, readerLang, onOpen, onTight }: Props = $props();
 
 	let pos = $state(0); // position flottante du carrousel (indice de la carte centrale)
 	let target = 0;
@@ -22,6 +24,25 @@
 	let lastCenter: string | null = null;
 	let lastKey = '';
 	let stageEl: HTMLDivElement;
+	let rootEl: HTMLDivElement;
+	let stageH = $state(330);
+	let tight = false;
+	const k = $derived(cardScale(stageH));
+	const SCRUB_H = 44;
+
+	function scroller(el: HTMLElement): HTMLElement | null {
+		for (let p = el.parentElement; p; p = p.parentElement) if (/(auto|scroll)/.test(getComputedStyle(p).overflowY)) return p;
+		return null;
+	}
+	// Scène + curseur tiennent entre le haut du carrousel (sans défilement) et le haut du dock.
+	function measure() {
+		if (!rootEl) return;
+		const dockTop = document.querySelector('.nav-dock')?.getBoundingClientRect().top ?? innerHeight;
+		const top = rootEl.getBoundingClientRect().top + (scroller(rootEl)?.scrollTop ?? 0);
+		const fit = fitStage(dockTop - top - 8, SCRUB_H, tight);
+		if (Math.abs(fit.stageH - stageH) > 1) stageH = fit.stageH;
+		if (fit.tight !== tight) { tight = fit.tight; onTight?.(tight); }
+	}
 
 	const center = $derived(Math.round(pos));
 	const max = $derived(Math.max(0, events.length - 1));
@@ -63,7 +84,14 @@
 			go(target + Math.sign(e.deltaX));
 		};
 		stageEl.addEventListener('wheel', wheel, { passive: false });
-		return () => { mq.removeEventListener('change', on); stageEl.removeEventListener('wheel', wheel); cancelAnimationFrame(raf); };
+		const ro = new ResizeObserver(measure);
+		ro.observe(document.body);
+		if (rootEl.parentElement) ro.observe(rootEl.parentElement);
+		addEventListener('resize', measure);
+		measure();
+		requestAnimationFrame(measure);
+		document.fonts?.ready.then(measure);
+		return () => { mq.removeEventListener('change', on); stageEl.removeEventListener('wheel', wheel); cancelAnimationFrame(raf); ro.disconnect(); removeEventListener('resize', measure); };
 	});
 
 	let startX = 0, startPos = 0, lastX = 0, lastT = 0, vel = 0, moved = 0, captured = false, suppressClick = false;
@@ -100,17 +128,17 @@
 	}
 </script>
 
-<div class="carousel">
+<div class="carousel" bind:this={rootEl}>
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
-		class="stage" class:reduced bind:this={stageEl} role="group" aria-roledescription="carrousel" aria-label="{T.browse.fr} · {T.browse.kh}"
+		class="stage" class:reduced bind:this={stageEl} style="height:{stageH}px" role="group" aria-roledescription="carrousel" aria-label="{T.browse.fr} · {T.browse.kh}"
 		onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} onkeydown={key}
 	>
 		{#each visible as { e, i, t } (e.id)}
 			{@const n = displayNames(e, readerLang)}
 			{@const r = formatRange(e.dates.start, e.dates.end)}
 			{@const isCenter = i === center}
-			<div class="slot" style="transform:{cssTransform(t)};opacity:{t.opacity};z-index:{t.zIndex};filter:{t.brightness < 1 ? `brightness(${t.brightness})` : 'none'}" data-i={i} data-center={isCenter ? '' : undefined}>
+			<div class="slot" style="transform:{cssTransform(t, k)};opacity:{t.opacity};z-index:{t.zIndex};filter:{t.brightness < 1 ? `brightness(${t.brightness})` : 'none'}" data-i={i} data-center={isCenter ? '' : undefined}>
 				<button
 					class="album" tabindex={isCenter ? 0 : -1} aria-current={isCenter ? 'true' : undefined}
 					aria-label={isCenter ? `${n.primary} — ${T.open.fr}` : n.primary} onclick={() => cardClick(i, e.id)}
@@ -148,11 +176,11 @@
 <style>
 	.carousel { display: flex; flex-direction: column; gap: var(--space-1); }
 	.stage {
-		position: relative; height: clamp(330px, calc(100dvh - 480px), 430px); overflow: hidden; perspective: 1100px; perspective-origin: 50% 42%;
+		position: relative; overflow: hidden; perspective: 1100px; perspective-origin: 50% 42%;
 		touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab;
 	}
 	.stage.reduced { perspective: none; }
-	.slot { position: absolute; left: 50%; top: 46%; width: 208px; height: 310px; margin: -155px 0 0 -104px; will-change: transform, opacity; }
+	.slot { position: absolute; left: 50%; top: 50%; width: 208px; height: 310px; margin: -155px 0 0 -104px; will-change: transform, opacity; }
 	.album { position: relative; display: block; width: 100%; height: 100%; padding: 0; text-align: left; color: var(--text); -webkit-touch-callout: none; }
 	.album:focus-visible { outline: 3px solid var(--accent-text); outline-offset: 4px; border-radius: 10px; }
 	.body { position: absolute; inset: 0; border-radius: 6px 14px 14px 6px; overflow: hidden; background: var(--surface); box-shadow: 0 18px 36px color-mix(in srgb, var(--text) 33%, transparent); }
