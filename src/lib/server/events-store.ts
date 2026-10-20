@@ -196,3 +196,11 @@ export async function eventsForDate(d: string, today: string): Promise<{ events:
   }
   return { events: covering, tags, tagEvents }
 }
+
+/** Photo supprimée du coffre : on la détache de son évènement et on libère une couverture qui la visait. */
+export async function forgetMediaPath(path: string): Promise<void> {
+  await getDB().transaction(async (tx) => {
+    await tx.execute(sql`DELETE FROM event_media WHERE media_path = ${path}`)
+    await tx.execute(sql`UPDATE events SET cover_path = NULL WHERE cover_path = ${path}`)
+  })
+}

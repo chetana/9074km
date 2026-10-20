@@ -13,7 +13,7 @@ import { sql } from 'drizzle-orm'
 import { ensureCoffreSchema, resetCoffreSchemaForTests } from './coffre-db'
 import {
 	createEvent, getEvent, listEvents, patchEvent, softDeleteEvent, applyTranslations,
-	addEventMedia, removeEventMedia, listEventMedia, eventsForDate,
+	addEventMedia, removeEventMedia, listEventMedia, eventsForDate, forgetMediaPath,
 } from './events-store'
 
 const TODAY = '2026-10-20'
@@ -80,12 +80,31 @@ describe.skipIf(!isLocal)('events-store (Postgres local jetable)', () => {
 		expect(await listEventMedia(424242)).toBeNull()
 	})
 
-	it('soft delete : disparaît des listes, 404 ensuite', async () => {
-		const ev = await createEvent(uid, input({ name: 'Zap', dateStart: '2030-05-05', dateEnd: '2030-05-05' }), names('Zap'), TODAY)
+	it('soft delete : la ligne subsiste avec deleted_at, plus listée ; les photos restent rattachées (event_media conservé)', async () => {
+		const ev = await createEvent(uid, input({ name: 'Zap', dateStart: '2030-05-05', dateEnd: '2030-05-05', mediaPaths: ['2030/05/05/z.jpg'] }), names('Zap'), TODAY)
 		expect(await softDeleteEvent(ev.id)).toBe(true)
 		expect(await softDeleteEvent(ev.id)).toBe(false)
+		const row: any = await getDB().execute(sql`SELECT deleted_at FROM events WHERE id = ${ev.id}`)
+		const rows = row.rows ?? row
+		expect(rows).toHaveLength(1)
+		expect(rows[0].deleted_at).not.toBeNull()
+		const media: any = await getDB().execute(sql`SELECT count(*)::int AS n FROM event_media WHERE event_id = ${ev.id}`)
+		expect((media.rows ?? media)[0].n).toBe(1)
 		expect((await listEvents({ today: TODAY })).some((e) => e.id === ev.id)).toBe(false)
 		expect(await getEvent(ev.id, TODAY)).toBeNull()
+		expect(await listEventMedia(ev.id)).toBeNull()
+		expect(await addEventMedia(ev.id, uid, ['2030/05/05/y.jpg'])).toBe(false)
+		expect((await eventsForDate('2030-05-05', TODAY)).tags).toEqual({})
+	})
+
+	it('forgetMediaPath : retire la photo de son évènement et remet la couverture à zéro', async () => {
+		const ev = await createEvent(uid, input({ name: 'Forget', mediaPaths: ['2033/03/03/a.jpg', '2033/03/03/b.jpg'] }), names('Forget'), TODAY)
+		const cov = await patchEvent(ev.id, { ifVersion: 1, coverPath: '2033/03/03/b.jpg' }, {}, TODAY)
+		expect(cov.kind).toBe('ok')
+		await forgetMediaPath('2033/03/03/b.jpg')
+		expect(await listEventMedia(ev.id)).toEqual(['2033/03/03/a.jpg'])
+		expect((await getEvent(ev.id, TODAY))!.cover).toBe('2033/03/03/a.jpg')
+		await forgetMediaPath('2033/03/03/inconnu.jpg')
 	})
 
 	it('liste : filtres année / lieu', async () => {
