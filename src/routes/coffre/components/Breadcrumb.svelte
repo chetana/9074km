@@ -9,16 +9,18 @@
 		onCoffre: () => void;
 		onYear: () => void;
 		onMonth: () => void;
+		/** Vue d'un évènement ouverte : retour vers la liste des évènements. */
+		onEventBack?: (() => void) | null;
 	}
 
-	let { year, month, day, fileCount = null, onCoffre, onYear, onMonth }: Props = $props();
+	let { year, month, day, fileCount = null, onCoffre, onYear, onMonth, onEventBack = null }: Props = $props();
 
 	// Titre contextuel + un seul bouton retour, plutôt qu'une pile de pilules — le fil d'Ariane
 	// complet reste affiché en sous-titre discret (plan de modernisation P6, 22/09/2026).
-	const title = $derived(day ?? month ?? year ?? 'Coffre · ប្រអប់');
-	const onBack = $derived(day ? onMonth : month ? onYear : year ? onCoffre : null);
+	const title = $derived(onEventBack ? 'Évènement' : (day ?? month ?? year ?? 'Coffre · ប្រអប់'));
+	const onBack = $derived(onEventBack ?? (day ? onMonth : month ? onYear : year ? onCoffre : null));
 	const trail = $derived(
-		['Coffre', year, month].filter((p): p is string => !!p).join(' › ')
+		onEventBack ? 'Coffre › Évènements' : ['Coffre', year, month].filter((p): p is string => !!p).join(' › ')
 	);
 </script>
 
@@ -28,7 +30,7 @@
 	{/if}
 	<div class="breadcrumb-txt">
 		<span class="title">
-			{#if !day && !month && !year}Coffre · <span lang="km">ប្រអប់</span>{:else}{title}{/if}{#if fileCount !== null}&thinsp;<span class="count">({fileCount})</span>{/if}
+			{#if onEventBack}Évènement · <span lang="km">ព្រឹត្តិការណ៍</span>{:else if !day && !month && !year}Coffre · <span lang="km">ប្រអប់</span>{:else}{title}{/if}{#if fileCount !== null}&thinsp;<span class="count">({fileCount})</span>{/if}
 		</span>
 		{#if trail !== title}<span class="trail">{trail}</span>{/if}
 	</div>

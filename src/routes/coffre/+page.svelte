@@ -109,6 +109,12 @@
 	function goToYear() { month = null; day = null; initialFile = null; dayFileCount = null; pushState(); }
 	function goToMonth() { day = null; initialFile = null; dayFileCount = null; pushState(); }
 
+	// Re-toucher « Coffre » dans le dock : retour à l'accueil de la vue courante (liste des années ou des évènements).
+	function goHome() {
+		year = null; month = null; day = null; initialFile = null; dayFileCount = null; eventId = null; pushState();
+		document.querySelector('.list-scroll')?.scrollTo({ top: 0, behavior: 'smooth' });
+	}
+
 	function goToday() {
 		const now = new Date();
 		year = String(now.getFullYear());
@@ -189,6 +195,7 @@
 
 	onMount(() => {
 		window.addEventListener('popstate', onPopState);
+		window.addEventListener('coffre:home', goHome);
 		// Initialiser l'état history après que le deep link ait été appliqué
 		// (le $effect du deep link tourne avant onMount)
 		history.replaceState({ year, month, day, view, eventId }, '');
@@ -196,6 +203,7 @@
 
 	onDestroy(() => {
 		window.removeEventListener('popstate', onPopState);
+		window.removeEventListener('coffre:home', goHome);
 	});
 </script>
 
@@ -270,6 +278,7 @@
 				onCoffre={goToCoffre}
 				onYear={goToYear}
 				onMonth={goToMonth}
+				onEventBack={view === 'events' && eventId !== null ? closeEvent : null}
 			/>
 			<div class="header-actions">
 				{#if day !== null}

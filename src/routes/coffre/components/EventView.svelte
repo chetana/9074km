@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { ArrowLeft, Ellipsis, MapPin, Pencil, Trash2, Image as ImageIcon, X, ArrowRightLeft, WifiOff, Images } from 'lucide-svelte';
+	import { Ellipsis, MapPin, Pencil, Trash2, Image as ImageIcon, X, ArrowRightLeft, WifiOff, Images } from 'lucide-svelte';
 	import BottomSheet from '$lib/BottomSheet.svelte';
 	import {
 		ogImageUrl, signDownload, previewUrl, fetchReactions, saveReactions
@@ -248,7 +248,6 @@
 		<header class="hero" style={colorStyle(ev.color)}>
 			{#if ev.cover}<img src={ogImageUrl(ev.cover, 800)} alt="" />{/if}
 			<span class="veil"></span>
-			<button class="round back" onclick={onBack} aria-label="{T.back.fr} · {T.back.kh}"><ArrowLeft size={22} /></button>
 			<button class="round more" onclick={() => (menuOpen = true)} aria-label="{T.more.fr} · {T.more.kh}"><Ellipsis size={22} /></button>
 			<div class="hero-txt">
 				{#if ev.emoji}<span class="emoji" aria-hidden="true">{ev.emoji}</span>{/if}
@@ -263,9 +262,7 @@
 			</div>
 		</header>
 	{:else}
-		<header class="hero plain">
-			<button class="round back" onclick={onBack} aria-label="{T.back.fr} · {T.back.kh}"><ArrowLeft size={22} /></button>
-		</header>
+		<header class="hero plain"></header>
 	{/if}
 
 	{#if offline}

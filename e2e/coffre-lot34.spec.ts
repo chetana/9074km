@@ -492,7 +492,7 @@ test('mode tri : pointercancel n\'valide PAS un swipe (la carte revient, rien n\
 	await expect(page.locator('.sort .count-n')).toHaveText('1 / 2 restantes')
 })
 
-test('viewer à 393 px : étoile, lien, partage et fermeture gardent ≥ 44×44 (rien n\'est écrasé)', async ({ page }) => {
+test('viewer à 393 px : étoile, téléchargement, lien, partage et fermeture gardent ≥ 44×44 (rien n\'est écrasé)', async ({ page }) => {
 	await setup(page)
 	await page.goto('/coffre?v=events&e=2')
 	await page.waitForSelector('.cell img')
@@ -500,7 +500,8 @@ test('viewer à 393 px : étoile, lien, partage et fermeture gardent ≥ 44×44 
 	await expect(page.locator('.viewer-backdrop .cover-btn')).toBeVisible()
 	await page.waitForTimeout(600)
 	const boxes = await page.locator('.viewer-backdrop .top-bar .bar-btn').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, label: e.getAttribute('aria-label') } }))
-	expect(boxes.length).toBe(4)
+	expect(boxes.length).toBe(5)
+	expect(boxes.map((b) => b.label)).toContain('Télécharger · ទាញយក')
 	for (const b of boxes) { expect(b.w, b.label ?? '').toBeGreaterThanOrEqual(44); expect(b.h, b.label ?? '').toBeGreaterThanOrEqual(44) }
 	if (SHOTS) await page.screenshot({ path: `${SHOTS}/08-viewer-couverture.png` })
 })
