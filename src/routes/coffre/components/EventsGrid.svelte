@@ -41,9 +41,8 @@
 			<Search size={18} aria-hidden="true" />
 			<input type="search" placeholder="{T.search.fr} · {T.search.kh}" bind:value={query} aria-label={T.search.fr} enterkeyhint="search" />
 		</label>
-		<button class="new-btn" onclick={onCreate} aria-label="{T.newEvent.fr} · {T.newEvent.kh}">
-			<Plus size={20} />
-			<span class="new-txt"><span class="kh" lang="km">ថ្មី</span><span class="fr">Nouveau</span></span>
+		<button class="new-btn" onclick={onCreate} aria-label="{T.newEvent.fr} · {T.newEvent.kh}" title="{T.newEvent.fr} · {T.newEvent.kh}">
+			<Plus size={24} />
 		</button>
 	</div>
 
@@ -109,14 +108,14 @@
 						{/if}
 						{#if e.upcoming}
 							<span class="veil"></span>
-							<span class="badge">{T.upcoming.fr} · <span lang="km">{T.upcoming.kh}</span></span>
+							<span class="badge"><span class="b-fr">{T.upcoming.fr}</span><span lang="km">{T.upcoming.kh}</span></span>
 						{:else if e.emoji && e.cover}
 							<span class="mini-emoji" aria-hidden="true">{e.emoji}</span>
 						{/if}
 						<span class="caption">
 							<span class="name" lang={n.primaryLang}>{n.primary}</span>
 							{#if n.secondary}<span class="name2" lang={n.secondaryLang}>{n.secondary}</span>{/if}
-							<span class="meta">{readerLang === 'kh' ? r.kh : r.fr}</span>
+							<span class="meta" lang={readerLang === 'kh' ? 'km' : 'fr'}>{readerLang === 'kh' ? r.kh : r.fr}</span>
 							<span class="meta"><Images size={13} aria-hidden="true" /> {e.count}{#if e.place}&nbsp;· <MapPin size={13} aria-hidden="true" /> {e.place}{/if}</span>
 						</span>
 					</button>
@@ -149,12 +148,11 @@
 	}
 	.search input { flex: 1; min-width: 0; border: none; background: none; outline: none; font-size: 1rem; color: var(--text); }
 	.new-btn {
-		min-height: var(--btn-tap);
+		width: var(--btn-tap);
+		height: var(--btn-tap);
 		justify-content: center;
 		display: flex;
 		align-items: center;
-		gap: var(--space-1);
-		padding: 0 var(--space-3);
 		border-radius: var(--radius-full);
 		background: linear-gradient(150deg, var(--accent), var(--accent-warm));
 		color: var(--on-accent);
@@ -162,9 +160,6 @@
 		flex-shrink: 0;
 		font-weight: 600;
 	}
-	.new-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
-	.new-txt .kh { font-size: var(--fs-xl); line-height: var(--lh-kh); }
-	.new-txt .fr { font-size: var(--fs-sm); margin-top: -3px; }
 	.chips { display: flex; gap: var(--space-2); overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
 	.chip {
 		min-height: var(--btn-tap);
@@ -178,6 +173,7 @@
 		align-items: center;
 		gap: var(--space-2);
 	}
+	.chip .kh { font-size: var(--fs-xl); }
 	.chip.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 	.banner {
 		display: flex;
@@ -189,6 +185,7 @@
 		border-radius: var(--radius-md);
 		font-size: var(--fs-md);
 	}
+	.banner span { font-size: 1rem; }
 	.sep {
 		font-family: var(--font-display);
 		font-size: var(--fs-lg);
@@ -225,11 +222,13 @@
 	.badge {
 		position: absolute; top: var(--space-2); left: var(--space-2);
 		background: var(--gold); color: var(--gold-text);
-		font-size: var(--fs-sm); font-weight: 600;
-		padding: 0.15rem 0.55rem; border-radius: var(--radius-full);
+		font-size: var(--fs-md); font-weight: 600;
+		padding: 0.1rem 0.6rem; border-radius: var(--radius-full);
+		display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25;
 		max-width: calc(100% - var(--space-4));
 	}
-	.badge span { font-size: var(--fs-base); line-height: var(--lh-kh); }
+	.badge span[lang='km'] { font-size: 1rem; line-height: var(--lh-kh); margin-top: -2px; }
+	.badge .b-fr { font-size: var(--fs-md); }
 	.caption {
 		position: absolute; left: 0; right: 0; bottom: 0;
 		display: flex; flex-direction: column; gap: 1px;
@@ -245,12 +244,13 @@
 	}
 	.name:lang(km) { line-height: var(--lh-kh); }
 	.name2 { font-size: var(--fs-md); color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.name2:lang(km) { font-size: var(--fs-lg); }
+	.name2:lang(km) { font-size: 1rem; }
 	.meta {
 		font-size: var(--fs-base); color: var(--muted-text);
 		display: flex; align-items: center; gap: 3px;
 		white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 	}
+	.meta:lang(km) { font-size: 1rem; }
 	.state {
 		display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
 		padding: var(--space-12) var(--space-4); text-align: center; color: var(--text-secondary);

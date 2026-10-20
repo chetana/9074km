@@ -225,7 +225,7 @@
 				<h2 class="title" lang={names.primaryLang}>{names.primary}</h2>
 				{#if names.secondary}<p class="title2" lang={names.secondaryLang}>{names.secondary}</p>{/if}
 				<p class="meta">
-					{readerLang === 'kh' ? range.kh : range.fr}
+					<span lang={readerLang === 'kh' ? 'km' : 'fr'}>{readerLang === 'kh' ? range.kh : range.fr}</span>
 					{#if ev.place}· <MapPin size={14} aria-hidden="true" /> {ev.place}{/if}
 					· <Images size={14} aria-hidden="true" /> {visible.length}
 				</p>
@@ -368,15 +368,18 @@
 	.title:lang(km) { line-height: var(--lh-kh); }
 	.title2 { font-size: var(--fs-xl); color: var(--text-secondary); line-height: 1.3; }
 	.title2:lang(km) { line-height: var(--lh-kh); }
+	.meta span:lang(km) { font-size: 1rem; }
 	.meta { font-size: var(--fs-md); color: var(--text-secondary); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-	.pending { font-size: var(--fs-base); color: var(--gold-text); }
+	.pending { font-size: var(--fs-md); color: var(--gold-text); }
+	.pending span { font-size: 1rem; }
 	.banner { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) var(--space-4) 0; padding: var(--space-2) var(--space-3); background: var(--peach); color: var(--peach-text); border-radius: var(--radius-md); font-size: var(--fs-md); }
+	.banner span { font-size: 1rem; }
 	.selbar { position: sticky; top: 0; z-index: 3; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm); }
 	.count { font-size: var(--fs-md); display: flex; flex-direction: column; }
 	.count .kh { font-size: var(--fs-lg); }
 	.acts { display: flex; gap: var(--space-1); }
 	.act { flex: 1; min-height: 3.25rem; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: var(--radius-md); background: var(--raised); color: var(--on-accent); font-size: var(--fs-sm); line-height: 1.15; padding: var(--space-1); }
-	.act .kh { font-size: var(--fs-md); line-height: var(--lh-kh); }
+	.act .kh { font-size: 1rem; line-height: var(--lh-kh); }
 	.act.ghost { background: none; color: var(--text-secondary); }
 	.act:disabled { opacity: 0.45; }
 	.body { padding: var(--space-3) var(--space-1) 0; display: flex; flex-direction: column; gap: var(--space-4); }

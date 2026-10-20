@@ -28,4 +28,8 @@
 		line-height: 1.4;
 		flex-shrink: 0;
 	}
+	.lang-tag:lang(km) {
+		font-size: var(--fs-base);
+		text-transform: none;
+	}
 </style>

@@ -157,7 +157,7 @@
 				{#each QUICK as q (q)}
 					<button type="button" class="emo" class:on={emoji === q} aria-pressed={emoji === q} onclick={() => (emoji = emoji === q ? '' : q)}>{q}</button>
 				{/each}
-				<input class="emo-free" bind:value={emoji} maxlength="16" placeholder="…" aria-label={T.emoji.fr} />
+				<input class="emo-free" bind:value={emoji} maxlength="16" placeholder="{T.otherEmoji.fr} · {T.otherEmoji.kh}" aria-label="{T.otherEmoji.fr} · {T.otherEmoji.kh}" />
 			</div>
 		</div>
 
@@ -193,7 +193,7 @@
 	.title-kh { font-size: var(--fs-xl); color: var(--text-secondary); line-height: var(--lh-kh); }
 	.field { display: flex; flex-direction: column; gap: var(--space-1); border: none; min-width: 0; }
 	.lbl, legend { font-size: var(--fs-md); color: var(--text-secondary); font-weight: 600; }
-	.lbl span, legend span { font-size: var(--fs-lg); }
+	.lbl span, legend span { font-size: var(--fs-xl); }
 	input:not([type='checkbox']) {
 		min-height: var(--btn-tap);
 		padding: 0 var(--space-3);
@@ -208,7 +208,8 @@
 	.name-input { font-size: var(--fs-xl); font-family: var(--font-display); }
 	.kh-input { font-size: var(--fs-xl); line-height: var(--lh-kh); }
 	.lang-row { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-1); }
-	.pending { font-size: var(--fs-base); color: var(--gold-text); background: color-mix(in srgb, var(--gold) 35%, var(--surface)); padding: 2px var(--space-2); border-radius: var(--radius-sm); }
+	.pending span { font-size: 1rem; }
+	.pending { font-size: var(--fs-md); color: var(--gold-text); background: color-mix(in srgb, var(--gold) 35%, var(--surface)); padding: 2px var(--space-2); border-radius: var(--radius-sm); }
 	.dates { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 	.quick { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
 	.emo {
@@ -216,7 +217,8 @@
 		background: var(--surface-2); font-size: 1.4rem; border: 2px solid transparent;
 	}
 	.emo.on { border-color: var(--accent-deep); background: var(--raised); }
-	.emo-free { width: 5rem !important; text-align: center; font-size: 1.3rem !important; }
+	.emo-free { flex: 1 1 100%; font-size: 1.3rem !important; }
+	.emo-free::placeholder { font-size: 1rem; }
 	.colors { display: flex; gap: var(--space-3); }
 	.swatch {
 		width: var(--btn-tap); height: var(--btn-tap); border-radius: var(--radius-full);

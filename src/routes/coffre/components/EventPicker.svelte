@@ -78,7 +78,7 @@
 	.title { font-family: var(--font-display); font-size: var(--fs-2xl); color: var(--text); }
 	.title-kh { font-size: var(--fs-xl); color: var(--text-secondary); line-height: var(--lh-kh); }
 	.sec { font-size: var(--fs-md); color: var(--text-secondary); font-weight: 600; margin-top: var(--space-2); }
-	.sec span { font-size: var(--fs-lg); }
+	.sec span { font-size: var(--fs-xl); }
 	.row {
 		display: flex;
 		align-items: center;
@@ -100,7 +100,7 @@
 	.txt { display: flex; flex-direction: column; min-width: 0; }
 	.name { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.name:lang(km) { line-height: var(--lh-kh); }
-	.name-kh { font-size: var(--fs-lg); color: var(--text-secondary); line-height: var(--lh-kh); }
+	.name-kh { font-size: var(--fs-xl); color: var(--text-secondary); line-height: var(--lh-kh); }
 	.sub { font-size: var(--fs-base); color: var(--muted-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.hint { text-align: center; color: var(--muted-text); }
 </style>

@@ -711,13 +711,18 @@
 	}
 
 	.selection-bar {
-		flex-wrap: wrap;
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--space-2);
 	}
 
 	.selection-actions {
-		flex: 1;
+		width: 100%;
 		justify-content: space-between;
 	}
+
+	.event-btn { flex: 1; }
+	.event-btn span { font-size: var(--fs-xl); line-height: var(--lh-kh); }
 
 	/* Grid */
 	.grid {

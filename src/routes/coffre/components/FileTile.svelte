@@ -140,6 +140,9 @@
 		cursor: pointer;
 		border: 2px solid transparent;
 		transition: border-color 0.15s, transform 0.15s;
+		-webkit-touch-callout: none;
+		-webkit-user-select: none;
+		user-select: none;
 	}
 
 	/* Gradient de lisibilité (bas de la vignette) — seulement quand un badge est posé dessus,
@@ -165,6 +168,8 @@
 	}
 
 	.tile img {
+		-webkit-touch-callout: none;
+		-webkit-user-drag: none;
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
