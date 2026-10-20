@@ -14,9 +14,11 @@
  *
  *   --dry-run  (défaut) n'écrit RIEN (connexion Postgres en lecture seule) : totaux par année/mois,
  *              photos/vidéos, nouvelles lignes, « à classer » (lignes sans évènement)
- *   --apply    écrit : crée la table `media` si besoin (002-media.sql, additif), insère par lots de 500
- *              (une transaction par lot)
- *   --limit N  s'arrête après N fichiers retenus ;  --year YYYY  limite à une année
+ *   --apply    écrit : crée la table `media` si besoin (002-media.sql, additif), insère par lots de 500.
+ *              ATOMIQUE : tout `--apply` tient dans UNE transaction (savepoint par lot, un seul COMMIT) ;
+ *              la moindre erreur annule tout. Exige --yes (ou CONFIRM=1) pour éviter un apply accidentel.
+ *   --limit N  s'arrête après N fichiers retenus (les compteurs d'ignorés sont alors PARTIELS) ;  --year YYYY  limite à une année
+ *   --yes      confirme l'écriture avec --apply (équivalent : variable d'environnement CONFIRM=1)
  *
  * Connexion : DATABASE_URL, GCS_BUCKET_NAME, S3_ENDPOINT, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY,
  * lus dans l'environnement puis, à défaut, dans .env à la racine. Aucune valeur n'est jamais affichée.
@@ -31,11 +33,12 @@ const BATCH = 500
 const VIDEO_EXT = /\.(mp4|mov|webm|avi|mkv|m4v|3gp)$/i
 
 export function parseArgs(argv) {
-	const o = { apply: false, dryRun: false, limit: null, year: null, help: false }
+	const o = { apply: false, dryRun: false, yes: false, limit: null, year: null, help: false }
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]
 		if (a === '--apply') o.apply = true
 		else if (a === '--dry-run') o.dryRun = true
+		else if (a === '--yes') o.yes = true
 		else if (a === '--help' || a === '-h') o.help = true
 		else if (a === '--limit') {
 			const n = Number(argv[++i])
@@ -98,21 +101,27 @@ export function selectRows(objects, { limit = null } = {}) {
 	return { rows, skipped }
 }
 
-async function readMeta(s3, bucket, day) {
-	try {
-		const r = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: `${day.replaceAll('-', '/')}/meta.json` }))
-		const parsed = JSON.parse(await r.Body.transformToString())
-		return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
-	} catch {
-		return {}
+/** meta.json du jour : absent (404) = normal, vide ; illisible (réseau, 5xx, JSON cassé) = 1 nouvelle tentative puis comptage. */
+async function readMeta(s3, bucket, day, stats) {
+	const Key = `${day.replaceAll('-', '/')}/meta.json`
+	for (let attempt = 0; attempt < 2; attempt++) {
+		try {
+			const r = await s3.send(new GetObjectCommand({ Bucket: bucket, Key }))
+			const parsed = JSON.parse(await r.Body.transformToString())
+			return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+		} catch (e) {
+			if (e?.name === 'NoSuchKey' || e?.$metadata?.httpStatusCode === 404) return {}
+			if (attempt === 1) stats.metaUnreadable++
+		}
 	}
+	return {}
 }
 
-async function fillUploaders(s3, bucket, rows) {
+async function fillUploaders(s3, bucket, rows, stats) {
 	const days = [...new Set(rows.map((r) => r.day))]
 	const metas = new Map()
 	for (let i = 0; i < days.length; i += 8) {
-		await Promise.all(days.slice(i, i + 8).map(async (d) => metas.set(d, await readMeta(s3, bucket, d))))
+		await Promise.all(days.slice(i, i + 8).map(async (d) => metas.set(d, await readMeta(s3, bucket, d, stats))))
 	}
 	for (const r of rows) {
 		const v = metas.get(r.day)?.[r.path.split('/')[3]]
@@ -158,7 +167,7 @@ async function tryQuery(client, text, params) {
  * @param {{ s3: any, bucket: string, client: any, apply?: boolean, limit?: number | null, year?: string | null, migrationSql?: string | null }} opts
  */
 export async function run({ s3, bucket, client, apply = false, limit = null, year = null, migrationSql = null }) {
-	const report = { listed: 0, skipped: {}, candidates: 0, existing: 0, wouldInsert: 0, inserted: 0, images: 0, videos: 0, byYear: {}, byMonth: {}, tableMissing: false, unclassifiedNew: 0, unclassifiedTotal: 0, apply }
+	const report = { metaUnreadable: 0, limit, listed: 0, skipped: {}, candidates: 0, existing: 0, wouldInsert: 0, inserted: 0, images: 0, videos: 0, byYear: {}, byMonth: {}, tableMissing: false, unclassifiedNew: 0, unclassifiedTotal: 0, apply }
 	await client.query('BEGIN')
 	try {
 		if (apply) {
@@ -171,7 +180,7 @@ export async function run({ s3, bucket, client, apply = false, limit = null, yea
 		const { rows, skipped } = selectRows(objects, { limit })
 		report.skipped = skipped
 		report.candidates = rows.length
-		await fillUploaders(s3, bucket, rows)
+		await fillUploaders(s3, bucket, rows, report)
 
 		const existing = new Set()
 		for (let i = 0; i < rows.length; i += BATCH) {
@@ -231,8 +240,10 @@ export async function run({ s3, bucket, client, apply = false, limit = null, yea
 
 export function formatReport(r) {
 	const L = []
-	L.push(r.apply ? '== APPLY ==' : '== DRY-RUN (rien n\'est écrit) ==')
+	L.push(r.apply ? '== APPLY (atomique : un seul COMMIT, tout ou rien) ==' : '== DRY-RUN (rien n\'est écrit) ==')
 	L.push(`Objets listés : ${r.listed} · retenus : ${r.candidates} · ignorés : ${Object.entries(r.skipped).map(([k, v]) => `${k} ${v}`).join(', ') || 'aucun'}`)
+	if (r.limit) L.push(`⚠ --limit ${r.limit} : arrêt après ${r.limit} fichiers retenus, les compteurs d'ignorés (et les totaux) sont PARTIELS.`)
+	if (r.metaUnreadable) L.push(`⚠ ${r.metaUnreadable} fichiers meta.json illisibles (uploaded_by laissé vide pour ces jours).`)
 	if (r.tableMissing) L.push('Table media absente : toutes les lignes retenues seraient nouvelles (--apply la crée).')
 	L.push(`Déjà indexés : ${r.existing} · ${r.apply ? 'insérés' : 'à insérer'} : ${r.apply ? r.inserted : r.wouldInsert} (photos ${r.images}, vidéos ${r.videos})`)
 	for (const y of Object.keys(r.byYear).sort()) {
@@ -243,11 +254,28 @@ export function formatReport(r) {
 	return L.join('\n')
 }
 
+/** Cible affichée en tête de CHAQUE exécution : bucket, endpoint, hôte:port/base (jamais d'identifiants). */
+export function describeTarget(env, apply) {
+	let db = 'base illisible'
+	try {
+		const u = new URL(env.DATABASE_URL)
+		db = `${u.hostname}${u.port ? ':' + u.port : ''}${u.pathname}`
+	} catch { /* garde le libellé neutre : on n'affiche jamais l'URL brute */ }
+	return [`Mode : ${apply ? 'APPLY (écriture)' : 'DRY-RUN (lecture seule)'}`, `Bucket : ${env.bucket}`, `Endpoint S3 : ${env.endpoint}`, `Base : ${db}`].join('\n')
+}
+
+/** --apply n'écrit que sur confirmation explicite : --yes ou CONFIRM=1. Le dry-run ne l'exige pas. */
+export function assertApplyConfirmed(opts, env = process.env) {
+	if (opts.apply && !(opts.yes || env.CONFIRM === '1')) throw new Error('--apply écrit dans la base : ajoutez --yes (ou CONFIRM=1) pour confirmer')
+}
+
 async function main() {
 	const opts = parseArgs(process.argv.slice(2))
 	if (opts.help) { console.log(readFileSync(new URL(import.meta.url), 'utf8').split('*/')[0]); return }
+	assertApplyConfirmed(opts)
 	const env = loadEnv()
 	for (const k of ['DATABASE_URL', 'bucket', 'accessKeyId', 'secretAccessKey']) if (!env[k]) throw new Error(`configuration manquante : ${k === 'bucket' ? 'GCS_BUCKET_NAME' : k === 'accessKeyId' ? 'S3_ACCESS_KEY' : k === 'secretAccessKey' ? 'S3_SECRET_KEY' : k}`)
+	console.log(describeTarget(env, opts.apply) + '\n')
 	const s3 = new S3Client({ region: env.region, endpoint: env.endpoint, forcePathStyle: true, credentials: { accessKeyId: env.accessKeyId, secretAccessKey: env.secretAccessKey } })
 	const client = new pg.Client({ connectionString: env.DATABASE_URL })
 	await client.connect()

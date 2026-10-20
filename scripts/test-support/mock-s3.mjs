@@ -4,7 +4,7 @@ import http from 'node:http'
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-/** objects : Map<clé, { body?: string, size?: number, lastModified?: string }>. Renvoie { url, close, requests }. */
+/** objects : Map<clé, { body?, size?, lastModified?, status? (erreur permanente), failFirst? (n premières erreurs 500) }>. Renvoie { url, close, requests }. */
 export async function startMockS3(objects, { pageSize = 1000 } = {}) {
 	const requests = []
 	const server = http.createServer((req, res) => {
@@ -23,6 +23,8 @@ export async function startMockS3(objects, { pageSize = 1000 } = {}) {
 		}
 		const key = decodeURIComponent(parts.slice(1).join('/'))
 		const o = objects.get(key)
+		if (o && o.status) return res.writeHead(o.status, { 'Content-Type': 'application/xml' }).end('<Error><Code>InternalError</Code></Error>')
+		if (o && o.failFirst > 0) { o.failFirst--; return res.writeHead(500, { 'Content-Type': 'application/xml' }).end('<Error><Code>InternalError</Code></Error>') }
 		if (!o) return res.writeHead(404, { 'Content-Type': 'application/xml' }).end('<Error><Code>NoSuchKey</Code></Error>')
 		res.writeHead(200, { 'Content-Type': 'application/octet-stream' }).end(o.body ?? '')
 	})
