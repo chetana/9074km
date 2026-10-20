@@ -8,7 +8,7 @@
 	} from '$lib/api';
 	import { eventsStore } from '$lib/events.svelte';
 	import {
-		fetchEventMedia, cachedEventMedia, removeEventMedia, addEventMedia, patchEvent, deleteEvent, EventApiError
+		fetchEventMedia, cachedEventMedia, removeEventMedia, addEventMedia, patchEvent, deleteEvent, EventApiError, fetchDatesMediaCount, attachDatesMedia
 	} from '$lib/events-api';
 	import type { EventDTO } from '$lib/events-types';
 	import { T } from '$lib/events-i18n';
@@ -35,6 +35,8 @@
 	let failed = $state(false);
 	let offline = $state(false);
 	let menuOpen = $state(false);
+	let rangeCount = $state<number | null>(null); // photos non classées des dates (serveur) ; null = inconnu
+	let confirmingRange = $state(false);
 	let confirmingDelete = $state(false); // confirmation dans le menu avant de supprimer (le toast Annuler 5 s reste ensuite)
 	let moveOpen = $state(false);
 	let selected = $state(new Set<string>());
@@ -154,6 +156,26 @@
 			eventsStore.upsert(updated);
 			clearSelection();
 			toasts.push({ message: T.coverSet.fr, messageKh: T.coverSet.kh });
+		} catch (e) { fail(e); }
+	}
+
+	// Compteur calculé côté serveur à l'ouverture du menu ; l'action est désactivée à 0 (ou inconnu).
+	$effect(() => {
+		if (!menuOpen) return;
+		rangeCount = null;
+		fetchDatesMediaCount(eventId).then((n) => (rangeCount = n)).catch(() => (rangeCount = null));
+	});
+
+	async function attachRange() {
+		confirmingRange = false;
+		menuOpen = false;
+		if (!guardOnline()) return;
+		try {
+			const n = await attachDatesMedia(eventId);
+			if (n === 0) toasts.push({ message: T.addByDatesNone.fr, messageKh: T.addByDatesNone.kh });
+			else toasts.push({ message: T.addByDatesDone.fr.replace('{n}', String(n)), messageKh: T.addByDatesDone.kh.replace('{n}', String(n)) });
+			await loadMedia();
+			void eventsStore.load();
 		} catch (e) { fail(e); }
 	}
 
@@ -331,11 +353,24 @@
 	{/if}
 </div>
 
-<BottomSheet open={menuOpen} onclose={() => { menuOpen = false; confirmingDelete = false; }}>
+<BottomSheet open={menuOpen} onclose={() => { menuOpen = false; confirmingDelete = false; confirmingRange = false; }}>
 	<div class="menu">
 		<button class="mi" onclick={() => { menuOpen = false; if (ev) onEdit(ev); }}><Pencil size={20} /><span class="mi-txt"><span>{T.edit.fr}</span><span class="kh" lang="km">{T.edit.kh}</span></span></button>
 		<button class="mi" onclick={startCoverPick}><ImageIcon size={20} /><span class="mi-txt"><span>{T.cover.fr}</span><span class="kh" lang="km">{T.cover.kh}</span></span></button>
 		<button class="mi" onclick={() => { menuOpen = false; void setCover(null); }}><ImageIcon size={20} /><span class="mi-txt"><span>{T.autoCover.fr}</span><span class="kh" lang="km">{T.autoCover.kh}</span></span></button>
+		{#if confirmingRange}
+			<div class="confirm" role="alertdialog" aria-label={T.addByDates.fr}>
+				<p class="confirm-q">{T.addByDatesQ.fr.replace('{n}', String(rangeCount ?? 0))}</p>
+				<p class="confirm-q kh" lang="km">{T.addByDatesQ.kh.replace('{n}', String(rangeCount ?? 0))}</p>
+				<p class="confirm-note">{T.addByDatesNote.fr} · <span lang="km">{T.addByDatesNote.kh}</span></p>
+				<div class="confirm-btns">
+					<button class="mi" onclick={attachRange}><Images size={20} /><span class="mi-txt"><span>{T.addConfirm.fr}</span><span class="kh" lang="km">{T.addConfirm.kh}</span></span></button>
+					<button class="mi" onclick={() => (confirmingRange = false)}><span class="mi-txt"><span>{T.cancel.fr}</span><span class="kh" lang="km">{T.cancel.kh}</span></span></button>
+				</div>
+			</div>
+		{:else}
+			<button class="mi add-range" disabled={!rangeCount} onclick={() => (confirmingRange = true)}><Images size={20} /><span class="mi-txt"><span>{T.addByDates.fr} ({rangeCount ?? '…'})</span><span class="kh" lang="km">{T.addByDates.kh}</span></span></button>
+		{/if}
 		{#if confirmingDelete}
 			<div class="confirm" role="alertdialog" aria-label={T.confirmDelete.fr}>
 				<p class="confirm-q">{T.confirmDelete.fr}</p>
@@ -422,6 +457,7 @@
 	.mi .kh { font-size: var(--fs-xl); color: var(--text-secondary); line-height: var(--lh-kh); }
 	.mi-txt { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
 	.mi.solid .kh, .mi.danger.solid .mi-txt .kh { color: white; }
+	.mi:disabled { opacity: 0.55; }
 	.mi.danger { color: var(--accent-text); }
 	.mi.danger.solid { background: var(--accent-deep); color: white; }
 	.confirm { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); background: var(--raised); text-align: center; }
