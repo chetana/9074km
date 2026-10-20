@@ -330,6 +330,7 @@ pour les « faux » (à valider à la main, jamais appliquées).
   d'une route), routes `api/coffre/events/**`, validation pure `server/events-validate.ts`, nom traduit en
   arrière-plan après écriture (`events-names.ts`, plafonds 20/min et 200/jour/utilisateur). Test d'intégration
   Postgres : `TEST_PG_URL=postgres://…@127.0.0.1:…/… npx vitest run events-store.pg` (base locale jetable seulement).
+- **EXIF à l'upload** (lot 1b) : `lib/exif.ts` (parseur/injecteur JPEG pur, chargé en import dynamique) lit date/offset/GPS/marque sur l'ORIGINAL avant la compression Canvas ; `FabUpload` propose la date de prise de vue (jamais imposée), `compressor.ts` réinjecte l'EXIF utile dans le JPEG réduit (Orientation=1 ; pas dans le WebP), `POST /api/coffre/media` indexe dans la table `media` (`002-media.sql`, `taken_at` = heure murale locale sans fuseau, best-effort). Les previews og-image (publiques) n'ont aucune métadonnée : test `og-image/server.test.ts`.
 
 ## Env vars
 

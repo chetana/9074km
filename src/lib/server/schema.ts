@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean, date, index, check } from 'drizzle-orm/pg-core'
+import { pgTable, serial, text, timestamp, integer, boolean, date, index, check, bigint, doublePrecision } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
 export const users = pgTable('users', {
@@ -47,4 +47,25 @@ export const eventMedia = pgTable('event_media', {
   addedAt: timestamp('added_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('event_media_event_id_idx').on(t.eventId),
+])
+
+// Index des photos/vidéos (lot 1b). Miroir de scripts/sql/002-media.sql ; taken_at = heure murale locale sans fuseau.
+export const media = pgTable('media', {
+  path: text('path').primaryKey(),
+  day: date('day', { mode: 'string' }).notNull(),
+  kind: text('kind').notNull(),
+  size: bigint('size', { mode: 'number' }),
+  uploadedBy: text('uploaded_by'),
+  uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+  takenAt: timestamp('taken_at', { mode: 'string' }),
+  takenOffset: text('taken_offset'),
+  lat: doublePrecision('lat'),
+  lng: doublePrecision('lng'),
+  make: text('make'),
+  model: text('model'),
+  skippedAt: timestamp('skipped_at', { withTimezone: true }),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, (t) => [
+  check('media_kind_chk', sql`${t.kind} IN ('image', 'video')`),
+  index('media_day_idx').on(t.day.desc()),
 ])

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { getDB } from './db'
 import EVENTS_SQL from '../../../scripts/sql/001-events.sql?raw'
+import MEDIA_SQL from '../../../scripts/sql/002-media.sql?raw'
 
 /** Instructions SQL d'un fichier de migration : une par bloc terminé par `;` en fin de ligne. */
 export function splitSqlStatements(text: string): string[] {
@@ -13,7 +14,7 @@ export function splitSqlStatements(text: string): string[] {
     .filter(Boolean)
 }
 
-export const COFFRE_MIGRATIONS = [EVENTS_SQL]
+export const COFFRE_MIGRATIONS = [EVENTS_SQL, MEDIA_SQL]
 
 let ready: Promise<void> | null = null
 

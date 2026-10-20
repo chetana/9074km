@@ -5,6 +5,7 @@ import { getGcsBucket } from '$lib/server/gcs'
 import { isValidCoffrePath } from '$lib/server/coffre-path'
 import { ensureCoffreSchema } from '$lib/server/coffre-db'
 import { forgetMediaPath } from '$lib/server/events-store'
+import { markMediaDeleted } from '$lib/server/media-store'
 
 const CLEANUP_TIMEOUT_MS = 3000
 
@@ -13,7 +14,7 @@ async function detachFromEvents(path: string): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     await Promise.race([
-      (async () => { await ensureCoffreSchema(); await forgetMediaPath(path) })(),
+      (async () => { await ensureCoffreSchema(); await forgetMediaPath(path); await markMediaDeleted(path) })(),
       new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('timeout')), CLEANUP_TIMEOUT_MS) }),
     ])
   } catch (e) {

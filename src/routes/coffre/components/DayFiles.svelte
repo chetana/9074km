@@ -23,6 +23,7 @@
 	} from '$lib/api';
 	import { createSWR } from '$lib/swr.svelte';
 	import { compressImage } from '$lib/compressor';
+	import { recordUploads, type ExifMap, type UploadedItem } from '$lib/upload-exif';
 	import { generateVideoThumbnail } from '$lib/thumbnailer';
 	import { Semaphore } from '$lib/semaphore';
 	import { auth } from '$lib/auth';
@@ -386,7 +387,7 @@
 	}
 
 	// --- Upload ---
-	async function handleUpload(files: FileList, uploadDate: string) {
+	async function handleUpload(files: File[] | FileList, uploadDate: string, exifMap?: ExifMap) {
 		// uploadDate = YYYY-MM-DD (peut différer du jour affiché)
 		const [upY, upM, upD] = uploadDate.split('-');
 
@@ -402,25 +403,28 @@
 		const compressed = await Promise.all(
 			fileArray.map(async (file) => {
 				const isVid = /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+				const exif = exifMap?.get(file) ?? null;
 				const result = isVid
 					? { blob: file as Blob, contentType: file.type, filename: file.name }
-					: await compressImage(file);
+					: await compressImage(file, exif);
 				uploadCurrent += 1;
-				return result;
+				return { ...result, exif };
 			})
 		);
 
 		// Upload phase — en parallèle
 		uploadPhase = 'uploading';
 		uploadCurrent = 0;
+		const uploaded: UploadedItem[] = [];
 		await Promise.all(
-			compressed.map(async ({ blob, contentType, filename }) => {
+			compressed.map(async ({ blob, contentType, filename, exif }) => {
 				const path = `${upY}/${upM}/${upD}/${filename}`;
 				try {
 					const signedUrl = await signUpload(path, contentType);
 					const bytes = new Uint8Array(await blob.arrayBuffer());
 					await uploadFile(signedUrl, bytes, contentType);
 					metaUpdates[filename] = firstName;
+					uploaded.push({ path, size: bytes.byteLength, exif });
 				} catch (e) {
 					console.error('Upload failed for', filename, e);
 				} finally {
@@ -437,6 +441,7 @@
 			if (upY === year && upM === month && upD === day) meta = newMeta;
 		}
 
+		void recordUploads(uploaded); // index EXIF, best-effort : n'attend pas et ne casse jamais l'envoi
 		uploadPhase = 'idle';
 
 		// Invalider le cache pour la date uploadée (et ses parents)

@@ -312,3 +312,76 @@ export function detectNameLang(name: string): NameLang {
 export function todayInParis(now: Date = new Date()): string {
 	return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
 }
+
+export interface MediaItemInput {
+	path: string
+	size: number | null
+	takenAt: string | null // AAAA-MM-JJTHH:MM:SS, heure murale locale
+	takenOffset: string | null
+	lat: number | null
+	lng: number | null
+	make: string | null
+	model: string | null
+}
+
+const MEDIA_KEYS = ['path', 'size', 'takenAt', 'takenOffset', 'lat', 'lng', 'make', 'model']
+const TAKEN_RE = /^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/
+const OFFSET_RE = /^[+-](0\d|1[0-4]):[0-5]\d$/
+
+function optString(v: unknown, field: string): Result<string | null> {
+	if (v === undefined || v === null || v === '') return { ok: true, value: null }
+	const s = cleanLine(v)
+	if (s === null || cpLen(s) > 64) return fail(`${field} invalid`)
+	return { ok: true, value: s || null }
+}
+
+function optNumber(v: unknown, field: string, min: number, max: number): Result<number | null> {
+	if (v === undefined || v === null) return { ok: true, value: null }
+	if (typeof v !== 'number' || !Number.isFinite(v) || v < min || v > max) return fail(`${field} out of range`)
+	return { ok: true, value: v }
+}
+
+/** Corps de POST /api/coffre/media : photos réellement envoyées + métadonnées EXIF, 500 max. */
+export function parseMediaBatch(body: unknown): Result<MediaItemInput[]> {
+	if (!isPlainObject(body)) return fail('body must be an object')
+	const unk = noUnknownKeys(body, ['items'])
+	if (unk) return fail(unk)
+	if (!Array.isArray(body.items)) return fail('items must be an array')
+	if (body.items.length < 1 || body.items.length > MAX_PATHS) return fail(`items: 1 to ${MAX_PATHS}`)
+	const seen = new Map<string, MediaItemInput>()
+	for (const raw of body.items) {
+		if (!isPlainObject(raw)) return fail('item must be an object')
+		const k = noUnknownKeys(raw, MEDIA_KEYS)
+		if (k) return fail(`item: ${k}`)
+		const p = parsePaths([raw.path], { min: 1, field: 'path' })
+		if (!p.ok) return p
+		const path = p.value[0]
+		const [y, m, d] = path.split('/')
+		if (!isValidDate(`${y}-${m}-${d}`)) return fail('path: invalid day')
+		const size = optNumber(raw.size, 'size', 0, Number.MAX_SAFE_INTEGER)
+		if (!size.ok) return size
+		if (size.value !== null && !Number.isInteger(size.value)) return fail('size must be an integer')
+		let takenAt: string | null = null
+		if (raw.takenAt !== undefined && raw.takenAt !== null) {
+			const t = typeof raw.takenAt === 'string' ? TAKEN_RE.exec(raw.takenAt) : null
+			if (!t || !isValidDate(t[1])) return fail('takenAt must be a local ISO datetime')
+			takenAt = raw.takenAt as string
+		}
+		let takenOffset: string | null = null
+		if (raw.takenOffset !== undefined && raw.takenOffset !== null) {
+			if (typeof raw.takenOffset !== 'string' || !OFFSET_RE.test(raw.takenOffset)) return fail('takenOffset must be +HH:MM or -HH:MM')
+			takenOffset = raw.takenOffset
+		}
+		const lat = optNumber(raw.lat, 'lat', -90, 90)
+		if (!lat.ok) return lat
+		const lng = optNumber(raw.lng, 'lng', -180, 180)
+		if (!lng.ok) return lng
+		if ((lat.value === null) !== (lng.value === null)) return fail('lat and lng go together')
+		const make = optString(raw.make, 'make')
+		if (!make.ok) return make
+		const model = optString(raw.model, 'model')
+		if (!model.ok) return model
+		seen.set(path, { path, size: size.value, takenAt, takenOffset, lat: lat.value, lng: lng.value, make: make.value, model: model.value })
+	}
+	return { ok: true, value: [...seen.values()] }
+}

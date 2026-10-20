@@ -3,6 +3,7 @@
 	import { userStore, auth } from '$lib/auth';
 	import { ogImageUrl, signUpload, uploadFile, saveMeta, invalidateListCache } from '$lib/api';
 	import { compressImage } from '$lib/compressor';
+	import { recordUploads, type ExifMap, type UploadedItem } from '$lib/upload-exif';
 	import YearList from './components/YearList.svelte';
 	import MonthList from './components/MonthList.svelte';
 	import DayList from './components/DayList.svelte';
@@ -133,7 +134,7 @@
 	let fabCurrent = $state(0);
 	let fabTotal = $state(0);
 
-	async function handleListUpload(files: FileList, uploadDate: string) {
+	async function handleListUpload(files: File[] | FileList, uploadDate: string, exifMap?: ExifMap) {
 		const [upY, upM, upD] = uploadDate.split('-');
 		const fileArray = Array.from(files);
 		fabTotal = fileArray.length;
@@ -146,24 +147,27 @@
 		const compressed = await Promise.all(
 			fileArray.map(async (file) => {
 				const isVid = /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+				const exif = exifMap?.get(file) ?? null;
 				const result = isVid
 					? { blob: file as Blob, contentType: file.type, filename: file.name }
-					: await compressImage(file);
+					: await compressImage(file, exif);
 				fabCurrent += 1;
-				return result;
+				return { ...result, exif };
 			})
 		);
 
 		fabPhase = 'uploading';
 		fabCurrent = 0;
+		const uploaded: UploadedItem[] = [];
 		await Promise.all(
-			compressed.map(async ({ blob, contentType, filename }) => {
+			compressed.map(async ({ blob, contentType, filename, exif }) => {
 				const path = `${upY}/${upM}/${upD}/${filename}`;
 				try {
 					const signedUrl = await signUpload(path, contentType);
 					const bytes = new Uint8Array(await blob.arrayBuffer());
 					await uploadFile(signedUrl, bytes, contentType);
 					metaUpdates[filename] = firstName;
+					uploaded.push({ path, size: bytes.byteLength, exif });
 				} catch (e) {
 					console.error('Upload failed for', filename, e);
 				} finally {
@@ -176,6 +180,7 @@
 			await saveMeta(upY, upM, upD, { ...metaUpdates });
 		}
 
+		void recordUploads(uploaded); // index EXIF, best-effort : n'attend pas et ne casse jamais l'envoi
 		fabPhase = 'idle';
 		invalidateListCache(`${upY}/${upM}/${upD}/`);
 

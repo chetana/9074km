@@ -1,3 +1,5 @@
+import type { ExifData } from './exif';
+
 const MAX_DIM = 2048;
 const QUALITY = 0.85;
 const SKIP_COMPRESS_BYTES = 500_000; // < 500 Ko → pas la peine de compresser
@@ -8,7 +10,25 @@ export interface CompressResult {
 	filename: string;
 }
 
-export async function compressImage(file: File): Promise<CompressResult> {
+export interface CompressOptions {
+	/** Réinjecte date/offset/GPS/marque dans le JPEG réduit (Orientation remise à 1). Activé par défaut. */
+	reinjectExif?: boolean;
+}
+
+// Le canvas efface l'EXIF : on remet l'utile dans le JPEG de sortie. Le WebP (Chrome/Android) n'en
+// porte pas ici : ces champs partent alors en base via /api/coffre/media.
+async function withExif(blob: Blob, exif: ExifData | null | undefined, opts?: CompressOptions): Promise<Blob> {
+	if (!exif || opts?.reinjectExif === false) return blob;
+	try {
+		const { injectExif } = await import('./exif');
+		const out = injectExif(new Uint8Array(await blob.arrayBuffer()), exif);
+		return new Blob([out as BlobPart], { type: 'image/jpeg' });
+	} catch {
+		return blob;
+	}
+}
+
+export async function compressImage(file: File, exif?: ExifData | null, opts?: CompressOptions): Promise<CompressResult> {
 	// Only compress images, not videos
 	if (!file.type.startsWith('image/')) {
 		return { blob: file, contentType: file.type, filename: file.name };
@@ -66,7 +86,7 @@ export async function compressImage(file: File): Promise<CompressResult> {
 		const jpegBlob = await canvasToBlob(canvas, 'image/jpeg', QUALITY);
 		if (jpegBlob && jpegBlob.size < originalBytes) {
 			const filename = replaceExt(file.name, '.jpg');
-			return { blob: jpegBlob, contentType: 'image/jpeg', filename };
+			return { blob: await withExif(jpegBlob, exif, opts), contentType: 'image/jpeg', filename };
 		}
 
 		// Fallback: original file

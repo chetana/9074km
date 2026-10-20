@@ -30,6 +30,8 @@ export default defineConfig({
 	],
 	test: {
 		environment: 'node',
+		// Les tests Postgres (TEST_PG_URL) partagent une base : pas de fichiers en parallèle.
+		fileParallelism: false,
 		include: ['src/**/*.test.ts'],
 	},
 });
