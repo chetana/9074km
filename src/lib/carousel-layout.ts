@@ -36,18 +36,30 @@ export function layoutAt(d: number, reduced = false): CardTransform {
 	};
 }
 
-/** `k` = échelle de la carte (taille calculée depuis la hauteur disponible) : décalages et profondeur suivent. */
-export function cssTransform(t: CardTransform, k = 1): string {
-	return `translate3d(${t.tx * k}px,0,${t.tz * k}px) rotateY(${t.rotY}deg) scale(${t.scale * k})`;
+/** `spread` = facteur d'écartement (largeur de carte / largeur nominale) : décalages et profondeur le suivent. */
+export function cssTransform(t: CardTransform, spread = 1): string {
+	return `translate3d(${t.tx * spread}px,0,${t.tz * spread}px) rotateY(${t.rotY}deg) scale(${t.scale})`;
 }
 
-// Carte « Album » : 310 px de haut, agrandie de 10 % au centre ; marge pour le reflet et l'ombre.
+// Carte « Album » nominale : 208×310, agrandie de 10 % au centre ; marge pour le reflet et l'ombre.
+export const CARD_W = 208;
 export const CARD_H = 310;
-export const CARD_FULL_H = Math.ceil(CARD_H * (1 + ALBUM.boost)) + 4;
 
-/** Échelle de la carte pour une scène de hauteur `stageH` (ratio conservé, jamais agrandie, plancher 0,4). */
-export function cardScale(stageH: number): number {
-	return Math.min(1, Math.max(0.4, stageH / CARD_FULL_H));
+export interface CardSize {
+	w: number;
+	h: number;
+	/** hauteur de la légende (texte à taille fixe : jamais réduit avec la carte) */
+	cap: number;
+	/** 2e ligne de méta (nombre de médias, lieu) : masquée quand la carte est basse */
+	meta2: boolean;
+}
+
+/** Taille de carte pour une scène de hauteur `stageH` : le texte garde sa taille, c'est la couverture qui rétrécit. */
+export function cardSize(stageH: number): CardSize {
+	const h = Math.min(CARD_H, Math.max(150, Math.floor((stageH - 4) / (1 + ALBUM.boost))));
+	const w = Math.min(CARD_W, Math.max(170, Math.round(h * (CARD_W / CARD_H))));
+	const cap = h >= 270 ? 146 : h >= 210 ? 124 : 104;
+	return { w, h, cap, meta2: h >= 210 };
 }
 
 /** Hauteur de scène et mode serré pour `avail` px disponibles (scène + curseur). Hystérésis via `wasTight`. */
@@ -72,4 +84,25 @@ export function nearestByDate(starts: string[], date: string | null): number {
 	let best = 0;
 	for (let i = 1; i < starts.length; i++) if (Math.abs(Date.parse(starts[i]) - t) < Math.abs(Date.parse(starts[best]) - t)) best = i;
 	return best;
+}
+
+export interface Remembered {
+	id: number;
+	start: string;
+}
+
+/** Position au (re)montage ou après un filtre : même évènement s'il est là, sinon le plus proche en date de celui mémorisé. */
+export function restoreIndex(list: { id: number; start: string }[], mem: Remembered | null): number {
+	if (list.length === 0 || !mem) return 0;
+	const i = list.findIndex((e) => e.id === mem.id);
+	return i >= 0 ? i : nearestByDate(list.map((e) => e.start), mem.start);
+}
+
+export function parseRemembered(raw: string | null): Remembered | null {
+	try {
+		const o = raw ? JSON.parse(raw) : null;
+		return o && Number.isInteger(o.id) && typeof o.start === 'string' && !Number.isNaN(Date.parse(o.start)) ? { id: o.id, start: o.start } : null;
+	} catch {
+		return null;
+	}
 }
