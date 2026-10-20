@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images } from 'lucide-svelte';
+	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox } from 'lucide-svelte';
 	import { ogImageUrl } from '$lib/api';
 	import { eventsStore } from '$lib/events.svelte';
+	import { fetchUnclassified } from '$lib/events-api';
+	import UnclassifiedSheet from './UnclassifiedSheet.svelte';
 	import { T } from '$lib/events-i18n';
 	import { MONTHS_FR, MONTHS_KH } from '$lib/i18n';
 	import {
@@ -13,13 +15,22 @@
 		readerLang: ReaderLang;
 		onOpen: (id: number) => void;
 		onCreate: () => void;
+		onOpenDay?: (day: string) => void;
 	}
-	let { readerLang, onOpen, onCreate }: Props = $props();
+	let { readerLang, onOpen, onCreate, onOpenDay = () => {} }: Props = $props();
+
+	// Compteur « à classer » : masqué à 0 ou si l'index est indisponible. Le chip ouvre une liste simple
+	// (le mode « trier » arrive au lot 4).
+	let unclassified = $state(0);
+	let sheetOpen = $state(false);
+	async function loadUnclassified() {
+		try { unclassified = (await fetchUnclassified(1)).total; } catch { unclassified = 0; }
+	}
 
 	let query = $state('');
 	let year = $state<number | null>(null);
 
-	onMount(() => { void eventsStore.load(); });
+	onMount(() => { void eventsStore.load(); void loadUnclassified(); });
 
 	const years = $derived(yearsOf(eventsStore.list));
 	const groups = $derived(
@@ -45,6 +56,13 @@
 			<Plus size={24} />
 		</button>
 	</div>
+
+	{#if unclassified > 0}
+		<button class="todo" onclick={() => (sheetOpen = true)}>
+			<Inbox size={20} aria-hidden="true" />
+			<span class="todo-n">{unclassified}</span> {T.toClassify.fr} · <span class="kh" lang="km">{T.toClassify.kh}</span>
+		</button>
+	{/if}
 
 	{#if years.length > 1}
 		<div class="chips" role="group" aria-label="Année">
@@ -125,6 +143,8 @@
 	{/if}
 </div>
 
+<UnclassifiedSheet open={sheetOpen} {onOpenDay} onclose={() => { sheetOpen = false; void loadUnclassified(); }} />
+
 <style>
 	.events {
 		padding: var(--space-3) var(--space-4) calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + var(--space-8));
@@ -160,6 +180,17 @@
 		flex-shrink: 0;
 		font-weight: 600;
 	}
+	.todo {
+		min-height: var(--btn-tap);
+		display: flex; align-items: center; gap: var(--space-2);
+		padding: 0 var(--space-4);
+		border-radius: var(--radius-full);
+		background: var(--lavender); color: var(--on-lavender);
+		font-size: var(--fs-lg); font-weight: 600;
+		align-self: flex-start;
+	}
+	.todo .kh { font-size: var(--fs-xl); }
+	.todo-n { font-family: var(--font-display); font-size: var(--fs-xl); }
 	.chips { display: flex; gap: var(--space-2); overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
 	.chip {
 		min-height: var(--btn-tap);

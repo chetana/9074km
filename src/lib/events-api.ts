@@ -91,3 +91,12 @@ export async function removeEventMedia(id: number, paths: string[]): Promise<voi
 export async function fetchForDate(d: string): Promise<ForDateResult> {
 	return call<ForDateResult>(`/api/coffre/events/for-date?d=${encodeURIComponent(d)}`);
 }
+
+export interface UnclassifiedItem { path: string; day: string; kind: 'image' | 'video'; size: number | null }
+export interface UnclassifiedPage { total: number; items: UnclassifiedItem[]; nextCursor: string | null }
+
+export async function fetchUnclassified(limit = 50, cursor: string | null = null): Promise<UnclassifiedPage> {
+	const qs = new URLSearchParams({ limit: String(limit) });
+	if (cursor) qs.set('cursor', cursor);
+	return call<UnclassifiedPage>(`/api/coffre/media/unclassified?${qs}`);
+}

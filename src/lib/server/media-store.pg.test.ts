@@ -8,7 +8,7 @@ vi.mock('$env/dynamic/private', () => ({ env: { DATABASE_URL: process.env.TEST_P
 import { sql } from 'drizzle-orm'
 import { getDB } from './db'
 import { ensureCoffreSchema, resetCoffreSchemaForTests } from './coffre-db'
-import { recordMedia, markMediaDeleted } from './media-store'
+import { recordMedia, markMediaDeleted, countUnclassified, listUnclassified } from './media-store'
 
 const row = async (path: string) => {
 	const r: any = await getDB().execute(sql`SELECT path, day::text AS day, kind, size, uploaded_by, to_char(taken_at, 'YYYY-MM-DD"T"HH24:MI:SS') AS taken_at, taken_offset, lat, lng, make, model, deleted_at FROM media WHERE path = ${path}`)
@@ -74,5 +74,39 @@ describe.skipIf(!isLocal)('media-store (Postgres local jetable)', () => {
 		expect(types.taken_at).toBe('timestamp without time zone')
 		expect(types.uploaded_at).toBe('timestamp with time zone')
 		expect(types.day).toBe('date')
+	})
+
+	it('photo sans EXIF et vidéo : une ligne avec kind et size (chemin d\'upload du lot 1b)', async () => {
+		await recordMedia('Chet', [item('2028/05/05/noexif.jpg', { size: 321 }), item('2028/05/05/clip.mov', { size: 9999 })])
+		expect(await row('2028/05/05/noexif.jpg')).toMatchObject({ kind: 'image', size: '321', taken_at: null, lat: null, uploaded_by: 'Chet' })
+		expect(await row('2028/05/05/clip.mov')).toMatchObject({ kind: 'video', size: '9999', taken_at: null })
+	})
+
+	it('« à classer » : ordre jour décroissant, curseur sans trou ni doublon, hors supprimées / ignorées / rattachées', async () => {
+		await getDB().execute(sql`TRUNCATE media`)
+		await getDB().execute(sql`TRUNCATE event_media, events RESTART IDENTITY CASCADE`)
+		const paths: string[] = []
+		for (let d = 1; d <= 4; d++) for (const f of ['a', 'b', 'c']) paths.push(`2029/03/0${d}/${f}.jpg`)
+		await recordMedia(null, paths.map((p) => item(p)))
+		await getDB().execute(sql`INSERT INTO users (email) VALUES ('u@lot2') ON CONFLICT (email) DO NOTHING`)
+		const uid = ((await getDB().execute(sql`SELECT id FROM users WHERE email = 'u@lot2'`)) as any).rows[0].id
+		const ev: any = await getDB().execute(sql`INSERT INTO events (name_fr, name_en, name_kh, name_src_lang, date_start, date_end, created_by) VALUES ('x','x','x','fr','2029-03-01','2029-03-01', ${uid}) RETURNING id`)
+		const evId = (ev.rows ?? ev)[0].id
+		await getDB().execute(sql`INSERT INTO event_media (media_path, event_id) VALUES ('2029/03/04/a.jpg', ${evId})`)
+		await markMediaDeleted('2029/03/04/b.jpg')
+		await getDB().execute(sql`UPDATE media SET skipped_at = now() WHERE path = '2029/03/03/c.jpg'`)
+		expect(await countUnclassified()).toBe(12 - 3)
+		const all: string[] = []
+		let cursor: { day: string; path: string } | null = null
+		for (let guard = 0; guard < 10; guard++) {
+			const page = await listUnclassified(4, cursor)
+			all.push(...page.map((x) => x.path))
+			if (page.length < 4) break
+			cursor = { day: page[page.length - 1].day, path: page[page.length - 1].path }
+		}
+		expect(all).toEqual(['2029/03/04/c.jpg', '2029/03/03/b.jpg', '2029/03/03/a.jpg', '2029/03/02/c.jpg', '2029/03/02/b.jpg', '2029/03/02/a.jpg', '2029/03/01/c.jpg', '2029/03/01/b.jpg', '2029/03/01/a.jpg'])
+		// un évènement supprimé libère ses photos : elles redeviennent « à classer »
+		await getDB().execute(sql`UPDATE events SET deleted_at = now() WHERE id = ${evId}`)
+		expect(await countUnclassified()).toBe(10)
 	})
 })

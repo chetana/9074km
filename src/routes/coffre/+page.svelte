@@ -89,6 +89,11 @@
 		if (v === view) return;
 		view = v; eventId = null; pushState();
 	}
+	function openDay(d: string) {
+		const [y, m, dd] = d.split('-');
+		view = 'dates'; eventId = null; year = y; month = m; day = dd; initialFile = null;
+		pushState();
+	}
 	function openEvent(id: number) { eventId = id; pushState(); }
 	function closeEvent() { eventId = null; pushState(); }
 
@@ -190,6 +195,7 @@
 		day = upD;
 		initialFile = null;
 		pushState();
+		return uploaded.map((u) => u.path); // chemins réellement envoyés : sert au rattachement à l'évènement
 	}
 
 	onMount(() => {
@@ -299,7 +305,7 @@
 			{#if view === 'events'}
 				{#if eventId === null}
 					<div class="list-scroll">
-						<EventsGrid {readerLang} onOpen={openEvent} onCreate={() => openCreate()} />
+						<EventsGrid {readerLang} onOpen={openEvent} onCreate={() => openCreate()} onOpenDay={openDay} />
 					</div>
 				{:else}
 					{#key eventId}

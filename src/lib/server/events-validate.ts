@@ -385,3 +385,30 @@ export function parseMediaBatch(body: unknown): Result<MediaItemInput[]> {
 	}
 	return { ok: true, value: [...seen.values()] }
 }
+
+export interface UnclassifiedQuery { limit: number; cursor: { day: string; path: string } | null }
+
+export function encodeCursor(day: string, path: string): string {
+	return Buffer.from(JSON.stringify({ d: day, p: path })).toString('base64url')
+}
+
+/** ?limit=1..100 (défaut 50) et ?cursor= opaque (jour + chemin du dernier élément reçu). */
+export function parseUnclassifiedQuery(params: URLSearchParams): Result<UnclassifiedQuery> {
+	const rawLimit = params.get('limit')
+	let limit = 50
+	if (rawLimit !== null) {
+		if (!/^\d{1,3}$/.test(rawLimit)) return fail('limit must be 1..100')
+		limit = Number(rawLimit)
+		if (limit < 1 || limit > 100) return fail('limit must be 1..100')
+	}
+	const raw = params.get('cursor')
+	if (raw === null || raw === '') return { ok: true, value: { limit, cursor: null } }
+	if (raw.length > 700 || !/^[A-Za-z0-9_-]+$/.test(raw)) return fail('invalid cursor')
+	try {
+		const c = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'))
+		if (!isPlainObject(c) || !isValidDate(c.d) || typeof c.p !== 'string' || !isValidCoffrePath(c.p)) return fail('invalid cursor')
+		return { ok: true, value: { limit, cursor: { day: c.d as string, path: c.p } } }
+	} catch {
+		return fail('invalid cursor')
+	}
+}
