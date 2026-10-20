@@ -244,8 +244,11 @@ test('chip « N à classer » dans la vue Évènements : visible, ouvre le mode 
 	await setup(page, { unclassified: 12 })
 	await page.goto('/coffre?v=events')
 	const chip = page.locator('.todo')
-	await expect(chip).toContainText('12 à classer')
-	expect(await chip.locator('.kh').evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(18)
+	await expect(chip).toHaveAttribute('aria-label', /^12 à classer · /)
+	await expect(chip).toContainText('12')
+	const cb = (await chip.boundingBox())!
+	expect(cb.width).toBeGreaterThanOrEqual(44); expect(cb.height).toBeGreaterThanOrEqual(44)
+	expect((await page.locator('header.header').boundingBox())!.y + (await page.locator('header.header').boundingBox())!.height).toBeGreaterThanOrEqual(cb.y + cb.height) // dans la barre du haut
 	await page.waitForTimeout(400)
 	if (SHOTS) await page.screenshot({ path: `${SHOTS}/06-chip-a-classer.png` })
 	await chip.click()

@@ -242,6 +242,19 @@ test('repère MM/AA à gauche du curseur : suit la carte centrale, tient à 375 
 	if (SHOTS) await page.screenshot({ path: `${SHOTS}/repere-375.png` })
 })
 
+test('barre du haut : « à classer » + Suggestion côte à côte à 375 px, sans recouvrir titre ni avatar ; compteur lisible sur fond clair', async ({ page }) => {
+	const tri = Array.from({ length: 3 }, (_, i) => ({ path: `2026/10/11/p1${i}.jpg`, day: '2026-10-11', kind: 'image', size: 1, uploadedBy: 'Chet' }))
+	await open(page, 375, 667, { suggestions: [sugg(5)], unclassified: tri })
+	const todo = (await page.locator('.todo').boundingBox())!, sg = (await page.locator('.sugg-btn').boundingBox())!, av = (await page.locator('.header-actions').boundingBox())!, ttl = (await page.locator('.breadcrumb-txt').boundingBox())!
+	expect(ttl.x + ttl.width).toBeLessThanOrEqual(todo.x + 1)
+	expect(todo.x + todo.width).toBeLessThanOrEqual(sg.x + 1)
+	expect(sg.x + sg.width).toBeLessThanOrEqual(av.x + 1)
+	expect(await page.locator('.events .todo').count()).toBe(0) // plus de chip dans la liste
+	const bg = await page.locator('.events .count').first().evaluate((e) => getComputedStyle(e).backgroundColor)
+	expect(bg).not.toBe('rgba(0, 0, 0, 0)') // le compteur a son propre fond : lisible sur n'importe quel ciel
+	if (SHOTS) await page.screenshot({ path: `${SHOTS}/topbar-2.png` })
+})
+
 test('grille de secours utilisable avec les nouveaux boutons', async ({ page }) => {
 	await open(page, 393, 852)
 	await page.locator('.view-btn').click()
