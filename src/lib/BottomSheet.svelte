@@ -26,7 +26,7 @@
 	.sheet-overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 60;
+		z-index: 95; /* au-dessus du mode tri plein écran (90), sous les toasts (120) et le viewer (200) */
 		background: color-mix(in srgb, var(--text) 25%, transparent);
 		backdrop-filter: blur(6px);
 		display: flex;

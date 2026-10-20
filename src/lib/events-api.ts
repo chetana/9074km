@@ -1,5 +1,5 @@
 import { auth } from './auth';
-import type { EventDTO, ForDateResult } from './events-types';
+import type { EventDTO, ForDateResult, SuggestionDTO } from './events-types';
 import { getCachedEvents, setCachedEvents, getCachedEventMedia, setCachedEventMedia } from './localCache';
 
 export class EventApiError extends Error {
@@ -114,11 +114,64 @@ export async function fetchForDate(d: string): Promise<ForDateResult> {
 	return call<ForDateResult>(`/api/coffre/events/for-date?d=${encodeURIComponent(d)}`);
 }
 
-export interface UnclassifiedItem { path: string; day: string; kind: 'image' | 'video'; size: number | null }
+export interface UnclassifiedItem { path: string; day: string; kind: 'image' | 'video'; size: number | null; uploadedBy: string | null }
 export interface UnclassifiedPage { total: number; items: UnclassifiedItem[]; nextCursor: string | null }
 
 export async function fetchUnclassified(limit = 50, cursor: string | null = null): Promise<UnclassifiedPage> {
 	const qs = new URLSearchParams({ limit: String(limit) });
 	if (cursor) qs.set('cursor', cursor);
 	return call<UnclassifiedPage>(`/api/coffre/media/unclassified?${qs}`);
+}
+
+/** Retraduction sur demande du nom (PATCH `name`) : « scheduled » = lancée, « limited » = plafond de traductions atteint. */
+export async function retranslateEvent(id: number, ifVersion: number, name: string, nameLang: 'fr' | 'en' | 'kh'): Promise<{ event: EventDTO; translation: 'scheduled' | 'limited' | undefined }> {
+	return call(`/api/coffre/events/${id}`, { method: 'PATCH', body: JSON.stringify({ ifVersion, name, nameLang }) });
+}
+
+/** Export JSON des évènements : téléchargé tel quel (429 = limite horaire atteinte). */
+export async function downloadExport(): Promise<void> {
+	if (isOffline()) throw new EventApiError(0, 'offline');
+	let res: Response;
+	try {
+		res = await fetch('/api/coffre/events/export', { credentials: 'include', signal: AbortSignal.timeout?.(REQUEST_TIMEOUT_MS * 2) });
+	} catch {
+		throw new EventApiError(0, 'network');
+	}
+	if (res.status === 401) { auth.signOutSilent(); throw new EventApiError(401, 'Session expired'); }
+	if (!res.ok) throw new EventApiError(res.status, `API error ${res.status}`);
+	const blob = await res.blob();
+	const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'evenements-coffre.json';
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = name;
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+export async function fetchSuggestions(): Promise<SuggestionDTO[]> {
+	return (await call<{ suggestions: SuggestionDTO[] }>('/api/coffre/events/suggestions')).suggestions;
+}
+
+export async function dismissSuggestion(start: string, end: string, count: number): Promise<void> {
+	await call('/api/coffre/events/suggestions/dismiss', { method: 'POST', body: JSON.stringify({ start, end, count }) });
+}
+
+/** « Passer » dans le mode tri (ne revient pas avant 30 jours) ; undo = annulation du dernier geste. */
+export async function skipMedia(paths: string[], undo = false): Promise<void> {
+	await call('/api/coffre/media/skip', { method: 'POST', body: JSON.stringify({ paths, undo }) });
+}
+
+/** Rattache par lots de 500 en mode « keep » : rend le total ajouté et les photos laissées dans un autre évènement. */
+export async function attachInChunks(id: number, paths: string[]): Promise<{ added: number; skipped: { path: string; eventId: number }[] }> {
+	let added = 0;
+	const skipped: { path: string; eventId: number }[] = [];
+	for (let i = 0; i < paths.length; i += 500) {
+		const r = await addEventMedia(id, paths.slice(i, i + 500), 'keep');
+		added += r.added;
+		skipped.push(...r.skipped);
+	}
+	return { added, skipped };
 }

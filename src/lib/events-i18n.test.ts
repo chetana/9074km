@@ -7,7 +7,7 @@ describe('libellés khmers', () => {
 		for (const [k, v] of entries) { expect(v.fr, k).not.toBe(''); expect(v.kh, k).not.toBe('') }
 	})
 	it('khmer pur : aucun caractère latin/thaï/autre (ponctuation et « » … autorisées)', () => {
-		for (const [k, v] of entries) expect(v.kh, k).toMatch(/^[ក-៿​\s«»…:·()]+$/)
+		for (const [k, v] of entries) expect(v.kh.replace(/\{\w+\}/g, ''), k).toMatch(/^[\u1780-\u17FF\u200B\s«»…:·()?/]+$/)
 	})
 	it('orthographe du projet : ឲ្យ (pas ឱ្យ), ម្តង (pas មួយដង)', () => {
 		for (const [k, v] of entries) { expect(v.kh, k).not.toContain('ឱ្យ'); expect(v.kh, k).not.toContain('មួយដង') }

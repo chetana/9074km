@@ -14,7 +14,7 @@
 	import { T } from '$lib/events-i18n';
 	import { toasts } from '$lib/toast.svelte';
 	import { Semaphore } from '$lib/semaphore';
-	import { displayNames, formatRange, groupPathsByDay, dayHeading, colorStyle, type ReaderLang } from '$lib/events-ui';
+	import { displayNames, formatRange, groupPathsByDay, dayHeadingLong, colorStyle, type ReaderLang } from '$lib/events-ui';
 	import FileTile from './FileTile.svelte';
 	import FileViewer from './FileViewer.svelte';
 	import EventPicker from './EventPicker.svelte';
@@ -35,6 +35,7 @@
 	let failed = $state(false);
 	let offline = $state(false);
 	let menuOpen = $state(false);
+	let confirmingDelete = $state(false); // confirmation dans le menu avant de supprimer (le toast Annuler 5 s reste ensuite)
 	let moveOpen = $state(false);
 	let selected = $state(new Set<string>());
 	let coverPick = $state(false);
@@ -139,7 +140,14 @@
 		} catch (e) { fail(e); }
 	}
 
+	const IMAGE = /\.(jpe?g|png|webp|gif|heic)$/i;
+
 	async function setCover(path: string | null) {
+		// Une vidéo ne peut pas être couverture (les vignettes passent par og-image/sharp, qui ne lit que les images).
+		if (path && !IMAGE.test(path)) {
+			toasts.push({ message: T.coverVideo.fr, messageKh: T.coverVideo.kh });
+			return;
+		}
 		if (!ev || !guardOnline()) return;
 		try {
 			const updated = await patchEvent(ev.id, { ifVersion: ev.version, coverPath: path });
@@ -278,7 +286,7 @@
 			</div>
 		{:else}
 			{#each days as d (d.date)}
-				{@const h = dayHeading(d.date)}
+				{@const h = dayHeadingLong(d.date)}
 				<section>
 					<h3 class="day">{h.fr} · <span lang="km">{h.kh}</span> <span class="n">{d.paths.length}</span></h3>
 					<div class="grid">
@@ -315,18 +323,32 @@
 			onGetUrl={getUrl}
 			onShare={shareLink}
 			onCopyLink={copyLink}
+			onSetCover={(p) => void setCover(p)}
+			coverName={ev?.cover ?? null}
 			onPrevDay={() => {}}
 			onNextDay={() => {}}
 		/>
 	{/if}
 </div>
 
-<BottomSheet open={menuOpen} onclose={() => (menuOpen = false)}>
+<BottomSheet open={menuOpen} onclose={() => { menuOpen = false; confirmingDelete = false; }}>
 	<div class="menu">
 		<button class="mi" onclick={() => { menuOpen = false; if (ev) onEdit(ev); }}><Pencil size={20} /> {T.edit.fr} <span class="kh" lang="km">{T.edit.kh}</span></button>
 		<button class="mi" onclick={startCoverPick}><ImageIcon size={20} /> {T.cover.fr} <span class="kh" lang="km">{T.cover.kh}</span></button>
 		<button class="mi" onclick={() => { menuOpen = false; void setCover(null); }}><ImageIcon size={20} /> {T.autoCover.fr} <span class="kh" lang="km">{T.autoCover.kh}</span></button>
-		<button class="mi danger" onclick={deleteThisEvent}><Trash2 size={20} /> {T.delete.fr} <span class="kh" lang="km">{T.delete.kh}</span></button>
+		{#if confirmingDelete}
+			<div class="confirm" role="alertdialog" aria-label={T.confirmDelete.fr}>
+				<p class="confirm-q">{T.confirmDelete.fr}</p>
+				<p class="confirm-q kh" lang="km">{T.confirmDelete.kh}</p>
+				<p class="confirm-note">{T.deleteNote.fr} · <span lang="km">{T.deleteNote.kh}</span></p>
+				<div class="confirm-btns">
+					<button class="mi danger solid" onclick={() => { confirmingDelete = false; deleteThisEvent(); }}><Trash2 size={20} /> {T.delete.fr} <span class="kh" lang="km">{T.delete.kh}</span></button>
+					<button class="mi" onclick={() => (confirmingDelete = false)}>{T.cancel.fr} <span class="kh" lang="km">{T.cancel.kh}</span></button>
+				</div>
+			</div>
+		{:else}
+			<button class="mi danger" onclick={() => (confirmingDelete = true)}><Trash2 size={20} /> {T.delete.fr} <span class="kh" lang="km">{T.delete.kh}</span></button>
+		{/if}
 	</div>
 </BottomSheet>
 
@@ -399,4 +421,11 @@
 	.mi { display: flex; align-items: center; gap: var(--space-3); min-height: 3.25rem; padding: 0 var(--space-3); border-radius: var(--radius-md); font-size: var(--fs-lg); text-align: left; background: var(--surface-2); }
 	.mi .kh { font-size: var(--fs-xl); color: var(--text-secondary); }
 	.mi.danger { color: var(--accent-text); }
+	.mi.danger.solid { background: var(--accent-deep); color: white; }
+	.confirm { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); background: var(--raised); text-align: center; }
+	.confirm-q { font-family: var(--font-display); font-size: var(--fs-xl); }
+	.confirm-q.kh { font-family: inherit; color: var(--text-secondary); line-height: var(--lh-kh); }
+	.confirm-note { font-size: var(--fs-md); color: var(--text-secondary); }
+	.confirm-note span { font-size: 1rem; }
+	.confirm-btns { display: flex; flex-direction: column; gap: var(--space-1); }
 </style>

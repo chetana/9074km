@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { EventDTO } from './events-types'
 import {
 	readerLangFor, displayNames, formatRange, sortEvents, groupByMonth, matchesQuery, groupPathsByDay,
-	pickerSections, coveringFromList, validateEventForm, yearsOf, dayHeading,
+	pickerSections, coveringFromList, validateEventForm, yearsOf, dayHeading, searchHaystack, placesOf, samePlace, dayHeadingLong, fillT,
 } from './events-ui'
 
 const ev = (id: number, start: string, o: Partial<EventDTO> = {}): EventDTO => ({
@@ -107,5 +107,62 @@ describe('validateEventForm', () => {
 		expect(validateEventForm({ ...ok, dateEnd: '2028-01-01' })).toBe('range-long')
 		expect(validateEventForm({ ...ok, name: 'a'.repeat(81) })).toBe('name-long')
 		expect(validateEventForm({ ...ok, dateStart: '' })).toBe('dates')
+	})
+})
+
+describe('recherche locale par lieu et par date (lot 3)', () => {
+	const a = ev(1, '2026-11-28', { dates: { start: '2026-11-28', end: '2026-12-02' }, place: 'Châtelet, Paris', names: { fr: 'Disneyland', en: 'Disneyland', kh: 'ឌីស្នី' } })
+	const b = ev(2, '2026-03-14', { place: 'Siem Reap' })
+	it('par lieu (accents et casse ignorés)', () => {
+		expect(matchesQuery(a, 'chatelet')).toBe(true)
+		expect(matchesQuery(a, 'PARIS')).toBe(true)
+		expect(matchesQuery(b, 'paris')).toBe(false)
+		expect(matchesQuery(b, 'siem')).toBe(true)
+	})
+	it('par mois (complet, abrégé, khmer) sur toute la plage, y compris le mois de la fin', () => {
+		for (const q of ['nov', 'novembre', 'déc', 'dec', 'décembre', 'វិច្ឆិកា', 'ធ្នូ']) expect(matchesQuery(a, q), q).toBe(true)
+		expect(matchesQuery(a, 'mars')).toBe(false)
+		expect(matchesQuery(b, 'mars')).toBe(true)
+	})
+	it('par jour de la plage et par année', () => {
+		for (const q of ['28', '30', '1', '2', '2026']) expect(matchesQuery(a, q), q).toBe(true)
+		expect(matchesQuery(a, '15')).toBe(false)
+		expect(matchesQuery(a, '2027')).toBe(false)
+	})
+	it('plusieurs mots : tous requis (« 30 nov »)', () => {
+		expect(matchesQuery(a, '30 nov')).toBe(true)
+		expect(matchesQuery(a, '30 mars')).toBe(false)
+		expect(matchesQuery(a, 'lyon nov')).toBe(false)
+		expect(matchesQuery(a, '  ')).toBe(true)
+	})
+	it('searchHaystack borné (plage de 366 jours) et déterministe', () => {
+		const long = ev(3, '2026-01-01', { dates: { start: '2026-01-01', end: '2027-01-02' } })
+		expect(searchHaystack(long).length).toBeLessThan(1200)
+		expect(searchHaystack(long)).toBe(searchHaystack(long))
+	})
+})
+
+describe('chips de lieu', () => {
+	it('lieux distincts (casse/accents ignorés), du plus fréquent au moins fréquent ; sans lieu ignoré', () => {
+		const list = [ev(1, '2026-01-01', { place: 'Paris' }), ev(2, '2026-01-02', { place: 'paris ' }), ev(3, '2026-01-03', { place: 'Lyon' }), ev(4, '2026-01-04')]
+		expect(placesOf(list).map((p) => [p.label, p.count])).toEqual([['Paris', 2], ['Lyon', 1]])
+	})
+	it('samePlace filtre sans tenir compte des accents ni de la casse', () => {
+		const e = ev(1, '2026-01-01', { place: 'Châtelet' })
+		expect(samePlace(e, placesOf([e])[0].key)).toBe(true)
+		expect(samePlace(ev(2, '2026-01-01'), 'paris')).toBe(false)
+	})
+})
+
+describe('dayHeadingLong / fillT', () => {
+	it('jour de la semaine + date, FR et khmer', () => {
+		expect(dayHeadingLong('2026-10-11')).toEqual({ fr: 'dimanche 11 octobre', kh: 'អាទិត្យ 11 តុលា' })
+		expect(dayHeadingLong('2026-11-30').fr).toBe('lundi 30 novembre')
+	})
+	it('fillT accorde photo(s) et ajoutée(s), remplace les variables', () => {
+		expect(fillT('{n} photo(s) du {d} sans évènement', { n: 1, d: '30 novembre' })).toBe('1 photo du 30 novembre sans évènement')
+		expect(fillT('{n} photo(s) ajoutée(s)', { n: 38 })).toBe('38 photos ajoutées')
+		expect(fillT('{r} / {t} restantes', { r: 12, t: 38 })).toBe('12 / 38 restantes')
+		expect(fillT('x {inconnu}', { n: 1 })).toBe('x {inconnu}')
 	})
 })

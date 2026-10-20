@@ -1,43 +1,78 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox } from 'lucide-svelte';
+	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox, Ellipsis, Download } from 'lucide-svelte';
+	import BottomSheet from '$lib/BottomSheet.svelte';
+	import { toasts } from '$lib/toast.svelte';
 	import { ogImageUrl } from '$lib/api';
 	import { eventsStore } from '$lib/events.svelte';
-	import { fetchUnclassified } from '$lib/events-api';
-	import UnclassifiedSheet from './UnclassifiedSheet.svelte';
+	import { fetchUnclassified, fetchSuggestions, downloadExport, EventApiError } from '$lib/events-api';
+	import type { SuggestionDTO } from '$lib/events-types';
+	import SuggestionCard from './SuggestionCard.svelte';
 	import { T } from '$lib/events-i18n';
 	import { MONTHS_FR, MONTHS_KH } from '$lib/i18n';
 	import {
-		displayNames, formatRange, sortEvents, groupByMonth, matchesQuery, yearsOf, colorStyle, type ReaderLang
+		displayNames, formatRange, sortEvents, groupByMonth, matchesQuery, yearsOf, placesOf, samePlace, colorStyle, type ReaderLang
 	} from '$lib/events-ui';
 
 	interface Props {
 		readerLang: ReaderLang;
 		onOpen: (id: number) => void;
 		onCreate: () => void;
-		onOpenDay?: (day: string) => void;
 	}
-	let { readerLang, onOpen, onCreate, onOpenDay = () => {} }: Props = $props();
+	let { readerLang, onOpen, onCreate }: Props = $props();
 
-	// Compteur « à classer » : masqué à 0 ou si l'index est indisponible. Le chip ouvre une liste simple
-	// (le mode « trier » arrive au lot 4).
+	// Compteur « à classer » (masqué à 0 ou si l'index est indisponible) : le chip ouvre le mode tri, chargé à la demande
+	// (chunk dynamique : il ne pèse rien tant qu'on ne trie pas).
 	let unclassified = $state(0);
-	let sheetOpen = $state(false);
+	let SortComp = $state<any>(null);
+	let sortOpen = $state(false);
 	async function loadUnclassified() {
 		try { unclassified = (await fetchUnclassified(1)).total; } catch { unclassified = 0; }
+	}
+	async function openSort() {
+		SortComp ??= (await import('./SortMode.svelte')).default;
+		sortOpen = true;
+	}
+	function closeSort() {
+		sortOpen = false;
+		void refreshAll();
+	}
+
+	// Une suggestion à la fois (la plus fournie) ; refus et ajouts rechargent la liste.
+	let suggestions = $state<SuggestionDTO[]>([]);
+	async function loadSuggestions() {
+		try { suggestions = await fetchSuggestions(); } catch { suggestions = []; }
+	}
+	function refreshAll() {
+		void loadUnclassified();
+		void loadSuggestions();
+		void eventsStore.load();
+	}
+
+	// Menu ⋯ : export JSON des évènements (6 par heure et par utilisateur côté serveur)
+	let menuOpen = $state(false);
+	async function doExport() {
+		menuOpen = false;
+		try { await downloadExport(); }
+		catch (e) {
+			const limited = e instanceof EventApiError && e.status === 429;
+			toasts.push(limited ? { message: T.exportLimit.fr, messageKh: T.exportLimit.kh } : { message: T.genericError.fr, messageKh: T.genericError.kh });
+		}
 	}
 
 	let query = $state('');
 	let year = $state<number | null>(null);
+	let place = $state<string | null>(null);
 
-	onMount(() => { void eventsStore.load(); void loadUnclassified(); });
+	onMount(() => { void eventsStore.load(); void loadUnclassified(); void loadSuggestions(); });
 
 	const years = $derived(yearsOf(eventsStore.list));
+	const places = $derived(placesOf(eventsStore.list).slice(0, 8));
 	const groups = $derived(
 		groupByMonth(
 			sortEvents(
 				eventsStore.list.filter(
-					(e) => matchesQuery(e, query) && (year === null || Number(e.dates.start.slice(0, 4)) === year)
+					(e) => matchesQuery(e, query) && (year === null || Number(e.dates.start.slice(0, 4)) === year) && (place === null || samePlace(e, place))
 				)
 			)
 		)
@@ -55,10 +90,17 @@
 		<button class="new-btn" onclick={onCreate} aria-label="{T.newEvent.fr} · {T.newEvent.kh}" title="{T.newEvent.fr} · {T.newEvent.kh}">
 			<Plus size={24} />
 		</button>
+		<button class="more-btn" onclick={() => (menuOpen = true)} aria-label="{T.more.fr} · {T.more.kh}" title="{T.more.fr} · {T.more.kh}">
+			<Ellipsis size={22} />
+		</button>
 	</div>
 
+	{#if suggestions.length}
+		<SuggestionCard suggestion={suggestions[0]} {readerLang} onDone={refreshAll} />
+	{/if}
+
 	{#if unclassified > 0}
-		<button class="todo" onclick={() => (sheetOpen = true)}>
+		<button class="todo" onclick={openSort}>
 			<Inbox size={20} aria-hidden="true" />
 			<span class="todo-n">{unclassified}</span> {T.toClassify.fr} · <span class="kh" lang="km">{T.toClassify.kh}</span>
 		</button>
@@ -71,6 +113,17 @@
 			</button>
 			{#each years as y (y)}
 				<button class="chip" class:on={year === y} aria-pressed={year === y} onclick={() => (year = y)}>{y}</button>
+			{/each}
+		</div>
+	{/if}
+
+	{#if places.length > 1}
+		<div class="chips" role="group" aria-label="Lieu">
+			<button class="chip" class:on={place === null} aria-pressed={place === null} onclick={() => (place = null)}>
+				<MapPin size={16} aria-hidden="true" /> {T.allPlaces.fr} <span class="kh" lang="km">{T.allPlaces.kh}</span>
+			</button>
+			{#each places as p (p.key)}
+				<button class="chip" class:on={place === p.key} aria-pressed={place === p.key} onclick={() => (place = place === p.key ? null : p.key)}>{p.label}</button>
 			{/each}
 		</div>
 	{/if}
@@ -127,6 +180,8 @@
 						{#if e.upcoming}
 							<span class="veil"></span>
 							<span class="badge"><span class="b-fr">{T.upcoming.fr}</span><span lang="km">{T.upcoming.kh}</span></span>
+						{:else if e.namesPending}
+							<span class="badge pend-badge"><span class="b-fr">{T.translatingShort.fr}</span><span lang="km">{T.translatingShort.kh}</span></span>
 						{:else if e.emoji && e.cover}
 							<span class="mini-emoji" aria-hidden="true">{e.emoji}</span>
 						{/if}
@@ -143,7 +198,13 @@
 	{/if}
 </div>
 
-<UnclassifiedSheet open={sheetOpen} {onOpenDay} onclose={() => { sheetOpen = false; void loadUnclassified(); }} />
+{#if sortOpen && SortComp}
+	<SortComp {readerLang} onclose={closeSort} />
+{/if}
+
+<BottomSheet open={menuOpen} onclose={() => (menuOpen = false)}>
+	<button class="mi" onclick={doExport}><Download size={20} /> {T.exportAction.fr} <span class="kh" lang="km">{T.exportAction.kh}</span></button>
+</BottomSheet>
 
 <style>
 	.events {
@@ -167,6 +228,9 @@
 		color: var(--muted-text);
 	}
 	.search input { flex: 1; min-width: 0; border: none; background: none; outline: none; font-size: 1rem; color: var(--text); }
+	.more-btn { width: var(--btn-tap); height: var(--btn-tap); border-radius: var(--radius-full); background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-secondary); }
+	.mi { display: flex; align-items: center; gap: var(--space-3); min-height: 3.25rem; padding: 0 var(--space-3); border-radius: var(--radius-md); font-size: var(--fs-lg); text-align: left; background: var(--surface-2); width: 100%; }
+	.mi .kh { font-size: var(--fs-xl); color: var(--text-secondary); }
 	.new-btn {
 		width: var(--btn-tap);
 		height: var(--btn-tap);
@@ -260,6 +324,7 @@
 	}
 	.badge span[lang='km'] { font-size: 1rem; line-height: var(--lh-kh); margin-top: -2px; }
 	.badge .b-fr { font-size: var(--fs-md); }
+	.badge.pend-badge { background: var(--surface); color: var(--gold-text); border: 1px solid var(--gold); }
 	.caption {
 		position: absolute; left: 0; right: 0; bottom: 0;
 		display: flex; flex-direction: column; gap: 1px;

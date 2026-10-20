@@ -54,6 +54,7 @@ async function setup(page: Page, o: Opts = {}) {
 		if (r.request().method() === 'POST') { const b = JSON.parse(r.request().postData()!); const e = ev(99, b.name, b.name, b.dateStart, b.dateEnd, { emoji: null, count: 0 }); created.push(b); return json(r, { event: e }, 201) }
 		return json(r, { events: ALL })
 	})
+	await page.route('**/api/coffre/events/suggestions', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ suggestions: [] }) }))
 	await page.route('**/api/coffre/media/unclassified*', (r) => json(r, { total: o.unclassified ?? 0, items: Array.from({ length: Math.min(o.unclassified ?? 0, 6) }, (_, i) => ({ path: `2026/10/${String(11 - (i >> 1)).padStart(2, '0')}/p${i}.jpg`, day: `2026-10-${String(11 - (i >> 1)).padStart(2, '0')}`, kind: i === 5 ? 'video' : 'image', size: 1 })), nextCursor: null }))
 	await page.route('**/api/coffre/sign-upload', (r) => json(r, { url: `https://s3.test/${JSON.parse(r.request().postData()!).path}` }))
 	await page.route('https://s3.test/**', (r) => { const k = decodeURIComponent(new URL(r.request().url()).pathname.slice(1)); if (o.failPut && k.includes(o.failPut)) return r.fulfill({ status: 500, body: '' }); puts.push(k); return r.fulfill({ status: 200, body: '' }) })
@@ -235,7 +236,7 @@ test('vidéo et photo sans EXIF : indexées dans media (kind déduit côté serv
 	for (const i of items) expect(Object.keys(i).sort()).toEqual(['path', 'size'])
 })
 
-test('chip « N à classer » dans la vue Évènements : visible, ouvre la liste simple ; masqué à 0', async ({ page }) => {
+test('chip « N à classer » dans la vue Évènements : visible, ouvre le mode tri ; masqué à 0', async ({ page }) => {
 	await setup(page, { unclassified: 12 })
 	await page.goto('/coffre?v=events')
 	const chip = page.locator('.todo')
@@ -244,12 +245,7 @@ test('chip « N à classer » dans la vue Évènements : visible, ouvre la liste
 	await page.waitForTimeout(400)
 	if (SHOTS) await page.screenshot({ path: `${SHOTS}/06-chip-a-classer.png` })
 	await chip.click()
-	await page.waitForSelector('.thumbs')
-	await page.waitForTimeout(800)
-	if (SHOTS) await page.screenshot({ path: `${SHOTS}/07-liste-a-classer.png` })
-	await page.locator('.see').first().click()
-	await expect(page).toHaveURL(/\/coffre/)
-	await expect(page.locator('.day-files, .grid').first()).toBeVisible()
+	await expect(page.locator('.sort')).toBeVisible() // le mode tri remplace l'ancienne liste simple
 })
 
 test('chip masqué quand tout est classé', async ({ page }) => {
