@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { X, Star } from 'lucide-svelte';
+	import { X, Star, Download } from 'lucide-svelte';
 	import { REACTIONS } from '$lib/i18n';
 
 	interface FileItem {
@@ -91,6 +91,31 @@
 
 	function handleShare() {
 		onShare(items[currentIndex].name);
+	}
+
+	// Fichier stocké (pas une capture) : partage natif sur mobile pour l'enregistrer dans Photos, sinon téléchargement.
+	async function handleDownload() {
+		const url = currentUrl;
+		if (!url) return;
+		const name = currentItem.name.split('/').pop() ?? 'photo';
+		try {
+			const res = await fetch(url);
+			if (!res.ok) throw new Error(String(res.status));
+			const blob = await res.blob();
+			const file = new File([blob], name, { type: blob.type });
+			if (navigator.canShare?.({ files: [file] })) {
+				await navigator.share({ files: [file] }).catch(() => {});
+				return;
+			}
+			const a = document.createElement('a');
+			a.href = URL.createObjectURL(blob);
+			a.download = name;
+			a.click();
+			setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+			showToast('Téléchargé · បានទាញយក');
+		} catch {
+			window.open(url, '_blank');
+		}
 	}
 
 	function isVideo(name: string) {
@@ -199,6 +224,7 @@
 				{#if onSetCover}
 					<button class="bar-btn cover-btn" onclick={() => onSetCover(currentItem.name)} aria-pressed={coverName === currentItem?.name} aria-label="Couverture · រូបគម្រប" title="Couverture · រូបគម្រប"><Star size={20} fill={coverName === currentItem?.name ? 'currentColor' : 'none'} /></button>
 				{/if}
+				<button class="bar-btn" onclick={handleDownload} disabled={!currentUrl} aria-label="Télécharger · ទាញយក" title="Télécharger · ទាញយក"><Download size={20} /></button>
 				<button class="bar-btn" onclick={handleCopyLink} aria-label="Copier le lien">🔗</button>
 				<button class="bar-btn" onclick={handleShare} aria-label="Partager">⬆</button>
 			</div>
