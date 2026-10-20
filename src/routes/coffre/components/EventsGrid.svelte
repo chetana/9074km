@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox, Ellipsis, Download, Languages, GalleryHorizontal, LayoutGrid } from 'lucide-svelte';
+	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox, Ellipsis, Download, Languages, GalleryHorizontal, LayoutGrid, CalendarDays, ChevronDown, Check, X, Sparkles } from 'lucide-svelte';
 	import BottomSheet from '$lib/BottomSheet.svelte';
 	import { toasts } from '$lib/toast.svelte';
 	import { ogImageUrl } from '$lib/api';
 	import { eventsStore } from '$lib/events.svelte';
 	import { fetchUnclassified, fetchSuggestions, downloadExport, EventApiError } from '$lib/events-api';
-	import type { SuggestionDTO } from '$lib/events-types';
+	import type { SuggestionDTO, EventDTO } from '$lib/events-types';
 	import SuggestionCard from './SuggestionCard.svelte';
 	import EventCarousel from './EventCarousel.svelte';
 	import { T } from '$lib/events-i18n';
@@ -68,7 +68,6 @@
 	// Vue par défaut : carrousel « Album » ; la grille reste le secours. Choix mémorisé (localStorage facultatif).
 	const VIEW_KEY = 'coffre-events-view';
 	let view = $state<'album' | 'grid'>('album');
-	let tight = $state(false); // place trop petite pour le carrousel : filtres sur 1 ligne
 	function setView(v: 'album' | 'grid') {
 		view = v;
 		try { localStorage.setItem(VIEW_KEY, v); } catch { /* stockage indisponible : la page marche sans */ }
@@ -79,19 +78,32 @@
 		void eventsStore.load(); void loadUnclassified(); void loadSuggestions();
 	});
 
-	// Indique qu'une rangée de puces défile encore (fondu en bas) : mise à jour au redimensionnement, au défilement et aux changements.
-	function moreHint(node: HTMLElement) {
-		const upd = () => { node.dataset.more = node.scrollHeight > node.clientHeight + 1 && node.scrollTop + node.clientHeight < node.scrollHeight - 2 ? '1' : ''; };
-		const ro = new ResizeObserver(upd);
-		const mo = new MutationObserver(upd);
-		ro.observe(node); mo.observe(node, { childList: true, subtree: true });
-		node.addEventListener('scroll', upd, { passive: true });
-		upd();
-		return { destroy() { ro.disconnect(); mo.disconnect(); node.removeEventListener('scroll', upd); } };
+	// Choix des fenêtres : années (comptées selon le lieu choisi) et lieux (comptés sur l'année choisie).
+	const inYear = (e: EventDTO, y: number | null) => y === null || Number(e.dates.start.slice(0, 4)) === y;
+	const yearOptions = $derived(
+		yearsOf(eventsStore.list)
+			.map((y) => ({ y, n: eventsStore.list.filter((e) => inYear(e, y) && (place === null || samePlace(e, place))).length }))
+			.filter((o) => o.n > 0 || o.y === year)
+	);
+	const placeOptions = $derived(placesOf(eventsStore.list.filter((e) => inYear(e, year))));
+	const placeLabel = $derived(place === null ? null : (placesOf(eventsStore.list).find((p) => p.key === place)?.label ?? place));
+	let yearOpen = $state(false);
+	let placeOpen = $state(false);
+	function pickYear(y: number) {
+		year = year === y ? null : y;
+		const pl = place;
+		if (pl !== null && !eventsStore.list.some((e) => inYear(e, year) && samePlace(e, pl))) place = null;
+		yearOpen = false;
 	}
+	function pickPlace(key: string) {
+		place = place === key ? null : key;
+		placeOpen = false;
+	}
+	function clearAll() { year = null; place = null; yearOpen = false; placeOpen = false; }
 
-	const years = $derived(yearsOf(eventsStore.list));
-	const places = $derived(placesOf(eventsStore.list));
+	// Suggestions : un bouton à droite du chip « à classer », la liste complète dans une fenêtre.
+	let suggOpen = $state(false);
+	$effect(() => { if (suggOpen && suggestions.length === 0) suggOpen = false; });
 	const total = $derived(eventsStore.list.length);
 	const shown = $derived(
 		sortEvents(
@@ -126,36 +138,41 @@
 		</button>
 	</div>
 
-	{#if suggestions.length}
-		<SuggestionCard suggestion={suggestions[0]} {readerLang} onDone={refreshAll} />
-	{/if}
-
-	{#if unclassified > 0}
-		<button class="todo" onclick={openSort}>
-			<Inbox size={20} aria-hidden="true" />
-			<span class="todo-n">{unclassified}</span> {T.toClassify.fr} · <span class="kh" lang="km">{T.toClassify.kh}</span>
-		</button>
-	{/if}
-
-	{#if years.length > 1}
-		<div class="chips" class:compact={tight && view === 'album'} use:moreHint role="group" aria-label="Année">
-			<button class="chip all" class:on={year === null} aria-pressed={year === null} onclick={() => (year = null)}>
-				{T.allYears.fr} <span class="kh" lang="km">{T.allYears.kh}</span>
-			</button>
-			{#each years as y (y)}
-				<button class="chip" class:on={year === y} aria-pressed={year === y} onclick={() => (year = y)}>{y}</button>
-			{/each}
+	{#if unclassified > 0 || suggestions.length}
+		<div class="tools">
+			{#if unclassified > 0}
+				<button class="todo" onclick={openSort}>
+					<Inbox size={20} aria-hidden="true" />
+					<span class="todo-n">{unclassified}</span> {T.toClassify.fr} · <span class="kh" lang="km">{T.toClassify.kh}</span>
+				</button>
+			{/if}
+			{#if suggestions.length}
+				<button class="sugg-btn" onclick={() => (suggOpen = true)} aria-haspopup="dialog">
+					<Sparkles size={18} aria-hidden="true" />
+					<span class="st"><span>{T.suggTitle.fr} · {suggestions.length}</span><span class="kh" lang="km">{T.suggTitle.kh}</span></span>
+				</button>
+			{/if}
 		</div>
 	{/if}
 
-	{#if places.length > 1}
-		<div class="chips" class:compact={tight && view === 'album'} use:moreHint role="group" aria-label="Lieu">
-			<button class="chip all" class:on={place === null} aria-pressed={place === null} onclick={() => (place = null)}>
-				<MapPin size={16} aria-hidden="true" /> {T.allPlacesShort.fr} <span class="kh" lang="km">{T.allPlacesShort.kh}</span>
-			</button>
-			{#each places as p (p.key)}
-				<button class="chip" class:on={place === p.key} aria-pressed={place === p.key} onclick={() => (place = place === p.key ? null : p.key)}><MapPin size={16} aria-hidden="true" /> {p.label}{#if p.count > 1} <span class="n">{p.count}</span>{/if}</button>
-			{/each}
+	{#if total > 0}
+		<div class="filters">
+			<div class="fbtn" class:on={year !== null}>
+				<button class="fmain" onclick={() => (yearOpen = true)} aria-haspopup="dialog" aria-label="{T.filterYear.fr} · {T.filterYear.kh}{year !== null ? ` : ${year}` : ''}">
+					<CalendarDays size={18} aria-hidden="true" />
+					{#if year === null}<span class="ft"><span>{T.allYearsLong.fr}</span><span class="kh" lang="km">{T.allYearsLong.kh}</span></span>{:else}<span class="ft one">{year}</span>{/if}
+					<ChevronDown size={16} aria-hidden="true" />
+				</button>
+				{#if year !== null}<button class="fx" onclick={() => (year = null)} aria-label="{T.clearFilter.fr} · {T.clearFilter.kh} ({T.filterYear.fr})"><X size={18} /></button>{/if}
+			</div>
+			<div class="fbtn" class:on={place !== null}>
+				<button class="fmain" onclick={() => (placeOpen = true)} aria-haspopup="dialog" aria-label="{T.filterPlace.fr} · {T.filterPlace.kh}{place !== null ? ` : ${placeLabel}` : ''}">
+					<MapPin size={18} aria-hidden="true" />
+					{#if place === null}<span class="ft"><span>{T.allPlaces.fr}</span><span class="kh" lang="km">{T.allPlaces.kh}</span></span>{:else}<span class="ft one">{placeLabel}</span>{/if}
+					<ChevronDown size={16} aria-hidden="true" />
+				</button>
+				{#if place !== null}<button class="fx" onclick={() => (place = null)} aria-label="{T.clearFilter.fr} · {T.clearFilter.kh} ({T.filterPlace.fr})"><X size={18} /></button>{/if}
+			</div>
 		</div>
 	{/if}
 
@@ -192,7 +209,7 @@
 		<div class="state empty-filter"><p>{T.noEventsFilter.fr}</p><p class="kh" lang="km">{T.noEventsFilter.kh}</p></div>
 	{:else if view === 'album'}
 		<p class="count" role="status">{countText.fr} · <span lang="km">{countText.kh}</span></p>
-		<EventCarousel events={shown} {readerLang} {onOpen} onTight={(v) => (tight = v)} />
+		<EventCarousel events={shown} {readerLang} {onOpen} />
 	{:else}
 		<p class="count" role="status">{countText.fr} · <span lang="km">{countText.kh}</span></p>
 		{#each groups as g (g.key)}
@@ -240,6 +257,40 @@
 
 <BottomSheet open={menuOpen} onclose={() => (menuOpen = false)}>
 	<button class="mi" onclick={doExport}><Download size={20} /><span class="mi-txt"><span>{T.exportAction.fr}</span><span class="kh" lang="km">{T.exportAction.kh}</span></span></button>
+</BottomSheet>
+
+<BottomSheet open={yearOpen} onclose={() => (yearOpen = false)}>
+	<div class="opts" role="listbox" aria-label="{T.chooseYear.fr} · {T.chooseYear.kh}">
+		<h2 class="opt-title">{T.chooseYear.fr} · <span class="kh" lang="km">{T.chooseYear.kh}</span></h2>
+		{#each yearOptions as o (o.y)}
+			<button class="opt" class:on={year === o.y} role="option" aria-selected={year === o.y} onclick={() => pickYear(o.y)}>
+				{#if year === o.y}<Check size={20} aria-hidden="true" />{:else}<span class="ph"></span>{/if}
+				<span class="ol">{o.y}</span><span class="oc">{o.n}</span>
+			</button>
+		{/each}
+		{#if year !== null || place !== null}<button class="opt clear" onclick={clearAll}><X size={20} aria-hidden="true" /><span class="ol">{T.clearAll.fr} · <span class="kh" lang="km">{T.clearAll.kh}</span></span></button>{/if}
+	</div>
+</BottomSheet>
+
+<BottomSheet open={placeOpen} onclose={() => (placeOpen = false)}>
+	<div class="opts" role="listbox" aria-label="{T.choosePlace.fr} · {T.choosePlace.kh}">
+		<h2 class="opt-title">{T.choosePlace.fr} · <span class="kh" lang="km">{T.choosePlace.kh}</span></h2>
+		{#each placeOptions as p (p.key)}
+			<button class="opt" class:on={place === p.key} role="option" aria-selected={place === p.key} onclick={() => pickPlace(p.key)}>
+				{#if place === p.key}<Check size={20} aria-hidden="true" />{:else}<span class="ph"></span>{/if}
+				<span class="ol">{p.label}</span><span class="oc">{p.count}</span>
+			</button>
+		{/each}
+		{#if year !== null || place !== null}<button class="opt clear" onclick={clearAll}><X size={20} aria-hidden="true" /><span class="ol">{T.clearAll.fr} · <span class="kh" lang="km">{T.clearAll.kh}</span></span></button>{/if}
+	</div>
+</BottomSheet>
+
+<BottomSheet open={suggOpen} onclose={() => (suggOpen = false)}>
+	<div class="sugg-list">
+		{#each suggestions as s (s.start + s.end)}
+			<SuggestionCard suggestion={s} {readerLang} onDone={refreshAll} />
+		{/each}
+	</div>
 </BottomSheet>
 
 <style>
@@ -292,31 +343,38 @@
 	}
 	.todo .kh { font-size: var(--fs-xl); }
 	.todo-n { font-family: var(--font-display); font-size: var(--fs-xl); }
-	/* 2 lignes de puces au plus, défilement vertical, fondu en bas tant qu'il en reste. */
-	.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); max-height: calc(var(--btn-tap) * 2 + var(--space-2)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
-	.chips.compact { max-height: var(--btn-tap); }
-	.chips:global([data-more='1']) { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 22px), transparent); }
+	.tools { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+	.sugg-btn { margin-left: auto; min-height: var(--btn-tap); display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-4) 0 var(--space-3); border-radius: var(--radius-full); background: linear-gradient(150deg, var(--accent), var(--accent-warm)); color: var(--on-accent); box-shadow: var(--shadow-accent); font-weight: 600; flex-shrink: 0; }
+	.st { display: flex; flex-direction: column; line-height: 1.15; text-align: left; font-size: var(--fs-md); }
+	.st .kh { font-size: var(--fs-xl); line-height: var(--lh-kh); }
+	.sugg-list { display: flex; flex-direction: column; gap: var(--space-3); }
+	.filters { display: flex; gap: var(--space-2); }
+	.fbtn { flex: 1; min-width: 0; display: flex; align-items: stretch; border-radius: var(--radius-full); background: var(--raised); color: var(--text-secondary); }
+	.fbtn.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+	.fmain { flex: 1; min-width: 0; min-height: var(--btn-tap); display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3); text-align: left; }
+	.ft { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; font-size: var(--fs-md); }
+	.ft > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.ft .kh { font-size: var(--fs-xl); line-height: var(--lh-kh); }
+	.ft.one { font-size: var(--fs-lg); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	@media (max-width: 400px) {
+		.fmain { padding: 0 var(--space-2); gap: var(--space-1); }
+		.fmain > :global(svg:first-child) { display: none; }
+	}
+	.fx { width: var(--btn-tap); min-height: var(--btn-tap); flex: none; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-full); }
+	.opts { display: flex; flex-direction: column; gap: var(--space-1); }
+	.opt-title { font-family: var(--font-display); font-size: var(--fs-xl); text-align: center; padding-bottom: var(--space-2); }
+	.opt-title .kh { font-size: var(--fs-xl); }
+	.opt { min-height: 3.25rem; display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-3); border-radius: var(--radius-md); background: var(--surface-2); font-size: var(--fs-lg); text-align: left; }
+	.opt.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+	.opt .ph { width: 20px; flex: none; }
+	.opt .ol { flex: 1; min-width: 0; }
+	.opt .ol .kh { font-size: var(--fs-xl); }
+	.opt .oc { font-size: var(--fs-md); opacity: 0.8; }
+	.opt.clear { color: var(--accent-text); }
 	.count { font-size: var(--fs-md); color: var(--text-secondary); padding: 0 var(--space-1); }
 	.count span { font-size: 1rem; }
 	.empty-filter { padding: var(--space-6) 0; }
 	.empty-filter .kh { font-size: var(--fs-xl); }
-	.chip {
-		min-height: var(--btn-tap);
-		padding: 0 var(--space-3);
-		border-radius: var(--radius-full);
-		background: var(--raised);
-		color: var(--text-secondary);
-		font-size: var(--fs-lg);
-		white-space: nowrap;
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-2);
-	}
-	.chip .kh { font-size: var(--fs-xl); }
-	.chip .n { font-size: var(--fs-md); opacity: 0.7; }
-	/* Un seul style PLEIN = un filtre réellement appliqué ; « Toutes/Tous » sélectionné (aucun filtre) = contour. */
-	.chip.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-	.chip.all.on { background: transparent; color: var(--accent-text); box-shadow: inset 0 0 0 2px var(--accent); }
 	.banner {
 		display: flex;
 		align-items: center;

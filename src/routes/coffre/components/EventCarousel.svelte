@@ -5,7 +5,7 @@
 	import { T } from '$lib/events-i18n';
 	import { displayNames, formatRange, type ReaderLang } from '$lib/events-ui';
 	import type { EventDTO } from '$lib/events-types';
-	import { layoutAt, cssTransform, clampPos, snapTarget, nearestByDate, cardScale, fitStage } from '$lib/carousel-layout';
+	import { layoutAt, cssTransform, clampPos, snapTarget, restoreIndex, parseRemembered, cardSize, fitStage, CARD_W, type Remembered } from '$lib/carousel-layout';
 
 	interface Props {
 		events: EventDTO[];
@@ -21,13 +21,23 @@
 	let dragging = false;
 	let reduced = $state(false);
 	let raf = 0;
-	let lastCenter: string | null = null;
+	// Dernier évènement au centre (id + date de début), mémorisé quand le carrousel s'arrête.
+	const MEM_KEY = 'coffre-carousel-pos';
+	let mem: Remembered | null = null;
+	try { mem = parseRemembered(localStorage.getItem(MEM_KEY)); } catch { /* stockage indisponible : la page marche sans */ }
+	function commit() {
+		const e = events[Math.round(pos)];
+		if (!e) return;
+		mem = { id: e.id, start: e.dates.start };
+		try { localStorage.setItem(MEM_KEY, JSON.stringify(mem)); } catch { /* idem */ }
+	}
 	let lastKey = '';
 	let stageEl: HTMLDivElement;
 	let rootEl: HTMLDivElement;
 	let stageH = $state(330);
 	let tight = false;
-	const k = $derived(cardScale(stageH));
+	const size = $derived(cardSize(stageH));
+	const spread = $derived(size.w / CARD_W);
 	const SCRUB_H = 44;
 
 	function scroller(el: HTMLElement): HTMLElement | null {
@@ -53,10 +63,8 @@
 		const key = events.map((e) => e.id).join(',');
 		if (key === lastKey) return;
 		lastKey = key;
-		const i = nearestByDate(events.map((e) => e.dates.start), lastCenter);
-		pos = target = i;
+		pos = target = restoreIndex(events.map((e) => ({ id: e.id, start: e.dates.start })), mem);
 	});
-	$effect(() => { lastCenter = events[center]?.dates.start ?? lastCenter; });
 
 	// Animation seulement le temps du rattrapage : aucune boucle permanente.
 	function settle() {
@@ -64,7 +72,7 @@
 		const step = () => {
 			if (dragging) return;
 			const diff = target - pos;
-			if (reduced || Math.abs(diff) < 0.002) { pos = target; return; }
+			if (reduced || Math.abs(diff) < 0.002) { pos = target; commit(); return; }
 			pos += diff * 0.2;
 			raf = requestAnimationFrame(step);
 		};
@@ -138,7 +146,7 @@
 			{@const n = displayNames(e, readerLang)}
 			{@const r = formatRange(e.dates.start, e.dates.end)}
 			{@const isCenter = i === center}
-			<div class="slot" style="transform:{cssTransform(t, k)};opacity:{t.opacity};z-index:{t.zIndex};filter:{t.brightness < 1 ? `brightness(${t.brightness})` : 'none'}" data-i={i} data-center={isCenter ? '' : undefined}>
+			<div class="slot" style="width:{size.w}px;height:{size.h}px;margin:{-size.h / 2}px 0 0 {-size.w / 2}px;transform:{cssTransform(t, spread)};opacity:{t.opacity};z-index:{t.zIndex};filter:{t.brightness < 1 ? `brightness(${t.brightness})` : 'none'}" data-i={i} data-center={isCenter ? '' : undefined}>
 				<button
 					class="album" tabindex={isCenter ? 0 : -1} aria-current={isCenter ? 'true' : undefined}
 					aria-label={isCenter ? `${n.primary} — ${T.open.fr}` : n.primary} onclick={() => cardClick(i, e.id)}
@@ -147,17 +155,17 @@
 					<span class="body">
 						<span class="spine" aria-hidden="true"></span>
 						{#if e.cover}
-							<img class="cv" src={ogImageUrl(e.cover, 600)} alt="" draggable="false" />
+							<img class="cv" style="height:{size.h - size.cap}px" src={ogImageUrl(e.cover, 600)} alt="" draggable="false" />
 						{:else}
-							<span class="cv ph" aria-hidden="true">{e.emoji ?? ''}</span>
+							<span class="cv ph" style="height:{size.h - size.cap}px" aria-hidden="true">{e.emoji ?? ''}</span>
 						{/if}
 						{#if e.emoji && e.cover}<span class="emoji" aria-hidden="true">{e.emoji}</span>{/if}
 						{#if e.namesPending}<span class="pend"><Languages size={16} aria-hidden="true" /><span lang="km">{T.translatingShort.kh}</span></span>{/if}
-						<span class="cap">
+						<span class="cap" class:c1={size.h < 270} class:c0={size.h < 210} style="height:{size.cap}px">
 							<span class="t1" lang={n.primaryLang}>{n.primary}</span>
 							{#if n.secondary}<span class="t2" lang={n.secondaryLang}>{n.secondary}</span>{/if}
 							<span class="meta" lang={readerLang === 'kh' ? 'km' : 'fr'}>{readerLang === 'kh' ? r.kh : r.fr}</span>
-							<span class="meta"><Images size={13} aria-hidden="true" /> {e.count}{#if e.place}&nbsp;· <MapPin size={13} aria-hidden="true" /> {e.place}{/if}</span>
+							{#if size.meta2}<span class="meta"><Images size={13} aria-hidden="true" /> {e.count}{#if e.place}&nbsp;· <MapPin size={13} aria-hidden="true" /> {e.place}{/if}</span>{/if}
 						</span>
 						<span class="gloss" aria-hidden="true" style="--gx:{isCenter ? (pos - center) * 200 - 40 : -40}%"></span>
 					</span>
@@ -180,21 +188,22 @@
 		touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab;
 	}
 	.stage.reduced { perspective: none; }
-	.slot { position: absolute; left: 50%; top: 50%; width: 208px; height: 310px; margin: -155px 0 0 -104px; will-change: transform, opacity; }
+	.slot { position: absolute; left: 50%; top: 50%; will-change: transform, opacity; }
 	.album { position: relative; display: block; width: 100%; height: 100%; padding: 0; text-align: left; color: var(--text); -webkit-touch-callout: none; }
 	.album:focus-visible { outline: 3px solid var(--accent-text); outline-offset: 4px; border-radius: 10px; }
 	.body { position: absolute; inset: 0; border-radius: 6px 14px 14px 6px; overflow: hidden; background: var(--surface); box-shadow: 0 18px 36px color-mix(in srgb, var(--text) 33%, transparent); }
 	.spine { position: absolute; left: 0; top: 0; bottom: 0; width: 18px; z-index: 3; background: linear-gradient(90deg, #8e3a5a, #c2587f 55%, #a64468); box-shadow: inset -2px 0 4px #0003; }
 	.spine::after { content: ''; position: absolute; inset: 14px 6px; background: repeating-linear-gradient(180deg, var(--accent-soft, #ffe3ec) 0 6px, transparent 6px 20px); opacity: 0.7; border-radius: 2px; }
-	.cv { position: absolute; left: 18px; top: 0; right: 0; height: 164px; width: calc(100% - 18px); object-fit: cover; }
+	.cv { position: absolute; left: 18px; top: 0; right: 0; width: calc(100% - 18px); object-fit: cover; }
 	.cv.ph { display: flex; align-items: center; justify-content: center; font-size: 3.25rem; background: var(--ev-bg, var(--raised)); }
 	.emoji { position: absolute; right: 10px; top: 10px; font-size: 26px; z-index: 3; filter: drop-shadow(0 2px 3px #0005); }
 	.pend { position: absolute; left: 26px; top: 8px; z-index: 3; display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--radius-full); background: var(--gold); color: var(--gold-text); font-size: var(--fs-md); }
 	.pend span { font-size: 1rem; }
-	.cap { position: absolute; left: 18px; right: 0; bottom: 0; height: 146px; background: linear-gradient(180deg, var(--raised), var(--surface)); padding: 8px 12px; display: flex; flex-direction: column; gap: 1px; z-index: 2; overflow: hidden; }
+	.cap { position: absolute; left: 18px; right: 0; bottom: 0; background: linear-gradient(180deg, var(--raised), var(--surface)); padding: 8px 12px; display: flex; flex-direction: column; gap: 1px; z-index: 2; overflow: hidden; }
 	.t1, .t2, .meta { flex-shrink: 0; }
 	.t1 { font-family: var(--font-display); font-size: 1.0625rem; font-weight: 600; line-height: 1.15; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 	.t2 { font-size: 1.125rem; font-weight: 600; line-height: var(--lh-kh); color: var(--accent-text); font-style: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+	.cap.c1 .t2 { -webkit-line-clamp: 1; line-clamp: 1; }
 	.meta { font-size: 0.8125rem; color: var(--muted-text); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 	.meta :global(svg) { vertical-align: -2px; }
 	.pages { position: absolute; right: -7px; top: 6px; bottom: 6px; width: 8px; border-radius: 0 8px 8px 0; background: repeating-linear-gradient(180deg, #fff 0 3px, #e6d6df 3px 4px); box-shadow: 2px 3px 6px color-mix(in srgb, var(--text) 20%, transparent); }
