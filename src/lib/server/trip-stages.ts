@@ -80,7 +80,7 @@ export function detectStages(input: TripPhoto[], partial?: Partial<StageOptions>
 	}
 	for (const f of far) cur.add(f)
 	close()
-	return mergeSmall(stages, o.minPhotos).map((a) => ({
+	return mergeSmall(stages, o.minPhotos, o.gapDays).map((a) => ({
 		dateStart: a.firstDay,
 		dateEnd: a.photos.reduce((m, p) => (dayOf(p) > m ? dayOf(p) : m), a.firstDay),
 		paths: a.photos.map((p) => p.path),
@@ -89,18 +89,21 @@ export function detectStages(input: TripPhoto[], partial?: Partial<StageOptions>
 	}))
 }
 
-function mergeSmall(stages: Acc[], minPhotos: number): Acc[] {
+function mergeSmall(stages: Acc[], minPhotos: number, gapDays: number): Acc[] {
+	const near = (a: Acc, b: Acc) => daysBetween(a.lastDay, b.firstDay) <= gapDays
 	const out: Acc[] = []
 	for (const s of stages) {
 		const prev = out[out.length - 1]
-		if (s.photos.length < minPhotos && prev) for (const p of s.photos) prev.add(p)
+		if (s.photos.length >= minPhotos) out.push(s)
+		else if (prev && near(prev, s)) for (const p of s.photos) prev.add(p)
 		else out.push(s)
 	}
-	if (out.length > 1 && out[0].photos.length < minPhotos) {
-		const [first, second, ...rest] = out
-		const merged = new Acc()
-		for (const p of [...first.photos, ...second.photos]) merged.add(p)
-		return [merged, ...rest]
+	const keep: Acc[] = []
+	for (let i = 0; i < out.length; i++) {
+		const s = out[i]
+		if (s.photos.length >= minPhotos) { keep.push(s); continue }
+		const next = out[i + 1]
+		if (next && next.photos.length >= minPhotos && near(s, next)) { for (const p of s.photos) next.add(p); next.photos.sort((a, b) => a.takenAt.localeCompare(b.takenAt)) }
 	}
-	return out
+	return keep
 }

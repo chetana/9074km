@@ -40,6 +40,13 @@ describe('detectStages', () => {
 		expect(s).toHaveLength(1)
 		expect(s.flatMap((x) => x.paths).sort()).toEqual(photos.map((p) => p.path).sort())
 	})
+	it('laisse de côté une photo isolée très ancienne au lieu d’étirer une étape sur des années', () => {
+		const old = photo('2015-08-19T15:01:46', null)
+		const s = detectStages([old, ...burst('2026-01-08', CHENGDU, 8)])
+		expect(s).toHaveLength(1)
+		expect(s[0].dateStart).toBe('2026-01-08')
+		expect(s[0].paths).not.toContain(old.path)
+	})
 	it('coupe une étape de plus de maxDays', () => {
 		const days = Array.from({ length: 70 }, (_, i) => new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10))
 		const s = detectStages(days.flatMap((d) => burst(d, CHENGDU, 5)), { maxDays: 60 })

@@ -79,8 +79,11 @@ let next = 0
 async function one(f) {
 	const buf = readFileSync(`${dir}/${f}`)
 	const ex = /\.jpe?g$/i.test(f) ? parseExif(new Uint8Array(buf.subarray(0, 262144))) : null
-	const m = f.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/)
-	const takenAt = ex?.takenAt ?? (m ? `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}` : null)
+	const m = f.match(/((?:19|20)\d{2})(\d{2})(\d{2})[-_](\d{2})(\d{2})(\d{2})/) ?? f.match(/((?:19|20)\d{2})(\d{2})(\d{2})/)
+	const epoch = f.match(/^(1[5-9]\d{11})\b/)
+	const fromName = m ? `${m[1]}-${m[2]}-${m[3]}T${m[4] ?? '12'}:${m[5] ?? '00'}:${m[6] ?? '00'}` : epoch ? new Date(Number(epoch[1]) + 8 * 3600000).toISOString().slice(0, 19) : null
+	const validDay = (iso) => iso && Number.isFinite(Date.parse(iso)) && new Date(Date.parse(iso)).toISOString().startsWith(iso.slice(0, 10)) && iso >= '1990' && iso < '2036'
+	const takenAt = ex?.takenAt ?? (validDay(fromName) ? fromName : null)
 	if (!takenAt) { stats.sansDate++; console.log('SANS DATE (ignorée) :', f); return }
 	const day = takenAt.slice(0, 10)
 	const taken = q(takenAt.replace('T', ' '))
@@ -90,7 +93,8 @@ async function one(f) {
 	if (existing) {
 		stats.deja++
 		paths.push(existing)
-		sql.push(`UPDATE media SET taken_at=${taken},taken_offset=${q(ex?.offset)},lat=${num(ex?.lat)},lng=${num(ex?.lng)},make=${q(ex?.make)},model=${q(ex?.model)} WHERE path=${q(existing)} AND taken_at IS NULL;`)
+		const cols = `${taken},${q(ex?.offset)},${num(ex?.lat)},${num(ex?.lng)},${q(ex?.make)},${q(ex?.model)}`
+		sql.push(`INSERT INTO media (path,day,kind,uploaded_by,taken_at,taken_offset,lat,lng,make,model) VALUES (${q(existing)},${q(existing.slice(0, 10).replaceAll('/', '-'))},'image',${q(UPLOADER)},${cols}) ON CONFLICT (path) DO UPDATE SET taken_at=COALESCE(media.taken_at,EXCLUDED.taken_at),taken_offset=COALESCE(media.taken_offset,EXCLUDED.taken_offset),lat=COALESCE(media.lat,EXCLUDED.lat),lng=COALESCE(media.lng,EXCLUDED.lng),make=COALESCE(media.make,EXCLUDED.make),model=COALESCE(media.model,EXCLUDED.model);`)
 		return
 	}
 	const isGif = /\.gif$/i.test(f)
@@ -124,7 +128,8 @@ if (AUTO) {
 		return a.city ?? a.town ?? a.municipality ?? a.county ?? a.state ?? null
 	}
 	const used = new Map()
-	console.log(`\nÉtapes détectées : ${stages.length}`)
+	const inStage = new Set(stages.flatMap((st) => st.paths))
+	console.log(`\nÉtapes détectées : ${stages.length} (${records.filter((r) => !inStage.has(r.path)).length} photos isolées laissées hors évènement)`)
 	for (const [i, st] of stages.entries()) {
 		let name = names[i] ?? (GEOCODE && st.lat !== null ? await geocode(st.lat, st.lng).catch(() => null) : null)
 		name ??= `Étape ${i + 1}`
