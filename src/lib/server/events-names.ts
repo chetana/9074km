@@ -30,3 +30,27 @@ export function scheduleNameTranslation(userId: number, eventId: number, srcLang
   })()
   return true
 }
+
+const HEAL_COOLDOWN_MS = 10 * 60 * 1000
+const HEAL_MAX_TRIES = 3
+const healed = new Map<number, { at: number; tries: number }>()
+
+export function resetHealForTests() { healed.clear() }
+
+/** Relance la traduction des noms restés en attente (évènements créés par script) ; 10 min entre deux essais, 3 essais max par évènement. */
+export function healPendingNames(
+  userId: number,
+  events: { id: number; nameSrcLang: NameLang; namesPending: boolean; names: Record<NameLang, string> }[],
+  now = Date.now()
+): number {
+  let started = 0
+  for (const ev of events) {
+    if (!ev.namesPending) continue
+    const h = healed.get(ev.id) ?? { at: 0, tries: 0 }
+    if (h.tries >= HEAL_MAX_TRIES || now - h.at < HEAL_COOLDOWN_MS) continue
+    if (!scheduleNameTranslation(userId, ev.id, ev.nameSrcLang, ev.names[ev.nameSrcLang])) break
+    healed.set(ev.id, { at: now, tries: h.tries + 1 })
+    started++
+  }
+  return started
+}

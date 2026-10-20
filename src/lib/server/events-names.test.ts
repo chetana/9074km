@@ -5,7 +5,7 @@ vi.mock('./vertex', () => ({ geminiTranslateAll: (...a: unknown[]) => translateM
 const applyMock = vi.fn()
 vi.mock('./events-store', () => ({ applyTranslations: (...a: unknown[]) => applyMock(...a) }))
 
-import { scheduleNameTranslation } from './events-names'
+import { scheduleNameTranslation, healPendingNames, resetHealForTests } from './events-names'
 import { buildEventNameUser } from './khmer-guards'
 import { resetEventLimitsForTests } from './events-limits'
 
@@ -13,7 +13,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0))
 
 beforeEach(() => {
 	translateMock.mockReset(); applyMock.mockReset().mockResolvedValue(true)
-	resetEventLimitsForTests()
+	resetEventLimitsForTests(); resetHealForTests()
 })
 
 describe('scheduleNameTranslation', () => {
@@ -64,5 +64,25 @@ describe('scheduleNameTranslation', () => {
 		await flush()
 		expect(allowed).toBe(20)
 		expect(translateMock).toHaveBeenCalledTimes(20)
+	})
+})
+
+describe('healPendingNames', () => {
+	const ev = (id: number, pending: boolean) => ({ id, nameSrcLang: 'fr' as const, namesPending: pending, names: { fr: `Chine ${id}`, en: `Chine ${id}`, kh: `Chine ${id}` } })
+	it('relance seulement les noms en attente, avec le nom source', async () => {
+		translateMock.mockResolvedValue({ fr: 'Chine 1', en: 'China 1', kh: 'ចិន 1', lang: 'fr' })
+		expect(healPendingNames(1, [ev(1, true), ev(2, false)])).toBe(1)
+		await flush()
+		expect(translateMock).toHaveBeenCalledTimes(1)
+		expect(translateMock.mock.calls[0][0]).toBe('Chine 1')
+	})
+	it('attend 10 minutes entre deux essais et s\'arrête après 3', () => {
+		translateMock.mockReturnValue(new Promise(() => {}))
+		const t0 = 1_000_000
+		expect(healPendingNames(1, [ev(1, true)], t0)).toBe(1)
+		expect(healPendingNames(1, [ev(1, true)], t0 + 60_000)).toBe(0)
+		expect(healPendingNames(1, [ev(1, true)], t0 + 11 * 60_000)).toBe(1)
+		expect(healPendingNames(1, [ev(1, true)], t0 + 22 * 60_000)).toBe(1)
+		expect(healPendingNames(1, [ev(1, true)], t0 + 33 * 60_000)).toBe(0)
 	})
 })

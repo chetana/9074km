@@ -5,10 +5,10 @@ import { ensureCoffreSchema } from '$lib/server/coffre-db'
 import { createEvent, listEvents } from '$lib/server/events-store'
 import { parseCreateEvent, detectNameLang, todayInParis, cleanLine, PLACE_MAX } from '$lib/server/events-validate'
 import { eventCreateLimiter } from '$lib/server/events-limits'
-import { scheduleNameTranslation } from '$lib/server/events-names'
+import { scheduleNameTranslation, healPendingNames } from '$lib/server/events-names'
 
 export const GET: RequestHandler = async (event) => {
-  await requireAuth(event)
+  const user = await requireAuth(event)
   const year = event.url.searchParams.get('year') ?? undefined
   if (year !== undefined && !/^\d{4}$/.test(year)) throw error(400, 'invalid year')
   const rawPlace = event.url.searchParams.get('place')
@@ -16,6 +16,7 @@ export const GET: RequestHandler = async (event) => {
   if (place === null || (place !== undefined && Array.from(place).length > PLACE_MAX)) throw error(400, 'invalid place')
   await ensureCoffreSchema()
   const events = await listEvents({ year, place: place || undefined, today: todayInParis() })
+  healPendingNames(user.id, events)
   event.setHeaders({ 'cache-control': 'no-store' })
   return json({ events })
 }
