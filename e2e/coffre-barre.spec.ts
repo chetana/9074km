@@ -181,6 +181,22 @@ test('position mémorisée : retour d\'un évènement, rechargement ; filtre qui
 	// page sans stockage : le carrousel marche
 })
 
+test('position mémorisée : tap sur un évènement en plein élan puis retour, 3 fois de suite', async ({ page }) => {
+	await open(page, 393, 852)
+	await page.locator('.slot[data-center] .album').focus()
+	for (let k = 0; k < 3; k++) {
+		await page.keyboard.press('ArrowRight')
+		await page.waitForTimeout(180) // carte centrale déjà changée, animation pas finie
+		const picked = await centerName(page)
+		await page.locator('.slot[data-center] .album').click()
+		await expect(page.locator('.hero-txt')).toBeVisible()
+		await page.goBack()
+		await page.waitForSelector('.slot[data-center]'); await page.waitForTimeout(400)
+		expect(await centerName(page)).toBe(picked)
+		await page.locator('.slot[data-center] .album').focus()
+	}
+})
+
 test('grille de secours utilisable avec les nouveaux boutons', async ({ page }) => {
 	await open(page, 393, 852)
 	await page.locator('.view-btn').click()
