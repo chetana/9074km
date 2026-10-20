@@ -6,6 +6,8 @@ import type { Handle } from '@sveltejs/kit'
 import { getDB } from '$lib/server/db'
 import { users } from '$lib/server/schema'
 import { rateLimitDecision } from '$lib/server/rate-limit'
+import { createDevAuthHandle } from '$lib/server/dev-auth'
+import { dev } from '$app/environment'
 
 const LOGTO_COOKIE = 'logtoCookies'
 
@@ -153,4 +155,8 @@ const dbUser: Handle = async ({ event, resolve }) => {
 	return resolve(event)
 }
 
-export const handle = sequence(rateLimit, clearStaleCookie, logto, dbUser)
+// DEV-ONLY (e2e) : E2E_AUTH_USER n'est lu que hors production, voir $lib/server/dev-auth.ts.
+// Placé AVANT dbUser : une vraie session Logto (locals.user) garde la priorité côté dbUser.
+const devAuth = createDevAuthHandle(() => ({ dev, nodeEnv: process.env.NODE_ENV, raw: env.E2E_AUTH_USER }))
+
+export const handle = sequence(rateLimit, clearStaleCookie, logto, devAuth, dbUser)
