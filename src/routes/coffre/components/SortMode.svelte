@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { X, Film, Plus } from 'lucide-svelte';
 	import { ogImageUrl, signDownload } from '$lib/api';
 	import { generateVideoThumbnail } from '$lib/thumbnailer';
+	import { createBlobUrlHolder } from '$lib/blob-url';
+	import { loadAllUnclassified, orderForSort } from '$lib/sort-load';
 	import { eventsStore } from '$lib/events.svelte';
 	import { fetchUnclassified, fetchForDate, addEventMedia, removeEventMedia, skipMedia, EventApiError, type UnclassifiedItem } from '$lib/events-api';
 	import type { EventDTO } from '$lib/events-types';
@@ -19,10 +21,12 @@
 	}
 	let { readerLang, onclose }: Props = $props();
 
-	type Action = { path: string; kind: 'event'; eventId: number } | { path: string; kind: 'skip' };
+	// noop : photo laissée dans un AUTRE évènement (conflit) — elle avance quand même, et « Annuler » doit revenir dessus.
+	type Action = { path: string; kind: 'event'; eventId: number } | { path: string; kind: 'skip' } | { path: string; kind: 'noop' };
 
 	let items = $state<UnclassifiedItem[]>([]);
-	let total = $state(0); // « restantes » au départ
+	let total = $state(0); // « restantes » au chargement
+	let processed = $state(0); // photos traitées depuis ce chargement (rangées, passées ou laissées)
 	let idx = $state(0);
 	let loading = $state(true);
 	let failed = $state(false);
@@ -34,29 +38,19 @@
 	let covering = $state<Record<string, EventDTO[]>>({});
 	let formOpen = $state(false);
 	let videoThumb = $state<string | null>(null);
-
-	// Ordre : les jours avec le plus de photos d'abord (puis jour récent), photos d'un même jour côte à côte.
-	function order(list: UnclassifiedItem[]): UnclassifiedItem[] {
-		const counts = new Map<string, number>();
-		for (const i of list) counts.set(i.day, (counts.get(i.day) ?? 0) + 1);
-		return [...list].sort((a, b) => (counts.get(b.day)! - counts.get(a.day)!) || (a.day < b.day ? 1 : a.day > b.day ? -1 : 0) || (a.path < b.path ? -1 : 1));
-	}
+	const thumbHolder = createBlobUrlHolder();
+	let dragging = $state(false);
 
 	async function load() {
 		loading = true;
 		failed = false;
 		try {
-			const all: UnclassifiedItem[] = [];
-			let cursor: string | null = null;
-			for (let page = 0; page < 8; page++) {
-				const p = await fetchUnclassified(100, cursor);
-				if (page === 0) total = p.total;
-				all.push(...p.items);
-				cursor = p.nextCursor;
-				if (!cursor) break;
-			}
-			items = order(all);
+			// TOUTES les pages (≈ 10 pour ~1 000 photos) : l'ordre « jours les plus fournis d'abord » porte sur l'ensemble.
+			const r = await loadAllUnclassified((cursor) => fetchUnclassified(100, cursor));
+			total = r.total;
+			items = orderForSort(r.items);
 			idx = 0;
+			processed = 0;
 		} catch {
 			failed = true;
 		} finally {
@@ -71,9 +65,19 @@
 		window.addEventListener('keydown', esc);
 		return () => { window.removeEventListener('keydown', esc); clearTimeout(undoTimer); };
 	});
+	onDestroy(() => thumbHolder.clear());
 
 	const current = $derived(items[idx] ?? null);
-	const remaining = $derived(Math.max(total - history.length, 0));
+	const remaining = $derived(Math.max(total - processed, 0));
+
+	// Liste épuisée : « Tout est classé » seulement si le serveur n'a plus rien à classer. Sinon on recharge (photos arrivées
+	// entre-temps, échecs…) au lieu de conclure sur une liste locale.
+	let reloading = $state(false);
+	$effect(() => {
+		if (loading || failed || current || reloading || items.length === 0) return;
+		reloading = true;
+		void load().finally(() => { reloading = false; });
+	});
 
 	// Évènements couvrant la date de la photo courante (auto_attach d'abord), mis en cache par jour.
 	$effect(() => {
@@ -82,13 +86,14 @@
 		fetchForDate(day).then((r) => { covering = { ...covering, [day]: r.events }; }).catch(() => { covering = { ...covering, [day]: [] }; });
 	});
 
-	// Vidéo : vignette FIXE (pas de lecture, pas d'autoplay).
+	// Vidéo : vignette FIXE (pas de lecture, pas d'autoplay) ; l'URL blob: est révoquée à chaque changement et à la fermeture.
 	$effect(() => {
+		thumbHolder.clear();
 		videoThumb = null;
 		const c = current;
 		if (!c || c.kind !== 'video') return;
 		let dead = false;
-		signDownload(c.path).then((u) => generateVideoThumbnail(u)).then((b) => { if (!dead && b) videoThumb = URL.createObjectURL(b); }).catch(() => {});
+		signDownload(c.path).then((u) => generateVideoThumbnail(u)).then((b) => { if (!dead && b) videoThumb = thumbHolder.set(b); }).catch(() => {});
 		return () => { dead = true; };
 	});
 
@@ -104,8 +109,20 @@
 		undoTimer = setTimeout(() => (undoUntil = 0), 5000);
 	}
 
-	function fail(e: unknown) {
-		toasts.push({ message: e instanceof EventApiError && e.status === 0 ? T.offlineAction.fr : T.genericError.fr, messageKh: e instanceof EventApiError && e.status === 0 ? T.offlineAction.kh : T.genericError.kh });
+	// Hors ligne (navigator.onLine === false) ≠ échec réseau/serveur : message neutre + « Réessayer ».
+	function fail(e: unknown, retry?: () => void) {
+		const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+		const m = offline ? T.offlineAction : T.networkError;
+		toasts.push({ message: m.fr, messageKh: m.kh, duration: 8000, ...(retry && !offline ? { actionLabel: T.retry.fr, actionLabelKh: T.retry.kh, onAction: retry } : {}) });
+	}
+
+	async function moveHere(ev: EventDTO, path: string) {
+		try {
+			await addEventMedia(ev.id, [path], 'move'); // décision explicite de l'utilisateur
+			lastEventId = ev.id;
+			history = history.map((a) => (a.path === path ? { path, kind: 'event' as const, eventId: ev.id } : a)); // « Annuler » la défera
+			toasts.push({ message: T.moved.fr, messageKh: T.moved.kh });
+		} catch (e) { fail(e, () => void moveHere(ev, path)); }
 	}
 
 	async function assign(ev: EventDTO) {
@@ -117,14 +134,17 @@
 			if (r.skipped.length) {
 				const other = byId.get(r.skipped[0].eventId);
 				const msg = skippedMessage(1, other ? nameOf(other).primary : null, U);
-				toasts.push({ message: msg.fr, messageKh: msg.kh, duration: 6000 });
+				const path = c.path;
+				toasts.push({ message: msg.fr, messageKh: msg.kh, duration: 10000, actionLabel: U.moveHere.fr, actionLabelKh: U.moveHere.kh, onAction: () => void moveHere(ev, path) });
+				history = [...history, { path, kind: 'noop' }];
 			} else {
 				lastEventId = ev.id;
 				history = [...history, { path: c.path, kind: 'event', eventId: ev.id }];
 			}
+			processed++;
 			idx++;
 			armUndo();
-		} catch (e) { fail(e); } finally { busy = false; }
+		} catch (e) { fail(e, () => void assign(ev)); } finally { busy = false; }
 	}
 
 	async function skip() {
@@ -134,9 +154,10 @@
 		try {
 			await skipMedia([c.path]);
 			history = [...history, { path: c.path, kind: 'skip' }];
+			processed++;
 			idx++;
 			armUndo();
-		} catch (e) { fail(e); } finally { busy = false; }
+		} catch (e) { fail(e, () => void skip()); } finally { busy = false; }
 	}
 
 	async function undo() {
@@ -145,25 +166,35 @@
 		busy = true;
 		try {
 			if (a.kind === 'event') await removeEventMedia(a.eventId, [a.path]);
-			else await skipMedia([a.path], true);
+			else if (a.kind === 'skip') await skipMedia([a.path], true);
+			// noop : rien à défaire côté serveur, on revient simplement sur la photo
 			history = history.slice(0, -1);
+			processed = Math.max(processed - 1, 0);
 			idx = Math.max(idx - 1, 0);
-			undoUntil = 0;
-		} catch (e) { fail(e); } finally { busy = false; }
+			if (history.length) armUndo(); // on peut remonter plusieurs choix d'affilée, chacun avec sa fenêtre de 5 s
+			else undoUntil = 0;
+		} catch (e) { fail(e, () => void undo()); } finally { busy = false; }
 	}
 
 	// --- Geste : ← passer, → même choix que la précédente (étiquette visible pendant le geste) ---
 	let dx = $state(0);
 	let startX = 0, startY = 0;
-	let dragging = $state(false);
 	const THRESHOLD = 90;
 
-	function down(e: PointerEvent) { dragging = true; startX = e.clientX; startY = e.clientY; dx = 0; (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); }
+	function down(e: PointerEvent) {
+		dragging = true; startX = e.clientX; startY = e.clientY; dx = 0;
+		try { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* pointeur synthétique ou déjà relâché : le geste continue sans capture */ }
+	}
 	function move(e: PointerEvent) {
 		if (!dragging) return;
 		const mx = e.clientX - startX, my = e.clientY - startY;
 		if (Math.abs(my) > Math.abs(mx) * 1.2 && Math.abs(mx) < 20) return; // geste vertical : on laisse défiler
 		dx = Math.max(Math.min(mx, 160), -160);
+	}
+	// Annulation du système (appel entrant, geste iOS…) : la carte revient, AUCUN swipe n'est validé.
+	function cancel() {
+		dragging = false;
+		dx = 0;
 	}
 	async function up() {
 		if (!dragging) return;
@@ -183,7 +214,7 @@
 	}
 </script>
 
-<div class="sort" role="dialog" aria-modal="true" aria-label="{T.sortTitle.fr} · {T.sortTitle.kh}">
+<div class="sort" data-loaded={items.length} data-remaining={remaining} role="dialog" aria-modal="true" aria-label="{T.sortTitle.fr} · {T.sortTitle.kh}">
 	<header class="bar">
 		<button class="round" onclick={onclose} aria-label="{T.closeAction.fr} · {T.closeAction.kh}"><X size={22} /></button>
 		<div class="count" aria-live="polite">
@@ -193,8 +224,8 @@
 		<span class="spacer"></span>
 	</header>
 
-	{#if loading}
-		<p class="state">…</p>
+	{#if loading || (!current && items.length > 0 && !failed)}
+		<p class="state" aria-busy="true">…</p>
 	{:else if failed}
 		<div class="state">
 			<p>{T.loadError.fr}</p>
@@ -214,7 +245,7 @@
 			<div class="hint right" style:opacity={Math.min(Math.max(dx / THRESHOLD, 0), 1)}>
 				{#if prevEvent}{T.sameAsPrev.fr} : {nameOf(prevEvent).primary}{:else}{T.noPrev.fr}{/if}
 			</div>
-			<div class="photo" style:transform="translateX({dx}px) rotate({dx / 40}deg)" style:transition={dragging ? 'none' : 'transform 0.2s ease'} onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} role="img" aria-label={r.fr}>
+			<div class="photo" data-path={current.path} style:transform="translateX({dx}px) rotate({dx / 40}deg)" style:transition={dragging ? 'none' : 'transform 0.2s ease'} onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={cancel} role="img" aria-label={r.fr}>
 				{#if current.kind === 'image'}
 					<img src={ogImageUrl(current.path, 800)} alt="" draggable="false" />
 				{:else if videoThumb}
