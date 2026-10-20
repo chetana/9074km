@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Images, MapPin, Languages } from 'lucide-svelte';
+	import { Images, MapPin, Languages, Dices } from 'lucide-svelte';
+	import { fetchEventMedia, cachedEventMedia } from '$lib/events-api';
 	import { ogImageUrl } from '$lib/api';
 	import { T } from '$lib/events-i18n';
 	import { displayNames, formatRange, type ReaderLang } from '$lib/events-ui';
 	import type { EventDTO } from '$lib/events-types';
-	import { layoutAt, cssTransform, clampPos, snapTarget, restoreIndex, parseRemembered, cardSize, fitStage, CARD_W, type Remembered } from '$lib/carousel-layout';
+	import { layoutAt, cssTransform, clampPos, snapTarget, restoreIndex, parseRemembered, pickPreview, randomOther, cardSize, fitStage, CARD_W, type Remembered } from '$lib/carousel-layout';
 
 	interface Props {
 		events: EventDTO[];
@@ -66,6 +67,20 @@
 		pos = target = restoreIndex(events.map((e) => ({ id: e.id, start: e.dates.start })), mem);
 	});
 
+	// Aperçu : 3 photos de l'évènement central, chargées une fois il est posé (jamais pendant le glissement).
+	let previews = $state<Record<number, string[]>>({});
+	const centerEvent = $derived(events[center]);
+	$effect(() => {
+		const e = centerEvent;
+		if (!e || e.count < 2 || previews[e.id]) return;
+		const cached = cachedEventMedia(e.id);
+		if (cached) { previews[e.id] = pickPreview(cached, e.cover); return; }
+		const t = setTimeout(() => {
+			fetchEventMedia(e.id).then((paths) => (previews[e.id] = pickPreview(paths, e.cover))).catch(() => (previews[e.id] = []));
+		}, 300);
+		return () => clearTimeout(t);
+	});
+
 	// Animation seulement le temps du rattrapage : aucune boucle permanente.
 	function settle() {
 		cancelAnimationFrame(raf);
@@ -78,6 +93,7 @@
 		};
 		raf = requestAnimationFrame(step);
 	}
+	function surprise() { go(randomOther(events.length, Math.round(target), Math.random())); }
 	function go(i: number) { target = clampPos(Math.round(i), events.length); commit(); settle(); }
 
 	onMount(() => {
@@ -159,6 +175,11 @@
 						{:else}
 							<span class="cv ph" style="height:{size.h - size.cap}px" aria-hidden="true">{e.emoji ?? ''}</span>
 						{/if}
+						{#if isCenter && size.h - size.cap >= 110 && previews[e.id]?.length}
+							<span class="strip" aria-hidden="true" style="bottom:{size.cap + 8}px">
+								{#each previews[e.id] as p (p)}<img src={ogImageUrl(p, 160)} alt="" draggable="false" />{/each}
+							</span>
+						{/if}
 						{#if e.emoji && e.cover}<span class="emoji" aria-hidden="true">{e.emoji}</span>{/if}
 						{#if e.namesPending}<span class="pend"><Languages size={16} aria-hidden="true" /><span lang="km">{T.translatingShort.kh}</span></span>{/if}
 						<span class="cap" class:c1={size.h < 270} class:c0={size.h < 210} style="height:{size.cap}px">
@@ -173,12 +194,15 @@
 			</div>
 		{/each}
 	</div>
+	<div class="scrub-row">
 	<input
 		class="scrub" type="range" min="0" max={max} step="0.01" value={pos} disabled={events.length < 2}
 		aria-label="{T.browse.fr} · {T.browse.kh}"
 		oninput={(e) => { cancelAnimationFrame(raf); pos = target = +e.currentTarget.value; }}
 		onchange={(e) => go(+e.currentTarget.value)}
 	/>
+	<button class="rand" onclick={surprise} disabled={events.length < 2} aria-label="{T.random.fr} · {T.random.kh}" title="{T.random.fr} · {T.random.kh}"><Dices size={22} aria-hidden="true" /></button>
+	</div>
 </div>
 
 <style>
@@ -209,5 +233,12 @@
 	.pages { position: absolute; right: -7px; top: 6px; bottom: 6px; width: 8px; border-radius: 0 8px 8px 0; background: repeating-linear-gradient(180deg, #fff 0 3px, #e6d6df 3px 4px); box-shadow: 2px 3px 6px color-mix(in srgb, var(--text) 20%, transparent); }
 	.gloss { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: linear-gradient(115deg, transparent 35%, #ffffff55 48%, transparent 62%); transform: translateX(var(--gx, -40%)); }
 	.stage.reduced .gloss { display: none; }
-	.scrub { width: 100%; height: var(--btn-tap); accent-color: var(--accent-text); }
+	.scrub-row { display: flex; align-items: center; gap: var(--space-1); }
+	.rand { width: var(--btn-tap); height: var(--btn-tap); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-full); background: var(--lavender); color: var(--on-lavender); }
+	.rand:disabled { opacity: 0.4; }
+	.strip { position: absolute; left: 26px; z-index: 3; display: flex; gap: 6px; animation: strip-in 0.25s ease-out; }
+	.strip img { width: 38px; height: 38px; object-fit: cover; border-radius: 7px; border: 2px solid #fff; box-shadow: 0 2px 6px #0004; }
+	@keyframes strip-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+	.stage.reduced .strip { animation: none; }
+	.scrub { flex: 1; min-width: 0; width: 100%; height: var(--btn-tap); accent-color: var(--accent-text); }
 </style>

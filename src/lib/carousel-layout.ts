@@ -70,6 +70,20 @@ export function fitStage(avail: number, scrubH: number, wasTight: boolean): { st
 }
 export const TIGHT_BELOW = 260;
 
+/** Jusqu'à `n` photos réparties sur toute la liste (début, milieu, fin), sans la couverture ni les vidéos. */
+export function pickPreview(paths: string[], cover: string | null, n = 3): string[] {
+	const imgs = paths.filter((p) => /\.(jpe?g|png|webp|gif)$/i.test(p) && p !== cover);
+	if (imgs.length <= n) return imgs;
+	return Array.from({ length: n }, (_, k) => imgs[Math.round((k * (imgs.length - 1)) / (n - 1))]);
+}
+
+/** Indice au hasard différent de `current` (`rnd` dans [0,1[) ; `current` si une seule carte. */
+export function randomOther(len: number, current: number, rnd: number): number {
+	if (len < 2) return current;
+	const i = Math.floor(rnd * (len - 1));
+	return i >= current ? i + 1 : i;
+}
+
 export const clampPos = (p: number, len: number) => Math.min(Math.max(0, len - 1), Math.max(0, p));
 
 /** Fin de glissement : carte la plus proche, prolongée par la vitesse (px/ms, signe de l'écran). */
