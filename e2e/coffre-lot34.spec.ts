@@ -17,9 +17,11 @@ const NOEL = ev(8, 'Noël à Paris', 'បុណ្យណូអែល', '2025-12-
 const ALL = [LYON, BIRTH, NOEL]
 const days = (d: string, n: number) => Array.from({ length: n }, (_, i) => `${d.replaceAll('-', '/')}/p${String(i).padStart(2, '0')}.jpg`)
 
-interface Opts { suggestions?: any[]; unclassified?: any[]; exportStatus?: number; patchTranslation?: string; mediaPaths?: string[]; attachSkip?: boolean }
+interface Opts { suggestions?: any[]; unclassified?: any[]; big?: number; skipStatus?: () => number; conflictPath?: string; exportStatus?: number; patchTranslation?: string; mediaPaths?: string[]; attachSkip?: boolean }
 async function setup(page: Page, o: Opts = {}) {
 	const calls: { m: string; url: string; body: any }[] = []
+	const taken = new Set<string>() // photos rangées ou passées (mock du serveur : elles ne sont plus « à classer »)
+	const bigItems = o.big ? Array.from({ length: o.big }, (_, i) => ({ path: `2026/${String((i % 10) + 1).padStart(2, '0')}/${String((i % 27) + 1).padStart(2, '0')}/p${String(i).padStart(4, '0')}.jpg`, day: `2026-${String((i % 10) + 1).padStart(2, '0')}-${String((i % 27) + 1).padStart(2, '0')}`, kind: 'image', size: 1, uploadedBy: 'Chet' })) : null
 	const json = (r: any, b: unknown, s = 200) => r.fulfill({ status: s, contentType: 'application/json', body: JSON.stringify(b) })
 	const rec = (r: any) => { const p = r.request().postData(); calls.push({ m: r.request().method(), url: new URL(r.request().url()).pathname, body: p ? JSON.parse(p) : null }) }
 	await page.route('**/api/auth/sign-in', (r) => r.fulfill({ status: 200, body: 'sign-in (simulé)' }))
@@ -39,6 +41,8 @@ async function setup(page: Page, o: Opts = {}) {
 		if (r.request().method() === 'GET') return json(r, { paths: o.mediaPaths ?? ['2026/10/11/a.jpg', '2026/10/11/b.jpg', '2026/10/12/clip.mp4'] })
 		const b = JSON.parse(r.request().postData() ?? '{}')
 		if (r.request().method() === 'POST' && o.attachSkip) return json(r, { success: true, added: 0, skipped: (b.paths ?? []).slice(0, 1).map((path: string) => ({ path, eventId: 6 })) })
+		if (r.request().method() === 'POST' && b.mode === 'keep' && o.conflictPath && (b.paths ?? []).includes(o.conflictPath)) return json(r, { success: true, added: 0, skipped: [{ path: o.conflictPath, eventId: 6 }] })
+		if (r.request().method() === 'POST') b.paths.forEach((p: string) => taken.add(p))
 		return json(r, { success: true, added: (b.paths ?? []).length, skipped: [] })
 	})
 	await page.route(/\/api\/coffre\/events\/\d+$/, (r) => {
@@ -50,8 +54,23 @@ async function setup(page: Page, o: Opts = {}) {
 		return json(r, { event: { ...base, version: base.version + 1, cover: b.coverPath ?? base.cover }, translation: o.patchTranslation })
 	})
 	await page.route(/\/api\/coffre\/events(\?.*)?$/, (r) => { if (r.request().method() === 'POST') { rec(r); const b = JSON.parse(r.request().postData()!); return json(r, { event: ev(99, b.name, b.name, b.dateStart, b.dateEnd, { emoji: null, count: 0 }), translation: 'scheduled' }, 201) } return json(r, { events: ALL }) })
-	await page.route('**/api/coffre/media/unclassified*', (r) => { const items = o.unclassified ?? []; json(r, { total: items.length, items, nextCursor: null }) })
-	await page.route('**/api/coffre/media/skip', (r) => { rec(r); json(r, { success: true, updated: 1 }) })
+	await page.route('**/api/coffre/media/unclassified*', (r) => {
+		const u = new URL(r.request().url())
+		const all = (bigItems ?? o.unclassified ?? []).filter((i: any) => !taken.has(i.path))
+		const limit = Number(u.searchParams.get('limit') ?? 50)
+		const start = Number(u.searchParams.get('cursor') ?? 0)
+		const items = all.slice(start, start + limit)
+		calls.push({ m: 'GET', url: '/unclassified-page', body: { start, limit } })
+		json(r, { total: all.length, items, nextCursor: start + limit < all.length ? String(start + limit) : null })
+	})
+	await page.route('**/api/coffre/media/skip', (r) => {
+		const st = o.skipStatus?.() ?? 200
+		rec(r)
+		if (st !== 200) return r.fulfill({ status: st, body: 'x' })
+		const b = JSON.parse(r.request().postData()!)
+		b.paths.forEach((p: string) => (b.undo ? taken.delete(p) : taken.add(p)))
+		json(r, { success: true, updated: 1 })
+	})
 	return { calls }
 }
 
@@ -249,7 +268,8 @@ test('recherche locale par lieu et par date + chips de lieu', async ({ page }) =
 	await expect.poll(async () => (await names()).length).toBe(3)
 	await page.locator('.chips[aria-label=Lieu] .chip', { hasText: 'Paris' }).click()
 	await expect.poll(names).toEqual(['Noël à Paris'])
-	await expect(page.locator('.pend-badge')).toContainText('Traduction…')
+	await expect(page.locator('.pend-badge')).toContainText('កំពុងបកប្រែ')
+	await expect(page.locator('.pend-badge')).toHaveAttribute('title', 'Traduction en cours… · កំពុងបកប្រែ…')
 	if (SHOTS) { await page.waitForTimeout(400); await page.screenshot({ path: `${SHOTS}/07-recherche-lieux.png` }) }
 })
 
@@ -346,4 +366,175 @@ test('en-têtes de jour lisibles (FR + khmer, jour de la semaine) avec compteur 
 	await expect(page.locator('.day').first()).toContainText('អាទិត្យ 11 តុលា')
 	await expect(page.locator('.day .n').first()).toHaveText('2')
 	expect(await fs(page, '.day span[lang=km]')).toBeGreaterThanOrEqual(18)
+})
+
+test('mode tri : 973 photos, TOUTES triables ; « Tout est classé » seulement quand le serveur n\'a plus rien (pas à 801)', async ({ page }) => {
+	test.setTimeout(150_000)
+	const { calls } = await setup(page, { big: 973 })
+	await page.goto('/coffre?v=events')
+	await page.locator('.todo').click()
+	await page.waitForSelector('.sort .photo')
+	await expect(page.locator('.sort')).toHaveAttribute('data-loaded', '973')
+	await expect(page.locator('.sort .count-n')).toHaveText('973 / 973 restantes')
+	expect(calls.filter((c) => c.url === '/unclassified-page' && c.body.limit === 100).length).toBe(10) // 973 photos = 10 pages de 100
+	const run = (target: number) => page.evaluate(async (t) => {
+		const root = document.querySelector('.sort')!
+		while (Number(root.getAttribute('data-remaining')) > t) {
+			const before = root.getAttribute('data-remaining')
+			document.querySelector<HTMLElement>('.sort .skip')!.click()
+			let guard = 0
+			while (root.getAttribute('data-remaining') === before && guard++ < 3000) await new Promise((r) => setTimeout(r, 2))
+		}
+	}, target)
+	await run(172) // 801 photos traitées : l'ancien plafond de 800
+	await expect(page.locator('.sort .photo')).toBeVisible()
+	await expect(page.locator('.sort .done')).toHaveCount(0)
+	await expect(page.locator('.sort .count-n')).toHaveText('172 / 973 restantes')
+	await run(1)
+	await expect(page.locator('.sort .photo')).toBeVisible() // la 973e carte existe encore
+	await expect(page.locator('.sort .done')).toHaveCount(0)
+	await page.locator('.sort .skip').click()
+	await expect(page.locator('.sort .done')).toBeVisible() // total = 0 côté serveur
+	if (SHOTS) await page.screenshot({ path: `${SHOTS}/11-mode-tri-973-termine.png` })
+})
+
+test('mode tri : photo déjà dans un autre évènement = conflit ; « Annuler » revient sur la BONNE photo (passer a, conflit b, Annuler)', async ({ page }) => {
+	const items = [u('2026/10/11/a.jpg', '2026-10-11'), u('2026/10/11/b.jpg', '2026-10-11'), u('2026/10/11/c.jpg', '2026-10-11')]
+	const { calls } = await setup(page, { unclassified: items, conflictPath: '2026/10/11/b.jpg' })
+	await page.goto('/coffre?v=events')
+	await page.locator('.todo').click()
+	await page.waitForSelector('.sort .photo')
+	const cur = () => page.locator('.sort .photo').getAttribute('data-path')
+	expect(await cur()).toBe('2026/10/11/a.jpg')
+	await page.locator('.sort .skip').click() // a : passée
+	await expect(page.locator('.sort .count-n')).toHaveText('2 / 3 restantes')
+	expect(await cur()).toBe('2026/10/11/b.jpg')
+	await page.locator('.sort .chip.strong').first().click() // b : conflit, laissée dans l'autre évènement
+	await expect(page.locator('.toast', { hasText: 'Déjà dans « Anniversaire de Lys »' })).toBeVisible()
+	await expect.poll(cur).toBe('2026/10/11/c.jpg')
+	await expect(page.locator('.sort .count-n')).toHaveText('1 / 3 restantes')
+	await page.locator('.sort .undo').click() // revient sur b (noop), sans défaire le skip de a
+	await expect.poll(cur).toBe('2026/10/11/b.jpg')
+	await expect(page.locator('.sort .count-n')).toHaveText('2 / 3 restantes')
+	expect(calls.filter((c) => c.url === '/api/coffre/media/skip').map((c) => c.body.undo)).toEqual([false]) // aucun undo de skip envoyé
+	await page.locator('.sort .undo').click() // 2e annulation : défait le skip de a
+	await expect.poll(cur).toBe('2026/10/11/a.jpg')
+	expect(calls.filter((c) => c.url === '/api/coffre/media/skip').at(-1)?.body).toEqual({ paths: ['2026/10/11/a.jpg'], undo: true })
+	await expect(page.locator('.sort .count-n')).toHaveText('3 / 3 restantes')
+})
+
+test('conflit du mode tri : « Déplacer ici » (mode move, décision explicite) ; Annuler défait ensuite ce déplacement', async ({ page }) => {
+	const items = [u('2026/10/11/b.jpg', '2026-10-11'), u('2026/10/11/c.jpg', '2026-10-11')]
+	const { calls } = await setup(page, { unclassified: items, conflictPath: '2026/10/11/b.jpg' })
+	await page.goto('/coffre?v=events')
+	await page.locator('.todo').click()
+	await page.waitForSelector('.sort .photo')
+	await page.locator('.sort .chip.strong').first().click()
+	const toast = page.locator('.toast', { hasText: 'Déjà dans' })
+	await expect(toast).toBeVisible()
+	expect(await toast.locator('.act .kh').evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(18)
+	await page.waitForTimeout(400)
+	if (SHOTS) await page.screenshot({ path: `${SHOTS}/12-tri-conflit-deplacer-ici.png` })
+	expect(calls.filter((c) => c.m === 'POST' && c.body?.mode === 'move')).toEqual([]) // rien de déplacé en silence
+	await toast.locator('.act').click()
+	await expect.poll(() => calls.find((c) => c.m === 'POST' && c.body?.mode === 'move')?.body).toEqual({ paths: ['2026/10/11/b.jpg'], mode: 'move' })
+	await expect(page.locator('.toast', { hasText: 'Photos déplacées' })).toBeVisible()
+	await page.locator('.sort .undo').click()
+	await expect.poll(() => calls.find((c) => c.m === 'DELETE' && c.url.endsWith('/media'))?.body).toEqual({ paths: ['2026/10/11/b.jpg'] })
+})
+
+test('mode tri : échec réseau/serveur ≠ hors ligne ; message neutre + Réessayer ; hors ligne = message dédié', async ({ page, context }) => {
+	let n = 0
+	const { calls } = await setup(page, { unclassified: [u('2026/10/11/a.jpg', '2026-10-11'), u('2026/10/11/b.jpg', '2026-10-11')], skipStatus: () => (n++ === 0 ? 500 : 200) })
+	await page.goto('/coffre?v=events')
+	await page.locator('.todo').click()
+	await page.waitForSelector('.sort .photo')
+	await page.locator('.sort .skip').click()
+	const toast = page.locator('.toast', { hasText: 'Connexion impossible pour le moment' })
+	await expect(toast).toBeVisible()
+	await expect(toast).not.toContainText('hors ligne')
+	await expect(page.locator('.sort .count-n')).toHaveText('2 / 2 restantes') // rien n'a avancé
+	await toast.locator('.act').click() // Réessayer
+	await expect(page.locator('.sort .count-n')).toHaveText('1 / 2 restantes')
+	expect(calls.filter((c) => c.url === '/api/coffre/media/skip')).toHaveLength(2)
+	await context.setOffline(true)
+	await page.locator('.sort .skip').click()
+	const off = page.locator('.toast', { hasText: 'Impossible hors ligne' })
+	await expect(off).toBeVisible()
+	await expect(off.locator('.act')).toHaveCount(0)
+	await context.setOffline(false)
+})
+
+test('mode tri : pointercancel n\'valide PAS un swipe (la carte revient, rien n\'est envoyé)', async ({ page }) => {
+	const { calls } = await setup(page, { unclassified: [u('2026/10/11/a.jpg', '2026-10-11'), u('2026/10/11/b.jpg', '2026-10-11')] })
+	await page.goto('/coffre?v=events')
+	await page.locator('.todo').click()
+	await page.waitForSelector('.sort .photo')
+	const before = calls.filter((c) => c.m === 'POST').length
+	await page.evaluate(() => {
+		const el = document.querySelector('.sort .photo')!
+		const ev = (type: string, x: number) => el.dispatchEvent(new PointerEvent(type, { clientX: x, clientY: 300, pointerId: 7, bubbles: true }))
+		ev('pointerdown', 200); ev('pointermove', 40) // bien au-delà du seuil vers la gauche
+		ev('pointercancel', 40)
+	})
+	await page.waitForTimeout(500)
+	expect(calls.filter((c) => c.m === 'POST').length).toBe(before)
+	await expect(page.locator('.sort .count-n')).toHaveText('2 / 2 restantes')
+	expect(await page.locator('.sort .photo').getAttribute('data-path')).toBe('2026/10/11/a.jpg')
+	expect(await page.locator('.sort .photo').evaluate((e) => getComputedStyle(e).transform)).toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/) // carte revenue
+	// à l'inverse un pointerup au même endroit valide bien le swipe ← (passer)
+	await page.evaluate(() => {
+		const el = document.querySelector('.sort .photo')!
+		const ev = (type: string, x: number) => el.dispatchEvent(new PointerEvent(type, { clientX: x, clientY: 300, pointerId: 8, bubbles: true }))
+		ev('pointerdown', 200); ev('pointermove', 40); ev('pointerup', 40)
+	})
+	await expect(page.locator('.sort .count-n')).toHaveText('1 / 2 restantes')
+})
+
+test('viewer à 393 px : étoile, lien, partage et fermeture gardent ≥ 44×44 (rien n\'est écrasé)', async ({ page }) => {
+	await setup(page)
+	await page.goto('/coffre?v=events&e=2')
+	await page.waitForSelector('.cell img')
+	await page.locator('.cell').first().locator('.tile').click()
+	await expect(page.locator('.viewer-backdrop .cover-btn')).toBeVisible()
+	await page.waitForTimeout(600)
+	const boxes = await page.locator('.viewer-backdrop .top-bar .bar-btn').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, label: e.getAttribute('aria-label') } }))
+	expect(boxes.length).toBe(4)
+	for (const b of boxes) { expect(b.w, b.label ?? '').toBeGreaterThanOrEqual(44); expect(b.h, b.label ?? '').toBeGreaterThanOrEqual(44) }
+	if (SHOTS) await page.screenshot({ path: `${SHOTS}/08-viewer-couverture.png` })
+})
+
+test('badge « Traduction… » : une ligne, collé en haut, ne recouvre plus l\'emoji de la tuile', async ({ page }) => {
+	await setup(page)
+	await page.goto('/coffre?v=events')
+	await page.waitForSelector('.card')
+	const card = page.locator('.card', { hasText: 'Noël à Paris' })
+	const m = await card.evaluate((c) => {
+		const b = c.querySelector('.pend-badge')!.getBoundingClientRect()
+		const e = c.querySelector('.big-emoji')!.getBoundingClientRect()
+		return { badgeBottom: b.bottom, badgeH: b.height, emojiTop: e.top, badgeRight: b.right, cardRight: c.getBoundingClientRect().right }
+	})
+	expect(m.badgeBottom).toBeLessThanOrEqual(m.emojiTop) // l'emoji n'est plus mordu
+	expect(m.badgeRight).toBeLessThanOrEqual(m.cardRight)
+	expect(m.badgeH).toBeLessThan(36) // une seule ligne
+	await page.waitForTimeout(300)
+	if (SHOTS) await card.screenshot({ path: `${SHOTS}/07b-tuile-badge-traduction.png` })
+})
+
+test('menu ⋯ : les libellés FR + khmer sont alignés à gauche, sur deux lignes, sans débordement', async ({ page }) => {
+	await setup(page)
+	await page.goto('/coffre?v=events&e=2')
+	await page.waitForSelector('.hero-txt')
+	await page.getByRole('button', { name: /Plus d/ }).click()
+	await page.waitForSelector('.mi-txt')
+	await page.waitForTimeout(500)
+	const rows = await page.locator('.mi').evaluateAll((els) => els.map((e) => {
+		const r = e.getBoundingClientRect()
+		const fr = e.querySelector('.mi-txt > span:first-child')!.getBoundingClientRect()
+		const kh = e.querySelector('.mi-txt > .kh')!.getBoundingClientRect()
+		return { frLeft: Math.round(fr.left), khLeft: Math.round(kh.left), khBelow: kh.top >= fr.bottom - 1, inside: kh.right <= r.right && fr.right <= r.right }
+	}))
+	expect(rows.length).toBeGreaterThanOrEqual(4)
+	for (const r of rows) { expect(r.khLeft).toBe(r.frLeft); expect(r.khBelow).toBe(true); expect(r.inside).toBe(true) }
+	if (SHOTS) await page.screenshot({ path: `${SHOTS}/13-menu-alignement.png` })
 })

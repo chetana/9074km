@@ -325,12 +325,21 @@
 		gap: 4px;
 	}
 
-	.cover-btn {
+	/* Tous les boutons de la barre du haut : jamais écrasés par le nom du fichier, cibles ≥ 44 px (iPhone 393 px). */
+	.top-bar .bar-btn {
+		flex-shrink: 0;
 		min-width: var(--btn-tap);
 		min-height: var(--btn-tap);
 		display: flex;
 		align-items: center;
 		justify-content: center;
+	}
+
+	.top-bar .filename {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.cover-btn[aria-pressed='true'] {

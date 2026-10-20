@@ -333,21 +333,21 @@
 
 <BottomSheet open={menuOpen} onclose={() => { menuOpen = false; confirmingDelete = false; }}>
 	<div class="menu">
-		<button class="mi" onclick={() => { menuOpen = false; if (ev) onEdit(ev); }}><Pencil size={20} /> {T.edit.fr} <span class="kh" lang="km">{T.edit.kh}</span></button>
-		<button class="mi" onclick={startCoverPick}><ImageIcon size={20} /> {T.cover.fr} <span class="kh" lang="km">{T.cover.kh}</span></button>
-		<button class="mi" onclick={() => { menuOpen = false; void setCover(null); }}><ImageIcon size={20} /> {T.autoCover.fr} <span class="kh" lang="km">{T.autoCover.kh}</span></button>
+		<button class="mi" onclick={() => { menuOpen = false; if (ev) onEdit(ev); }}><Pencil size={20} /><span class="mi-txt"><span>{T.edit.fr}</span><span class="kh" lang="km">{T.edit.kh}</span></span></button>
+		<button class="mi" onclick={startCoverPick}><ImageIcon size={20} /><span class="mi-txt"><span>{T.cover.fr}</span><span class="kh" lang="km">{T.cover.kh}</span></span></button>
+		<button class="mi" onclick={() => { menuOpen = false; void setCover(null); }}><ImageIcon size={20} /><span class="mi-txt"><span>{T.autoCover.fr}</span><span class="kh" lang="km">{T.autoCover.kh}</span></span></button>
 		{#if confirmingDelete}
 			<div class="confirm" role="alertdialog" aria-label={T.confirmDelete.fr}>
 				<p class="confirm-q">{T.confirmDelete.fr}</p>
 				<p class="confirm-q kh" lang="km">{T.confirmDelete.kh}</p>
 				<p class="confirm-note">{T.deleteNote.fr} · <span lang="km">{T.deleteNote.kh}</span></p>
 				<div class="confirm-btns">
-					<button class="mi danger solid" onclick={() => { confirmingDelete = false; deleteThisEvent(); }}><Trash2 size={20} /> {T.delete.fr} <span class="kh" lang="km">{T.delete.kh}</span></button>
-					<button class="mi" onclick={() => (confirmingDelete = false)}>{T.cancel.fr} <span class="kh" lang="km">{T.cancel.kh}</span></button>
+					<button class="mi danger solid" onclick={() => { confirmingDelete = false; deleteThisEvent(); }}><Trash2 size={20} /><span class="mi-txt"><span>{T.delete.fr}</span><span class="kh" lang="km">{T.delete.kh}</span></span></button>
+					<button class="mi" onclick={() => (confirmingDelete = false)}><span class="mi-txt"><span>{T.cancel.fr}</span><span class="kh" lang="km">{T.cancel.kh}</span></span></button>
 				</div>
 			</div>
 		{:else}
-			<button class="mi danger" onclick={() => (confirmingDelete = true)}><Trash2 size={20} /> {T.delete.fr} <span class="kh" lang="km">{T.delete.kh}</span></button>
+			<button class="mi danger" onclick={() => (confirmingDelete = true)}><Trash2 size={20} /><span class="mi-txt"><span>{T.delete.fr}</span><span class="kh" lang="km">{T.delete.kh}</span></span></button>
 		{/if}
 	</div>
 </BottomSheet>
@@ -419,7 +419,9 @@
 	.retry { min-height: var(--btn-tap); padding: 0 var(--space-6); border-radius: var(--radius-full); background: var(--accent); color: var(--on-accent); font-weight: 600; display: inline-flex; gap: var(--space-2); align-items: center; }
 	.menu { display: flex; flex-direction: column; gap: var(--space-1); }
 	.mi { display: flex; align-items: center; gap: var(--space-3); min-height: 3.25rem; padding: 0 var(--space-3); border-radius: var(--radius-md); font-size: var(--fs-lg); text-align: left; background: var(--surface-2); }
-	.mi .kh { font-size: var(--fs-xl); color: var(--text-secondary); }
+	.mi .kh { font-size: var(--fs-xl); color: var(--text-secondary); line-height: var(--lh-kh); }
+	.mi-txt { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+	.mi.solid .kh, .mi.danger.solid .mi-txt .kh { color: white; }
 	.mi.danger { color: var(--accent-text); }
 	.mi.danger.solid { background: var(--accent-deep); color: white; }
 	.confirm { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); background: var(--raised); text-align: center; }

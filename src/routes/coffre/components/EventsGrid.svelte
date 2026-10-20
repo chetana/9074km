@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox, Ellipsis, Download } from 'lucide-svelte';
+	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox, Ellipsis, Download, Languages } from 'lucide-svelte';
 	import BottomSheet from '$lib/BottomSheet.svelte';
 	import { toasts } from '$lib/toast.svelte';
 	import { ogImageUrl } from '$lib/api';
@@ -181,7 +181,7 @@
 							<span class="veil"></span>
 							<span class="badge"><span class="b-fr">{T.upcoming.fr}</span><span lang="km">{T.upcoming.kh}</span></span>
 						{:else if e.namesPending}
-							<span class="badge pend-badge"><span class="b-fr">{T.translatingShort.fr}</span><span lang="km">{T.translatingShort.kh}</span></span>
+							<span class="badge pend-badge" title="{T.translating.fr} · {T.translating.kh}"><Languages size={16} aria-hidden="true" /><span lang="km">{T.translatingShort.kh}</span></span>
 						{:else if e.emoji && e.cover}
 							<span class="mini-emoji" aria-hidden="true">{e.emoji}</span>
 						{/if}
@@ -203,7 +203,7 @@
 {/if}
 
 <BottomSheet open={menuOpen} onclose={() => (menuOpen = false)}>
-	<button class="mi" onclick={doExport}><Download size={20} /> {T.exportAction.fr} <span class="kh" lang="km">{T.exportAction.kh}</span></button>
+	<button class="mi" onclick={doExport}><Download size={20} /><span class="mi-txt"><span>{T.exportAction.fr}</span><span class="kh" lang="km">{T.exportAction.kh}</span></span></button>
 </BottomSheet>
 
 <style>
@@ -231,6 +231,7 @@
 	.more-btn { width: var(--btn-tap); height: var(--btn-tap); border-radius: var(--radius-full); background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-secondary); }
 	.mi { display: flex; align-items: center; gap: var(--space-3); min-height: 3.25rem; padding: 0 var(--space-3); border-radius: var(--radius-md); font-size: var(--fs-lg); text-align: left; background: var(--surface-2); width: 100%; }
 	.mi .kh { font-size: var(--fs-xl); color: var(--text-secondary); }
+	.mi-txt { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
 	.new-btn {
 		width: var(--btn-tap);
 		height: var(--btn-tap);
@@ -324,7 +325,9 @@
 	}
 	.badge span[lang='km'] { font-size: 1rem; line-height: var(--lh-kh); margin-top: -2px; }
 	.badge .b-fr { font-size: var(--fs-md); }
-	.badge.pend-badge { background: var(--surface); color: var(--gold-text); border: 1px solid var(--gold); }
+	/* Une seule ligne, collée en haut : l'emoji (à partir de 18 % de la hauteur) n'est plus recouvert. */
+	.badge.pend-badge { background: var(--surface); color: var(--gold-text); border: 1px solid var(--gold); flex-direction: row; align-items: center; gap: 4px; white-space: nowrap; top: 6px; left: 6px; padding: 0 var(--space-2); line-height: 1.5; }
+	.badge.pend-badge span { margin-top: 0; }
 	.caption {
 		position: absolute; left: 0; right: 0; bottom: 0;
 		display: flex; flex-direction: column; gap: 1px;
