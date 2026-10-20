@@ -292,13 +292,17 @@ export function parsePatchEvent(body: unknown): Result<PatchEventInput> {
 	return { ok: true, value: out }
 }
 
-export function parsePathsBody(body: unknown): Result<{ paths: string[] }> {
+export type AttachModeInput = 'move' | 'keep'
+
+/** { paths, mode? } : `keep` ne déplace jamais une photo déjà rangée ailleurs ; `move` (défaut) = déplacement explicite. */
+export function parsePathsBody(body: unknown): Result<{ paths: string[]; mode: AttachModeInput }> {
 	if (!isPlainObject(body)) return fail('body must be an object')
-	const unk = noUnknownKeys(body, ['paths'])
+	const unk = noUnknownKeys(body, ['paths', 'mode'])
 	if (unk) return fail(unk)
 	const p = parsePaths(body.paths, { min: 1 })
 	if (!p.ok) return p
-	return { ok: true, value: { paths: p.value } }
+	if (body.mode !== undefined && body.mode !== 'move' && body.mode !== 'keep') return fail('mode must be move or keep')
+	return { ok: true, value: { paths: p.value, mode: (body.mode as AttachModeInput | undefined) ?? 'move' } }
 }
 
 export const containsKhmer = (s: string) => /[\u1780-\u17FF]/.test(s)

@@ -71,13 +71,39 @@ describe.skipIf(!isLocal)('events-store (Postgres local jetable)', () => {
 		const setCover = await patchEvent(a.id, { ifVersion: 1, coverPath: '2027/01/01/x.jpg' }, {}, TODAY)
 		expect(setCover.kind === 'ok' && setCover.event.cover).toBe('2027/01/01/x.jpg')
 		expect((await patchEvent(b.id, { ifVersion: 1, coverPath: '2027/01/01/x.jpg' }, {}, TODAY)).kind).toBe('invalid')
-		expect(await addEventMedia(b.id, uid, ['2027/01/01/x.jpg'])).toBe(true)
+		expect(await addEventMedia(b.id, uid, ['2027/01/01/x.jpg'])).toEqual({ added: ['2027/01/01/x.jpg'], skipped: [] })
 		expect(await listEventMedia(a.id)).toEqual(['2027/01/01/y.jpg'])
 		expect(await listEventMedia(b.id)).toEqual(['2027/01/01/x.jpg'])
 		expect((await getEvent(a.id, TODAY))!.cover).toBe('2027/01/01/y.jpg')
 		expect(await removeEventMedia(b.id, ['2027/01/01/x.jpg', '2027/01/01/inconnu.jpg'])).toBe(1)
 		expect(await addEventMedia(424242, uid, ['2027/01/01/x.jpg'])).toBe(false)
 		expect(await listEventMedia(424242)).toBeNull()
+	})
+
+	it('deux appareils, même nom de fichier : en mode keep la photo déjà rangée ailleurs n\'est PAS déplacée, seule la photo libre est rattachée', async () => {
+		const a = await createEvent(uid, input({ name: 'A2', mediaPaths: ['2034/04/04/IMG_0001.jpg'] }), names('A2'), TODAY)
+		const b = await createEvent(uid, input({ name: 'B2' }), names('B2'), TODAY)
+		const res = await addEventMedia(b.id, uid, ['2034/04/04/IMG_0001.jpg', '2034/04/04/IMG_0002.jpg'], 'keep')
+		expect(res).toEqual({ added: ['2034/04/04/IMG_0002.jpg'], skipped: [{ path: '2034/04/04/IMG_0001.jpg', eventId: a.id }] })
+		expect(await listEventMedia(a.id)).toEqual(['2034/04/04/IMG_0001.jpg'])
+		expect(await listEventMedia(b.id)).toEqual(['2034/04/04/IMG_0002.jpg'])
+		// décision explicite de l'utilisateur (« Déplacer ici ») : mode move
+		const moved = await addEventMedia(b.id, uid, ['2034/04/04/IMG_0001.jpg'], 'move')
+		expect(moved).toEqual({ added: ['2034/04/04/IMG_0001.jpg'], skipped: [] })
+		expect(await listEventMedia(a.id)).toEqual([])
+	})
+
+	it('mode keep : même évènement = idempotent ; propriétaire supprimé = la photo est reprise ; couverture de l\'ancien évènement non touchée si rien n\'a bougé', async () => {
+		const a = await createEvent(uid, input({ name: 'A3', mediaPaths: ['2035/05/05/a.jpg', '2035/05/05/b.jpg'] }), names('A3'), TODAY)
+		const cov = await patchEvent(a.id, { ifVersion: 1, coverPath: '2035/05/05/a.jpg' }, {}, TODAY)
+		expect(cov.kind).toBe('ok')
+		const b = await createEvent(uid, input({ name: 'B3' }), names('B3'), TODAY)
+		expect(await addEventMedia(a.id, uid, ['2035/05/05/a.jpg'], 'keep')).toEqual({ added: ['2035/05/05/a.jpg'], skipped: [] })
+		const blocked = await addEventMedia(b.id, uid, ['2035/05/05/a.jpg'], 'keep')
+		expect(blocked).toEqual({ added: [], skipped: [{ path: '2035/05/05/a.jpg', eventId: a.id }] })
+		expect((await getEvent(a.id, TODAY))!.cover).toBe('2035/05/05/a.jpg')
+		await softDeleteEvent(a.id)
+		expect(await addEventMedia(b.id, uid, ['2035/05/05/a.jpg', '2035/05/05/b.jpg'], 'keep')).toEqual({ added: ['2035/05/05/a.jpg', '2035/05/05/b.jpg'], skipped: [] })
 	})
 
 	it('soft delete : la ligne subsiste avec deleted_at, plus listée ; les photos restent rattachées (event_media conservé)', async () => {

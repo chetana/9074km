@@ -189,11 +189,21 @@ describe('/events/:id/media', () => {
 	it('POST : valide les chemins (400), ajoute (déplacement géré par le store), 404 si évènement absent', async () => {
 		await expect(MPOST(ev({ params: p, body: { paths: ['chat/2026/09/22.json'] } }))).rejects.toMatchObject({ status: 400 })
 		await expect(MPOST(ev({ params: p, body: { paths: [] } }))).rejects.toMatchObject({ status: 400 })
-		store.addEventMedia.mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+		store.addEventMedia.mockResolvedValueOnce({ added: ['2026/11/30/a.jpg'], skipped: [] }).mockResolvedValueOnce(false)
 		const res = await MPOST(ev({ params: p, body: { paths: ['2026/11/30/a.jpg', '2026/11/30/a.jpg'] } }))
-		expect((await res.json()).added).toBe(1)
-		expect(store.addEventMedia).toHaveBeenCalledWith(2, 5, ['2026/11/30/a.jpg'])
+		expect(await res.json()).toEqual({ success: true, added: 1, skipped: [] })
+		expect(store.addEventMedia).toHaveBeenCalledWith(2, 5, ['2026/11/30/a.jpg'], 'move') // défaut : déplacement explicite
 		await expect(MPOST(ev({ params: p, body: { paths: ['2026/11/30/a.jpg'] } }))).rejects.toMatchObject({ status: 404 })
+	})
+	it('mode keep : transmis au store, les photos déjà rangées ailleurs sont rendues dans skipped', async () => {
+		store.addEventMedia.mockResolvedValue({ added: ['2026/11/30/b.jpg'], skipped: [{ path: '2026/11/30/a.jpg', eventId: 9 }] })
+		const res = await MPOST(ev({ params: p, body: { paths: ['2026/11/30/a.jpg', '2026/11/30/b.jpg'], mode: 'keep' } }))
+		expect(await res.json()).toEqual({ success: true, added: 1, skipped: [{ path: '2026/11/30/a.jpg', eventId: 9 }] })
+		expect(store.addEventMedia).toHaveBeenCalledWith(2, 5, ['2026/11/30/a.jpg', '2026/11/30/b.jpg'], 'keep')
+	})
+	it('mode inconnu : 400, rien n\'est écrit', async () => {
+		for (const mode of ['overwrite', '', 1, null]) await expect(MPOST(ev({ params: p, body: { paths: ['2026/11/30/a.jpg'], mode } }))).rejects.toMatchObject({ status: 400 })
+		expect(store.addEventMedia).not.toHaveBeenCalled()
 	})
 	it('DELETE : retire, 404 si évènement absent', async () => {
 		store.removeEventMedia.mockResolvedValueOnce(2).mockResolvedValueOnce(null)
