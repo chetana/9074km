@@ -30,6 +30,8 @@ describe.skipIf(!isLocal)('events-store (Postgres local jetable)', () => {
 		await db.execute(sql`CREATE TABLE IF NOT EXISTS users (id serial PRIMARY KEY, email text NOT NULL UNIQUE, name text, picture text, google_id text UNIQUE, logto_id text UNIQUE, created_at timestamp DEFAULT now(), last_login_at timestamp DEFAULT now())`)
 		const r: any = await db.execute(sql`INSERT INTO users (email) VALUES ('t@t') ON CONFLICT (email) DO UPDATE SET name = 'x' RETURNING id`)
 		uid = (r.rows ?? r)[0].id
+		await ensureCoffreSchema()
+		await db.execute(sql`TRUNCATE event_media, events RESTART IDENTITY CASCADE`) // base jetable locale uniquement (garde isLocal)
 	})
 
 	it('ensureCoffreSchema est idempotent (2 exécutions, mémoïsé, et rejouable à froid)', async () => {

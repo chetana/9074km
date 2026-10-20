@@ -1,22 +1,9 @@
 import { sql } from 'drizzle-orm'
 import { getDB } from './db'
-import type { CreateEventInput, EventColor, NameLang, PatchEventInput } from './events-validate'
+import type { CreateEventInput, NameLang, PatchEventInput } from './events-validate'
+import type { EventDTO } from '../events-types'
 
-export interface EventDTO {
-  id: number
-  names: { fr: string; en: string; kh: string }
-  nameSrcLang: NameLang
-  namesPending: boolean
-  dates: { start: string; end: string }
-  cover: string | null
-  place: string | null
-  emoji: string | null
-  color: EventColor
-  autoAttach: boolean
-  version: number
-  count: number
-  upcoming: boolean
-}
+export type { EventDTO }
 
 type Db = ReturnType<typeof getDB>
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]

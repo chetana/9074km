@@ -33,6 +33,15 @@
 	import FileTile from './FileTile.svelte';
 	import FabUpload from './FabUpload.svelte';
 	import FileViewer from './FileViewer.svelte';
+	import EventPicker from './EventPicker.svelte';
+	import EventForm from './EventForm.svelte';
+	import { userStore } from '$lib/auth';
+	import { fetchForDate, addEventMedia, removeEventMedia, EventApiError } from '$lib/events-api';
+	import { eventsStore } from '$lib/events.svelte';
+	import { readerLangFor, displayNames, formatRange } from '$lib/events-ui';
+	import { T } from '$lib/events-i18n';
+	import { toasts } from '$lib/toast.svelte';
+	import type { EventDTO } from '$lib/events-types';
 
 	interface Props {
 		year: string;
@@ -123,6 +132,77 @@
 	$effect(() => {
 		onCountChange?.(items === null ? null : mediaItems.length);
 	});
+
+	// --- Évènements : pastille « Dans : … » + « Ajouter à… » ---
+	const readerLang = $derived(readerLangFor($userStore?.name));
+	let tags = $state<Record<string, number>>({}); // chemin → id d'évènement
+	let tagEvents = $state<Record<number, EventDTO>>({});
+	let pickerOpen = $state(false);
+	let formOpen = $state(false);
+	let formPaths = $state<string[]>([]);
+	const formInitial = $derived({
+		name: formatRange(`${year}-${month}-${day}`, `${year}-${month}-${day}`).fr,
+		dateStart: `${year}-${month}-${day}`,
+		dateEnd: `${year}-${month}-${day}`,
+		mediaPaths: formPaths
+	});
+
+	async function loadTags() {
+		try {
+			const r = await fetchForDate(`${year}-${month}-${day}`);
+			tags = r.tags;
+			tagEvents = Object.fromEntries(r.tagEvents.map((e) => [e.id, e]));
+		} catch {
+			// hors ligne ou évènements indisponibles : la vue jour reste identique, sans pastilles.
+		}
+	}
+
+	$effect(() => {
+		const _d = `${year}-${month}-${day}`;
+		tags = {};
+		void loadTags();
+	});
+
+	function tagFor(name: string) {
+		const id = tags[name];
+		const e = id === undefined ? undefined : tagEvents[id];
+		if (!e) return null;
+		const n = displayNames(e, readerLang);
+		return { emoji: e.emoji, label: n.primary, lang: n.primaryLang };
+	}
+
+	function applyTags(ev: EventDTO, names: string[]) {
+		tags = { ...tags, ...Object.fromEntries(names.map((n) => [n, ev.id])) };
+		tagEvents = { ...tagEvents, [ev.id]: ev };
+	}
+
+	async function pickEvent(ev: EventDTO) {
+		pickerOpen = false;
+		const names = Array.from(selected);
+		try {
+			await addEventMedia(ev.id, names);
+			applyTags(ev, names);
+			clearSelection();
+			toasts.push({ message: T.added.fr, messageKh: T.added.kh });
+			void eventsStore.load();
+		} catch (e) {
+			const offline = e instanceof EventApiError && e.status === 0;
+			toasts.push({ message: offline ? T.offlineAction.fr : T.genericError.fr, messageKh: offline ? T.offlineAction.kh : T.genericError.kh });
+		}
+	}
+
+	function createForSelection() {
+		formPaths = Array.from(selected);
+		pickerOpen = false;
+		formOpen = true;
+	}
+
+	function onEventCreated(ev: EventDTO) {
+		formOpen = false;
+		applyTags(ev, formPaths);
+		clearSelection();
+		toasts.push({ message: T.added.fr, messageKh: T.added.kh });
+	}
 
 	// --- Load data ---
 	// --- Load data ---
@@ -380,6 +460,11 @@
 		if (!confirmed) return;
 
 		await Promise.all(names.map((name) => deleteObject(name)));
+		// Retire aussi les photos supprimées de leur évènement (sinon tuiles fantômes dans l'évènement).
+		const byEvent = new Map<number, string[]>();
+		for (const n of names) if (tags[n] !== undefined) byEvent.set(tags[n], [...(byEvent.get(tags[n]) ?? []), n]);
+		await Promise.all([...byEvent].map(([id, ps]) => removeEventMedia(id, ps).catch(() => {})));
+		if (byEvent.size) void eventsStore.load();
 		invalidateListCache(`${year}/${month}/${day}/`);
 		clearSelection();
 		refreshAll();
@@ -467,6 +552,7 @@
 		<div class="selection-bar">
 			<span>{selected.size} sélectionné(s)</span>
 			<div class="selection-actions">
+				<button onclick={() => (pickerOpen = true)} class="event-btn">{T.addTo.fr} <span lang="km">{T.addTo.kh}</span></button>
 				<button onclick={deleteSelected} class="delete-btn">🗑 Supprimer</button>
 				<button onclick={clearSelection}>Annuler</button>
 			</div>
@@ -512,6 +598,7 @@
 					selected={selected.has(item.name)}
 					{selectionMode}
 					{thumbWidth}
+					eventTag={tagFor(item.name)}
 					onTap={() => (viewerIndex = i)}
 					onLongPress={() => toggleSelection(item.name)}
 				/>
@@ -519,7 +606,24 @@
 		{/if}
 	</div>
 
-	<!-- FAB Upload -->
+	<EventPicker
+		open={pickerOpen}
+		date={`${year}-${month}-${day}`}
+		{readerLang}
+		onPick={(e) => void pickEvent(e)}
+		onCreate={createForSelection}
+		onclose={() => (pickerOpen = false)}
+	/>
+	<EventForm
+		open={formOpen}
+		event={null}
+		initial={formInitial}
+		onclose={() => (formOpen = false)}
+		onSaved={onEventCreated}
+	/>
+
+	<!-- FAB Upload (masqué sous les feuilles évènement : il passait par-dessus) -->
+	{#if !pickerOpen && !formOpen}
 	<FabUpload
 		phase={uploadPhase}
 		current={uploadCurrent}
@@ -527,6 +631,7 @@
 		currentDate={`${year}-${month}-${day}`}
 		onFiles={handleUpload}
 	/>
+	{/if}
 
 	<!-- File Viewer -->
 	{#if viewerIndex !== null}
@@ -591,6 +696,27 @@
 
 	.delete-btn {
 		color: #ff6b6b;
+	}
+
+	.event-btn {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		line-height: 1.2;
+		white-space: nowrap;
+		color: var(--accent-text);
+		font-weight: 600;
+		min-height: var(--btn-tap);
+	}
+
+	.selection-bar {
+		flex-wrap: wrap;
+	}
+
+	.selection-actions {
+		flex: 1;
+		justify-content: space-between;
 	}
 
 	/* Grid */
