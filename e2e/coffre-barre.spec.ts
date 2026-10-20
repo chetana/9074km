@@ -96,7 +96,7 @@ test('les filtres ne sont pas mémorisés d\'une ouverture à l\'autre', async (
 	await expect(yearBtn(page)).toContainText('Toutes les années')
 })
 
-test('bouton Suggestion : absent à 0 ; à droite du chip « à classer » ; compteur ; fenêtre listant toutes les suggestions ; refus et Oui', async ({ page }) => {
+test('bouton Suggestion : absent à 0 ; dans la barre du haut ; compteur ; fenêtre listant toutes les suggestions ; refus et Oui', async ({ page }) => {
 	await open(page, 393, 852)
 	await expect(page.locator('.sugg-btn')).toHaveCount(0)
 	// 3 suggestions + chip « à classer »
@@ -108,12 +108,13 @@ test('bouton Suggestion : absent à 0 ; à droite du chip « à classer » ; com
 	await page.route('**/api/coffre/events/suggestions/dismiss', (r) => { const b = JSON.parse(r.request().postData()!); dismissed.push(b.start); list = list.filter((s) => s.start !== b.start); r.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' }) })
 	await page.reload(); await page.waitForSelector('.sugg-btn')
 	const btn = page.locator('.sugg-btn')
-	await expect(btn).toContainText('Suggestion · 3')
-	const bt = (await btn.boundingBox())!, td = (await page.locator('.todo').boundingBox())!
-	expect(td.x + td.width).toBeLessThanOrEqual(bt.x) // le chip à gauche, le bouton à droite
-	expect(Math.abs(td.y + td.height / 2 - (bt.y + bt.height / 2))).toBeLessThan(12) // même ligne
-	expect(bt.height).toBeGreaterThanOrEqual(44)
-	expect(await btn.locator('.kh').evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(18)
+	await expect(btn).toHaveAttribute('aria-label', /Suggestion · .* · 3$/)
+	await expect(btn.locator('.sugg-n')).toHaveText('3')
+	const bt = (await btn.boundingBox())!, hd = (await page.locator('header.header').boundingBox())!, av = (await page.locator('.header-actions').boundingBox())!
+	expect(bt.y).toBeGreaterThanOrEqual(hd.y); expect(bt.y + bt.height).toBeLessThanOrEqual(hd.y + hd.height) // dans la barre : aucune hauteur prise ailleurs
+	expect(bt.x + bt.width).toBeLessThanOrEqual(av.x) // à gauche de l'avatar, sans le recouvrir
+	expect(bt.height).toBeGreaterThanOrEqual(44); expect(bt.width).toBeGreaterThanOrEqual(44)
+	expect((await page.locator('.tools .sugg-btn').count())).toBe(0) // plus de bouton dans la liste
 	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(393)
 	await btn.click()
 	await expect(page.locator('section.card')).toHaveCount(3)
@@ -123,7 +124,7 @@ test('bouton Suggestion : absent à 0 ; à droite du chip « à classer » ; com
 	// refus (×) : la liste se met à jour
 	await page.locator('section.card').first().locator('.x').click()
 	await expect(page.locator('section.card')).toHaveCount(2)
-	await expect(btn).toContainText('Suggestion · 2')
+	await expect(btn.locator('.sugg-n')).toHaveText('2')
 	expect(dismissed).toEqual(['2026-05-20'])
 	// Oui : confirmation avec le nombre, POST seulement après confirmation
 	await page.locator('section.card').first().getByRole('button', { name: /^Oui/ }).click()

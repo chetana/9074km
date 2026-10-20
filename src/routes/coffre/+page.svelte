@@ -11,6 +11,9 @@
 	import DayList from './components/DayList.svelte';
 	import DayFiles from './components/DayFiles.svelte';
 	import Breadcrumb from './components/Breadcrumb.svelte';
+	import { Sparkles } from 'lucide-svelte';
+	import { suggestionBar } from '$lib/suggestion-bar.svelte';
+	import { T as EV } from '$lib/events-i18n';
 	import FabUpload from './components/FabUpload.svelte';
 	import ViewToggle from './components/ViewToggle.svelte';
 	import EventsGrid from './components/EventsGrid.svelte';
@@ -282,6 +285,11 @@
 				onMonth={goToMonth}
 				onEventBack={view === 'events' && eventId !== null ? closeEvent : null}
 			/>
+			{#if view === 'events' && eventId === null && suggestionBar.count > 0}
+				<button class="sugg-btn" onclick={() => suggestionBar.open?.()} aria-haspopup="dialog" aria-label="{EV.suggTitle.fr} · {EV.suggTitle.kh} · {suggestionBar.count}" title="{EV.suggTitle.fr} · {EV.suggTitle.kh}">
+					<Sparkles size={20} aria-hidden="true" /><span class="sugg-n">{suggestionBar.count}</span>
+				</button>
+			{/if}
 			<div class="header-actions">
 				{#if day !== null}
 					<a href="/fiancailles?y={year}&m={month}&d={day}" class="icon-btn" title="Galerie PS3 · រូបថត">🎞️</a>
@@ -470,6 +478,12 @@
 		z-index: 2;
 	}
 
+	.sugg-btn {
+		min-width: var(--btn-tap); min-height: var(--btn-tap); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1);
+		padding: 0 var(--space-3); margin-right: var(--space-2); border-radius: var(--radius-full); flex-shrink: 0;
+		background: linear-gradient(150deg, var(--accent), var(--accent-warm)); color: var(--on-accent); box-shadow: var(--shadow-accent); font-weight: 600;
+	}
+	.sugg-n { font-family: var(--font-display); font-size: var(--fs-lg); }
 	.header-actions {
 		display: flex;
 		align-items: center;
