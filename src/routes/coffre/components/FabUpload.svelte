@@ -322,7 +322,8 @@
 <style>
 	.fab {
 		position: fixed;
-		bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + var(--space-4));
+		/* --dock-h = hauteur mesurée du dock (layout) ; repli sur l'ancienne estimation. */
+		bottom: calc(var(--dock-h, var(--nav-height) + env(safe-area-inset-bottom, 0px)) + var(--space-4));
 		right: var(--space-4);
 		width: var(--btn-fab);
 		height: var(--btn-fab);
@@ -411,7 +412,7 @@
 	}
 
 	.kh-today {
-		font-size: var(--fs-xs);
+		font-size: var(--fs-base);
 		color: var(--muted-text);
 		font-weight: 400;
 		line-height: var(--lh-kh);
@@ -439,7 +440,7 @@
 	}
 
 	.taken { text-align: center; display: flex; flex-direction: column; gap: var(--space-1); }
-	.taken-title { font-family: var(--font-display); font-size: var(--fs-2xl); color: var(--text); }
+	.taken-title { font-family: var(--font-display); font-size: var(--fs-xl); text-wrap: balance; color: var(--text); }
 	.taken-title-kh { font-size: var(--fs-xl); color: var(--text-secondary); line-height: var(--lh-kh); }
 	.taken-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-2) 0; max-height: 34dvh; overflow-y: auto; flex-shrink: 1; min-height: 0; }
 	.taken-list li { flex-shrink: 0; }

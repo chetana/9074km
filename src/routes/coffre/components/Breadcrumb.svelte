@@ -48,8 +48,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 2rem;
-		height: 2rem;
+		width: var(--btn-tap);
+		height: var(--btn-tap);
 		flex-shrink: 0;
 		color: var(--muted-glyph);
 	}

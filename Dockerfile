@@ -10,6 +10,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
 COPY --from=builder /app/build /app/build
+ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=8080
 EXPOSE 8080

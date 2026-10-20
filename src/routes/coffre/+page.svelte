@@ -454,11 +454,12 @@
 	}
 
 	/* Header */
+	/* PWA iPhone (black-translucent + viewport-fit=cover) : sans la zone sûre du haut, le titre passe sous la Dynamic Island. */
 	.header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.5rem var(--space-4);
+		padding: calc(0.5rem + env(safe-area-inset-top, 0px)) var(--space-4) 0.5rem;
 		flex-shrink: 0;
 		position: relative;
 		z-index: 2;
@@ -472,6 +473,11 @@
 
 	.icon-btn {
 		font-size: var(--fs-xl);
+		min-width: var(--btn-tap);
+		min-height: var(--btn-tap);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		padding: var(--space-1);
 		border-radius: var(--radius-sm);
 		background: none;

@@ -13,6 +13,21 @@
 
 	let { data, children } = $props();
 
+	// Hauteur réelle du dock (barre + version + zone sûre) publiée en --dock-h : le FAB du coffre se pose au-dessus.
+	let dockEl = $state<HTMLElement | null>(null);
+	$effect(() => {
+		if (!dockEl) return;
+		const el = dockEl;
+		const publish = () => document.documentElement.style.setProperty('--dock-h', `${el.offsetHeight}px`);
+		publish();
+		const ro = new ResizeObserver(publish);
+		ro.observe(el);
+		return () => {
+			ro.disconnect();
+			document.documentElement.style.removeProperty('--dock-h');
+		};
+	});
+
 	onMount(() => {
 		checkCacheIntegrity();
 		auth.init(data.user);
@@ -106,7 +121,7 @@
 	</main>
 
 	{#if !isGallery}
-	<div class="nav-dock glass">
+	<div class="nav-dock glass" bind:this={dockEl}>
 		<nav class="dock-bar">
 			{#each tabs as tab, i}
 				{@const active = $page.url.pathname.startsWith(tab.path)}
@@ -247,7 +262,7 @@
 	}
 
 	.dock-label-kh {
-		font-size: 0.65rem;
+		font-size: var(--fs-base);
 		text-transform: none;
 		letter-spacing: normal;
 		color: inherit;
