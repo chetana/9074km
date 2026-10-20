@@ -69,3 +69,16 @@ export const media = pgTable('media', {
   check('media_kind_chk', sql`${t.kind} IN ('image', 'video')`),
   index('media_day_idx').on(t.day.desc()),
 ])
+
+// Suggestions écartées (lot 4). Miroir de scripts/sql/003-suggestions.sql.
+export const suggestionDismissals = pgTable('suggestion_dismissals', {
+  id: serial('id').primaryKey(),
+  rangeStart: date('range_start', { mode: 'string' }).notNull(),
+  rangeEnd: date('range_end', { mode: 'string' }).notNull(),
+  photoCount: integer('photo_count').notNull(),
+  dismissedBy: integer('dismissed_by').references(() => users.id),
+  dismissedAt: timestamp('dismissed_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  check('suggestion_dismissals_count_chk', sql`${t.photoCount} >= 0`),
+  index('suggestion_dismissals_range_idx').on(t.rangeStart, t.rangeEnd),
+])
