@@ -106,3 +106,22 @@ for (const s of SCREENS) {
 		expect.soft(r.unsafe, 'interactifs fixes dans la zone non sûre').toEqual([])
 	})
 }
+
+// Géométrie, pas seulement une chaîne CSS : avec une zone sûre simulée de 59 px, rien d'interactif ni le texte
+// du header ne doit commencer au-dessus de la Dynamic Island.
+for (const id of ['01-dates-annees', '04-evenements-vide']) {
+	test(`header sous la zone sûre du haut : ${id}`, async ({ page, context }) => {
+		const s = SCREENS.find((x) => x.id === id)!
+		const cdp = await context.newCDPSession(page)
+		await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: SAFE_TOP, bottom: SAFE_BOTTOM, left: 0, right: 0 } })
+		await mockCoffre(page, { auth: 'real', ...s.mock })
+		await s.open(page)
+		const m = await page.evaluate(() => {
+			const header = document.querySelector('.header')!
+			const tops = [...header.querySelectorAll('button, a[href]')].map((e) => e.getBoundingClientRect().top)
+			return { inset: getComputedStyle(header).paddingTop, headerTop: header.getBoundingClientRect().top, firstInteractive: Math.min(...tops), n: tops.length }
+		})
+		expect(m.n).toBeGreaterThan(0)
+		expect(m.firstInteractive, `premier élément interactif du header à ${m.firstInteractive}px`).toBeGreaterThanOrEqual(SAFE_TOP)
+	})
+}

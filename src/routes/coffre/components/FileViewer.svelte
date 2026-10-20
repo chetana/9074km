@@ -360,8 +360,8 @@
 		position: absolute;
 		inset: 0;
 		overflow: hidden;
-		--peek: 20px;
-		--gap: 8px;
+		--peek: 0px; /* plus de voisine devinée au bord : elle n'apparaît que pendant le glissement */
+		--gap: 12px;
 		--slide-w: calc(100% - 2 * var(--peek));
 	}
 

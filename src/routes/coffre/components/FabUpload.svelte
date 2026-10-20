@@ -322,7 +322,8 @@
 <style>
 	.fab {
 		position: fixed;
-		bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + var(--space-4));
+		/* --dock-h = hauteur mesurée du dock (layout) ; repli sur l'ancienne estimation. */
+		bottom: calc(var(--dock-h, var(--nav-height) + env(safe-area-inset-bottom, 0px)) + var(--space-4));
 		right: var(--space-4);
 		width: var(--btn-fab);
 		height: var(--btn-fab);

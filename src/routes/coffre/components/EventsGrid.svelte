@@ -108,7 +108,7 @@
 
 	{#if years.length > 1}
 		<div class="chips" role="group" aria-label="Année">
-			<button class="chip" class:on={year === null} aria-pressed={year === null} onclick={() => (year = null)}>
+			<button class="chip all" class:on={year === null} aria-pressed={year === null} onclick={() => (year = null)}>
 				{T.allYears.fr} <span class="kh" lang="km">{T.allYears.kh}</span>
 			</button>
 			{#each years as y (y)}
@@ -119,7 +119,7 @@
 
 	{#if places.length > 1}
 		<div class="chips" role="group" aria-label="Lieu">
-			<button class="chip" class:on={place === null} aria-pressed={place === null} onclick={() => (place = null)}>
+			<button class="chip all" class:on={place === null} aria-pressed={place === null} onclick={() => (place = null)}>
 				<MapPin size={16} aria-hidden="true" /> {T.allPlaces.fr} <span class="kh" lang="km">{T.allPlaces.kh}</span>
 			</button>
 			{#each places as p (p.key)}
@@ -270,7 +270,9 @@
 		gap: var(--space-2);
 	}
 	.chip .kh { font-size: var(--fs-xl); }
+	/* Un seul style PLEIN = un filtre réellement appliqué ; « Toutes/Tous » sélectionné (aucun filtre) = contour. */
 	.chip.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+	.chip.all.on { background: transparent; color: var(--accent-text); box-shadow: inset 0 0 0 2px var(--accent); }
 	.banner {
 		display: flex;
 		align-items: center;
