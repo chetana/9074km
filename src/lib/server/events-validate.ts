@@ -345,49 +345,58 @@ function optNumber(v: unknown, field: string, min: number, max: number): Result<
 	return { ok: true, value: v }
 }
 
+/** Un item du lot : invalide = ignoré par parseMediaBatch, jamais fatal pour les autres. */
+function parseMediaItem(raw: unknown): Result<MediaItemInput> {
+	if (!isPlainObject(raw)) return fail('item must be an object')
+	const k = noUnknownKeys(raw, MEDIA_KEYS)
+	if (k) return fail(`item: ${k}`)
+	const p = parsePaths([raw.path], { min: 1, field: 'path' })
+	if (!p.ok) return p
+	const path = p.value[0]
+	const [y, m, d] = path.split('/')
+	if (!isValidDate(`${y}-${m}-${d}`)) return fail('path: invalid day')
+	const size = optNumber(raw.size, 'size', 0, Number.MAX_SAFE_INTEGER)
+	if (!size.ok) return size
+	if (size.value !== null && !Number.isInteger(size.value)) return fail('size must be an integer')
+	let takenAt: string | null = null
+	if (raw.takenAt !== undefined && raw.takenAt !== null) {
+		const t = typeof raw.takenAt === 'string' ? TAKEN_RE.exec(raw.takenAt) : null
+		if (!t || !isValidDate(t[1])) return fail('takenAt must be a local ISO datetime')
+		takenAt = raw.takenAt as string
+	}
+	let takenOffset: string | null = null
+	if (raw.takenOffset !== undefined && raw.takenOffset !== null) {
+		if (typeof raw.takenOffset !== 'string' || !OFFSET_RE.test(raw.takenOffset)) return fail('takenOffset must be +HH:MM or -HH:MM')
+		takenOffset = raw.takenOffset
+	}
+	const lat = optNumber(raw.lat, 'lat', -90, 90)
+	if (!lat.ok) return lat
+	const lng = optNumber(raw.lng, 'lng', -180, 180)
+	if (!lng.ok) return lng
+	if ((lat.value === null) !== (lng.value === null)) return fail('lat and lng go together')
+	const make = optString(raw.make, 'make')
+	if (!make.ok) return make
+	const model = optString(raw.model, 'model')
+	if (!model.ok) return model
+	return { ok: true, value: { path, size: size.value, takenAt, takenOffset, lat: lat.value, lng: lng.value, make: make.value, model: model.value } }
+}
+
 /** Corps de POST /api/coffre/media : photos réellement envoyées + métadonnées EXIF, 500 max. */
-export function parseMediaBatch(body: unknown): Result<MediaItemInput[]> {
+export function parseMediaBatch(body: unknown): Result<MediaItemInput[]> & { skipped?: number } {
 	if (!isPlainObject(body)) return fail('body must be an object')
 	const unk = noUnknownKeys(body, ['items'])
 	if (unk) return fail(unk)
 	if (!Array.isArray(body.items)) return fail('items must be an array')
 	if (body.items.length < 1 || body.items.length > MAX_PATHS) return fail(`items: 1 to ${MAX_PATHS}`)
 	const seen = new Map<string, MediaItemInput>()
+	let skipped = 0
 	for (const raw of body.items) {
-		if (!isPlainObject(raw)) return fail('item must be an object')
-		const k = noUnknownKeys(raw, MEDIA_KEYS)
-		if (k) return fail(`item: ${k}`)
-		const p = parsePaths([raw.path], { min: 1, field: 'path' })
-		if (!p.ok) return p
-		const path = p.value[0]
-		const [y, m, d] = path.split('/')
-		if (!isValidDate(`${y}-${m}-${d}`)) return fail('path: invalid day')
-		const size = optNumber(raw.size, 'size', 0, Number.MAX_SAFE_INTEGER)
-		if (!size.ok) return size
-		if (size.value !== null && !Number.isInteger(size.value)) return fail('size must be an integer')
-		let takenAt: string | null = null
-		if (raw.takenAt !== undefined && raw.takenAt !== null) {
-			const t = typeof raw.takenAt === 'string' ? TAKEN_RE.exec(raw.takenAt) : null
-			if (!t || !isValidDate(t[1])) return fail('takenAt must be a local ISO datetime')
-			takenAt = raw.takenAt as string
-		}
-		let takenOffset: string | null = null
-		if (raw.takenOffset !== undefined && raw.takenOffset !== null) {
-			if (typeof raw.takenOffset !== 'string' || !OFFSET_RE.test(raw.takenOffset)) return fail('takenOffset must be +HH:MM or -HH:MM')
-			takenOffset = raw.takenOffset
-		}
-		const lat = optNumber(raw.lat, 'lat', -90, 90)
-		if (!lat.ok) return lat
-		const lng = optNumber(raw.lng, 'lng', -180, 180)
-		if (!lng.ok) return lng
-		if ((lat.value === null) !== (lng.value === null)) return fail('lat and lng go together')
-		const make = optString(raw.make, 'make')
-		if (!make.ok) return make
-		const model = optString(raw.model, 'model')
-		if (!model.ok) return model
-		seen.set(path, { path, size: size.value, takenAt, takenOffset, lat: lat.value, lng: lng.value, make: make.value, model: model.value })
+		const r = parseMediaItem(raw)
+		if (!r.ok) { skipped++; continue }
+		seen.set(r.value.path, r.value)
 	}
-	return { ok: true, value: [...seen.values()] }
+	if (seen.size === 0) return fail(`aucun item valide (${skipped} ignorés)`)
+	return { ok: true, value: [...seen.values()], ...(skipped ? { skipped } : {}) }
 }
 
 export interface UnclassifiedQuery { limit: number; cursor: { day: string; path: string } | null }

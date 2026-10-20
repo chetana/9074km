@@ -62,3 +62,29 @@ describe('compressImage + EXIF', () => {
 		vi.doUnmock('./exif')
 	})
 })
+
+describe('Chrome/Android : le canvas sait produire du WebP', () => {
+	beforeEach(() => {
+		vi.stubGlobal('OffscreenCanvas', class {
+			getContext() { return { drawImage() {} } }
+			async convertToBlob({ type }: { type: string }) {
+				return type === 'image/webp' ? new Blob([new Uint8Array(100)], { type }) : new Blob([reduced as BlobPart], { type })
+			}
+		})
+	})
+	it('photo avec date/GPS : sortie JPEG avec EXIF conservé (le WebP perdait tout)', async () => {
+		const r = await compressImage(big(), EXIF)
+		expect(r.contentType).toBe('image/jpeg')
+		expect(r.filename).toBe('IMG_1.jpg')
+		expect(parseExif(new Uint8Array(await r.blob.arrayBuffer()))).toMatchObject({ takenAt: '2026-10-02T07:15:30', make: 'Apple' })
+	})
+	it('photo sans EXIF : WebP comme avant (plus léger)', async () => {
+		const r = await compressImage(big(), null)
+		expect(r.contentType).toBe('image/webp')
+		expect(r.filename).toBe('IMG_1.webp')
+	})
+	it('EXIF vide (aucune donnée utile) : WebP', async () => {
+		const r = await compressImage(big(), { takenAt: null, offset: null, lat: null, lng: null, make: null, model: null, orientation: 6 })
+		expect(r.contentType).toBe('image/webp')
+	})
+})

@@ -178,6 +178,16 @@ import { parseMediaBatch } from './events-validate'
 describe('parseMediaBatch', () => {
 	const item = (o: Record<string, unknown> = {}) => ({ path: '2026/11/02/a.jpg', size: 1234, takenAt: '2026-11-02T07:15:30', takenOffset: '+07:00', lat: 11.55, lng: 104.9, make: 'Apple', model: 'iPhone 14 Pro', ...o })
 	const batch = (...items: unknown[]) => parseMediaBatch({ items })
+	it('un item invalide ne perd pas le lot : ignoré, les autres enregistrés', () => {
+		const r = batch(item({ path: '2026/11/02/a.jpg' }), item({ path: 'chat/x.json' }), item({ path: '2026/11/02/c.jpg', takenAt: 'n\'importe quoi' }), item({ path: '2026/11/02/d.jpg' }))
+		expect(r.ok && r.value.map((v) => v.path)).toEqual(['2026/11/02/a.jpg', '2026/11/02/d.jpg'])
+		expect(r.ok && r.skipped).toBe(2)
+	})
+	it('250 items mélangés dont 3 invalides : 247 conservés', () => {
+		const items = Array.from({ length: 250 }, (_, i) => item({ path: `2026/07/08/IMG_${i}.${i % 3 ? 'jpg' : 'webp'}`, ...(i % 100 === 7 ? { lat: 999 } : {}) }))
+		const r = batch(...items)
+		expect(r.ok && r.value.length).toBe(247)
+	})
 	it('item complet et item minimal acceptés', () => {
 		ok(batch(item()))
 		const r = batch({ path: '2026/11/02/b.mp4' })

@@ -16,7 +16,8 @@ export const POST: RequestHandler = async (event) => {
   try {
     await ensureCoffreSchema()
     const recorded = await recordMedia(user.name || null, parsed.value)
-    return json({ ok: true, recorded })
+    if (parsed.skipped) console.warn(`[coffre/media] ${parsed.skipped} item(s) invalide(s) ignoré(s), ${recorded} enregistré(s)`)
+    return json({ ok: true, recorded, ...(parsed.skipped ? { skipped: parsed.skipped } : {}) })
   } catch (e) {
     console.error('[coffre/media] enregistrement échoué:', (e as Error)?.message)
     return json({ ok: false }, { status: 503 })

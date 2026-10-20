@@ -23,6 +23,7 @@
 	} from '$lib/api';
 	import { createSWR } from '$lib/swr.svelte';
 	import { compressImage } from '$lib/compressor';
+	import { mapLimit } from '$lib/upload-pool';
 	import { recordUploads, type ExifMap, type UploadedItem } from '$lib/upload-exif';
 	import { generateVideoThumbnail } from '$lib/thumbnailer';
 	import { Semaphore } from '$lib/semaphore';
@@ -398,40 +399,30 @@
 		const firstName = auth.getFirstName() || 'Chet';
 		const metaUpdates: Record<string, string> = {};
 
-		// Compress phase — en parallèle
+		// Pipeline borné : 3 envois à la fois, compression 2 canvas max, chaque photo libérée après envoi
+		// (250 photos en parallèle faisaient recharger Safari).
 		uploadPhase = 'compressing';
-		const compressed = await Promise.all(
-			fileArray.map(async (file) => {
-				const isVid = /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
-				const exif = exifMap?.get(file) ?? null;
-				const result = isVid
-					? { blob: file as Blob, contentType: file.type, filename: file.name }
-					: await compressImage(file, exif);
-				uploadCurrent += 1;
-				return { ...result, exif };
-			})
-		);
-
-		// Upload phase — en parallèle
-		uploadPhase = 'uploading';
-		uploadCurrent = 0;
 		const uploaded: UploadedItem[] = [];
-		await Promise.all(
-			compressed.map(async ({ blob, contentType, filename, exif }) => {
+		const canvasSlots = new Semaphore(2);
+		await mapLimit(fileArray, 3, async (file) => {
+			const isVid = /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+			const exif = exifMap?.get(file) ?? null;
+			try {
+				const { blob, contentType, filename } = isVid
+					? { blob: file as Blob, contentType: file.type, filename: file.name }
+					: await canvasSlots.run(() => compressImage(file, exif));
 				const path = `${upY}/${upM}/${upD}/${filename}`;
-				try {
-					const signedUrl = await signUpload(path, contentType);
-					const bytes = new Uint8Array(await blob.arrayBuffer());
-					await uploadFile(signedUrl, bytes, contentType);
-					metaUpdates[filename] = firstName;
-					uploaded.push({ path, size: bytes.byteLength, exif });
-				} catch (e) {
-					console.error('Upload failed for', filename, e);
-				} finally {
-					uploadCurrent += 1;
-				}
-			})
-		);
+				const signedUrl = await signUpload(path, contentType);
+				const bytes = new Uint8Array(await blob.arrayBuffer());
+				await uploadFile(signedUrl, bytes, contentType);
+				metaUpdates[filename] = firstName;
+				uploaded.push({ path, size: bytes.byteLength, exif });
+			} catch (e) {
+				console.error('Upload failed for', file.name, e);
+			} finally {
+				uploadCurrent += 1;
+			}
+		});
 
 		// Save meta sur la date d'upload
 		if (Object.keys(metaUpdates).length > 0) {

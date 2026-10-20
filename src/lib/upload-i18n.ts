@@ -20,5 +20,9 @@ export const U = {
 	skipOther: { fr: '{n} photo(s) déjà dans un autre évènement, non déplacée(s)', kh: '{n} រូបថតនៅក្នុងព្រឹត្តិការណ៍ផ្សេងរួចហើយ មិនបានផ្លាស់ទី' },
 	skipNamed: { fr: 'Déjà dans « {x} » : {n} photo(s) non déplacée(s)', kh: 'មានរួចហើយក្នុង «{x}» ៖ {n} រូបថតមិនបានផ្លាស់ទី' },
 	moveHere: { fr: 'Déplacer ici', kh: 'ផ្លាស់ទីមកទីនេះ' },
+	noDate: { fr: '{n} photo(s) sans date de prise de vue (elles iront à la date choisie)', kh: '{n} រូបថតគ្មានថ្ងៃថត (នឹងទៅថ្ងៃដែលបានជ្រើសរើស)' },
+	readFailed: { fr: 'Lecture impossible pour {n} photo(s) : elles iront à la date choisie', kh: 'មិនអាចអានរូបថត {n} បានទេ (នឹងទៅថ្ងៃដែលបានជ្រើសរើស)' },
+	retryRead: { fr: 'Réessayer la lecture', kh: 'សាកអានម្តងទៀត' },
+	reading: { fr: 'Lecture des dates…', kh: 'កំពុងអានថ្ងៃថត…' },
 	attached: { fr: 'Photos envoyées et ajoutées à l’évènement', kh: 'បានផ្ញើ និងបន្ថែមរូបថតទៅព្រឹត្តិការណ៍ហើយ' }
 } as const;

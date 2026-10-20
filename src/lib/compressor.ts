@@ -15,8 +15,8 @@ export interface CompressOptions {
 	reinjectExif?: boolean;
 }
 
-// Le canvas efface l'EXIF : on remet l'utile dans le JPEG de sortie. Le WebP (Chrome/Android) n'en
-// porte pas ici : ces champs partent alors en base via /api/coffre/media.
+// Le canvas efface l'EXIF : on remet l'utile dans le JPEG de sortie. Le WebP n'en porte pas : une photo qui a
+// de l'EXIF (date, GPS, appareil) sort donc en JPEG, jamais en WebP (Chrome/Android perdait date et GPS).
 async function withExif(blob: Blob, exif: ExifData | null | undefined, opts?: CompressOptions): Promise<Blob> {
 	if (!exif || opts?.reinjectExif === false) return blob;
 	try {
@@ -75,8 +75,9 @@ export async function compressImage(file: File, exif?: ExifData | null, opts?: C
 
 		const originalBytes = file.size;
 
-		// Try WebP first (Safari ignore image/webp et retourne un PNG à la place)
-		const webpBlob = await canvasToBlob(canvas, 'image/webp', QUALITY);
+		// WebP seulement si l'EXIF n'a rien à conserver (Safari ignore image/webp et retourne un PNG à la place)
+		const keepsExif = !!exif && opts?.reinjectExif !== false && (!!exif.takenAt || exif.lat != null || !!exif.make || !!exif.model);
+		const webpBlob = keepsExif ? null : await canvasToBlob(canvas, 'image/webp', QUALITY);
 		if (webpBlob && webpBlob.type === 'image/webp' && webpBlob.size < originalBytes) {
 			const filename = replaceExt(file.name, '.webp');
 			return { blob: webpBlob, contentType: 'image/webp', filename };
