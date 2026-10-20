@@ -12,6 +12,7 @@ import { detectStages, DEFAULT_STAGE_OPTIONS } from '../src/lib/server/trip-stag
 const USAGE = `Usage : node --experimental-strip-types scripts/import-photos.mjs <dossier> [--event ID] [--apply]
   (défaut)   plan seul : rien n'est envoyé ni écrit
   --apply    envoie vers S3, sauvegarde la base sur la box, applique le SQL en UNE transaction
+  --date YYYY-MM-DD  date des photos sans EXIF ni date dans le nom (midi) ; sinon elles sont ignorées
   --event ID rattache les photos du dossier à l'évènement, sans déplacer une photo d'un autre évènement
   --auto-events  crée un évènement par étape de voyage détectée au GPS (déplacement > rayon, ou pause de plus de 3 jours)
      --radius-km N (60)  --min-photos N (5)  --names "Chengdu,Chongqing" (noms dans l'ordre des étapes)
@@ -23,10 +24,11 @@ Env (ou .env) : GCS_BUCKET_NAME, S3_ENDPOINT, S3_REGION, S3_ACCESS_KEY, S3_SECRE
 const args = process.argv.slice(2)
 const evIdx = args.indexOf('--event')
 const valueOf = (flag) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined)
-const VALUE_FLAGS = ['--event', '--radius-km', '--min-photos', '--names']
+const VALUE_FLAGS = ['--event', '--radius-km', '--min-photos', '--names', '--date']
 const dir = args.find((a, i) => !a.startsWith('--') && !VALUE_FLAGS.includes(args[i - 1]))
 const AUTO = args.includes('--auto-events')
 const GEOCODE = args.includes('--geocode')
+const fallbackDay = valueOf('--date')
 const names = valueOf('--names')?.split(',').map((x) => x.trim()).filter(Boolean) ?? []
 const stageOpts = {
 	radiusKm: Number(valueOf('--radius-km') ?? DEFAULT_STAGE_OPTIONS.radiusKm),
@@ -34,7 +36,7 @@ const stageOpts = {
 }
 const APPLY = args.includes('--apply')
 const eventId = evIdx >= 0 ? Number(args[evIdx + 1]) : null
-if (!dir || !existsSync(dir) || (evIdx >= 0 && !Number.isInteger(eventId)) || (AUTO && eventId) || !(stageOpts.radiusKm > 0) || !(stageOpts.minPhotos >= 1)) {
+if (!dir || !existsSync(dir) || (evIdx >= 0 && !Number.isInteger(eventId)) || (fallbackDay && !/^\d{4}-\d{2}-\d{2}$/.test(fallbackDay)) || (AUTO && eventId) || !(stageOpts.radiusKm > 0) || !(stageOpts.minPhotos >= 1)) {
 	console.error(USAGE)
 	process.exit(2)
 }
@@ -83,7 +85,7 @@ async function one(f) {
 	const epoch = f.match(/^(1[5-9]\d{11})\b/)
 	const fromName = m ? `${m[1]}-${m[2]}-${m[3]}T${m[4] ?? '12'}:${m[5] ?? '00'}:${m[6] ?? '00'}` : epoch ? new Date(Number(epoch[1]) + 8 * 3600000).toISOString().slice(0, 19) : null
 	const validDay = (iso) => iso && Number.isFinite(Date.parse(iso)) && new Date(Date.parse(iso)).toISOString().startsWith(iso.slice(0, 10)) && iso >= '1990' && iso < '2036'
-	const takenAt = ex?.takenAt ?? (validDay(fromName) ? fromName : null)
+	const takenAt = ex?.takenAt ?? (validDay(fromName) ? fromName : fallbackDay ? `${fallbackDay}T12:00:00` : null)
 	if (!takenAt) { stats.sansDate++; console.log('SANS DATE (ignorée) :', f); return }
 	const day = takenAt.slice(0, 10)
 	const taken = q(takenAt.replace('T', ' '))
@@ -137,7 +139,7 @@ if (AUTO) {
 		used.set(name, seen + 1)
 		if (seen) name = `${name} (${seen + 1})`
 		const cityOf = (n) => n.replace(/^.*·\s*/, '').replace(/\s*\(.*\)$/, '').trim()
-		const place = names[i] ? cityOf(name) : GEOCODE && !name.startsWith('Étape') ? cityOf(name) : st.lat === null ? null : `${st.lat.toFixed(3)},${st.lng.toFixed(3)}`
+		const place = name.includes('·') ? cityOf(name) : st.lat === null ? null : `${st.lat.toFixed(3)},${st.lng.toFixed(3)}`
 		console.log(`  ${i + 1}. ${name} · ${st.dateStart} → ${st.dateEnd} · ${st.paths.length} photos · ${place ?? 'sans GPS'}`)
 		const lookup = `(SELECT id FROM events WHERE name_fr=${q(name)} AND date_start=${q(st.dateStart)} AND deleted_at IS NULL ORDER BY id LIMIT 1)`
 		sql.push(`INSERT INTO events (name_fr,name_en,name_kh,name_src_lang,names_pending,date_start,date_end,place,created_by) SELECT ${q(name)},${q(name)},${q(name)},'fr',true,${q(st.dateStart)},${q(st.dateEnd)},${q(place)},(SELECT id FROM users WHERE email=${q(email)}) WHERE NOT EXISTS (SELECT 1 FROM events WHERE name_fr=${q(name)} AND date_start=${q(st.dateStart)} AND deleted_at IS NULL);`)
