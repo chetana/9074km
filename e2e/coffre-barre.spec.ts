@@ -226,6 +226,22 @@ test('bouton Au hasard : ≥ 44 px, change toujours de carte, bien dans l\'écra
 		expect(await centerName(page)).not.toBe(before)
 	}
 })
+test('repère MM/AA à gauche du curseur : suit la carte centrale, tient à 375 px avec le dé', async ({ page }) => {
+	await open(page, 375, 667)
+	const tag = page.locator('.mtag')
+	await expect(tag).toHaveText(/^\d{2}\/\d{2}$/)
+	await page.locator('.slot[data-center] .album').focus()
+	await page.keyboard.press('ArrowRight'); await page.waitForTimeout(900)
+	const name = await centerName(page)
+	const ev = EVENTS.find((e) => e.names.fr === name)!
+	await expect(tag).toHaveText(`${ev.dates.start.slice(5, 7)}/${ev.dates.start.slice(2, 4)}`)
+	const t = (await tag.boundingBox())!, sc = (await page.locator('.scrub').boundingBox())!, d = (await page.locator('.rand').boundingBox())!
+	expect(t.x + t.width).toBeLessThanOrEqual(sc.x + 1); expect(sc.x + sc.width).toBeLessThanOrEqual(d.x + 1)
+	expect(sc.width).toBeGreaterThanOrEqual(150) // le curseur reste utilisable
+	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375)
+	if (SHOTS) await page.screenshot({ path: `${SHOTS}/repere-375.png` })
+})
+
 test('grille de secours utilisable avec les nouveaux boutons', async ({ page }) => {
 	await open(page, 393, 852)
 	await page.locator('.view-btn').click()
