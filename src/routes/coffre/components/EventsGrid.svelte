@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox, Ellipsis, Download, Languages } from 'lucide-svelte';
+	import { Search, Plus, WifiOff, CalendarHeart, MapPin, Images, Inbox, Ellipsis, Download, Languages, GalleryHorizontal, LayoutGrid } from 'lucide-svelte';
 	import BottomSheet from '$lib/BottomSheet.svelte';
 	import { toasts } from '$lib/toast.svelte';
 	import { ogImageUrl } from '$lib/api';
@@ -8,6 +8,7 @@
 	import { fetchUnclassified, fetchSuggestions, downloadExport, EventApiError } from '$lib/events-api';
 	import type { SuggestionDTO } from '$lib/events-types';
 	import SuggestionCard from './SuggestionCard.svelte';
+	import EventCarousel from './EventCarousel.svelte';
 	import { T } from '$lib/events-i18n';
 	import { MONTHS_FR, MONTHS_KH } from '$lib/i18n';
 	import {
@@ -64,20 +65,47 @@
 	let year = $state<number | null>(null);
 	let place = $state<string | null>(null);
 
-	onMount(() => { void eventsStore.load(); void loadUnclassified(); void loadSuggestions(); });
+	// Vue par défaut : carrousel « Album » ; la grille reste le secours. Choix mémorisé (localStorage facultatif).
+	const VIEW_KEY = 'coffre-events-view';
+	let view = $state<'album' | 'grid'>('album');
+	let tight = $state(false); // place trop petite pour le carrousel : filtres sur 1 ligne
+	function setView(v: 'album' | 'grid') {
+		view = v;
+		try { localStorage.setItem(VIEW_KEY, v); } catch { /* stockage indisponible : la page marche sans */ }
+	}
+
+	onMount(() => {
+		try { if (localStorage.getItem(VIEW_KEY) === 'grid') view = 'grid'; } catch { /* idem */ }
+		void eventsStore.load(); void loadUnclassified(); void loadSuggestions();
+	});
+
+	// Indique qu'une rangée de puces défile encore (fondu en bas) : mise à jour au redimensionnement, au défilement et aux changements.
+	function moreHint(node: HTMLElement) {
+		const upd = () => { node.dataset.more = node.scrollHeight > node.clientHeight + 1 && node.scrollTop + node.clientHeight < node.scrollHeight - 2 ? '1' : ''; };
+		const ro = new ResizeObserver(upd);
+		const mo = new MutationObserver(upd);
+		ro.observe(node); mo.observe(node, { childList: true, subtree: true });
+		node.addEventListener('scroll', upd, { passive: true });
+		upd();
+		return { destroy() { ro.disconnect(); mo.disconnect(); node.removeEventListener('scroll', upd); } };
+	}
 
 	const years = $derived(yearsOf(eventsStore.list));
-	const places = $derived(placesOf(eventsStore.list).slice(0, 8));
-	const groups = $derived(
-		groupByMonth(
-			sortEvents(
-				eventsStore.list.filter(
-					(e) => matchesQuery(e, query) && (year === null || Number(e.dates.start.slice(0, 4)) === year) && (place === null || samePlace(e, place))
-				)
+	const places = $derived(placesOf(eventsStore.list));
+	const total = $derived(eventsStore.list.length);
+	const shown = $derived(
+		sortEvents(
+			eventsStore.list.filter(
+				(e) => matchesQuery(e, query) && (year === null || Number(e.dates.start.slice(0, 4)) === year) && (place === null || samePlace(e, place))
 			)
 		)
 	);
-	const total = $derived(eventsStore.list.length);
+	const groups = $derived(groupByMonth(shown));
+	const countText = $derived(
+		shown.length === total
+			? { fr: T.eventsCount.fr.replace('{n}', String(total)), kh: T.eventsCount.kh.replace('{n}', String(total)) }
+			: { fr: T.eventsOf.fr.replace('{n}', String(shown.length)).replace('{m}', String(total)), kh: T.eventsOf.kh.replace('{n}', String(shown.length)).replace('{m}', String(total)) }
+	);
 	const showSkeleton = $derived(eventsStore.loading && total === 0);
 </script>
 
@@ -89,6 +117,9 @@
 		</label>
 		<button class="new-btn" onclick={onCreate} aria-label="{T.newEvent.fr} · {T.newEvent.kh}" title="{T.newEvent.fr} · {T.newEvent.kh}">
 			<Plus size={24} />
+		</button>
+		<button class="view-btn" onclick={() => setView(view === 'album' ? 'grid' : 'album')} aria-label={view === 'album' ? `${T.viewGrid.fr} · ${T.viewGrid.kh}` : `${T.viewAlbum.fr} · ${T.viewAlbum.kh}`} title={view === 'album' ? `${T.viewGrid.fr} · ${T.viewGrid.kh}` : `${T.viewAlbum.fr} · ${T.viewAlbum.kh}`}>
+			{#if view === 'album'}<LayoutGrid size={22} />{:else}<GalleryHorizontal size={22} />{/if}
 		</button>
 		<button class="more-btn" onclick={() => (menuOpen = true)} aria-label="{T.more.fr} · {T.more.kh}" title="{T.more.fr} · {T.more.kh}">
 			<Ellipsis size={22} />
@@ -107,7 +138,7 @@
 	{/if}
 
 	{#if years.length > 1}
-		<div class="chips" role="group" aria-label="Année">
+		<div class="chips" class:compact={tight && view === 'album'} use:moreHint role="group" aria-label="Année">
 			<button class="chip all" class:on={year === null} aria-pressed={year === null} onclick={() => (year = null)}>
 				{T.allYears.fr} <span class="kh" lang="km">{T.allYears.kh}</span>
 			</button>
@@ -118,9 +149,9 @@
 	{/if}
 
 	{#if places.length > 1}
-		<div class="chips wrap" role="group" aria-label="Lieu">
+		<div class="chips" class:compact={tight && view === 'album'} use:moreHint role="group" aria-label="Lieu">
 			<button class="chip all" class:on={place === null} aria-pressed={place === null} onclick={() => (place = null)}>
-				<MapPin size={16} aria-hidden="true" /> {T.allPlaces.fr} <span class="kh" lang="km">{T.allPlaces.kh}</span>
+				<MapPin size={16} aria-hidden="true" /> {T.allPlacesShort.fr} <span class="kh" lang="km">{T.allPlacesShort.kh}</span>
 			</button>
 			{#each places as p (p.key)}
 				<button class="chip" class:on={place === p.key} aria-pressed={place === p.key} onclick={() => (place = place === p.key ? null : p.key)}><MapPin size={16} aria-hidden="true" /> {p.label}{#if p.count > 1} <span class="n">{p.count}</span>{/if}</button>
@@ -156,9 +187,14 @@
 				<span class="fr-l"><Plus size={18} /> {T.noEventsCta.fr}</span> <span class="kh" lang="km">{T.noEventsCta.kh}</span>
 			</button>
 		</div>
-	{:else if groups.length === 0}
-		<div class="state"><p>{T.noEvents.fr}</p></div>
+	{:else if shown.length === 0}
+		<p class="count" role="status">{countText.fr} · <span lang="km">{countText.kh}</span></p>
+		<div class="state empty-filter"><p>{T.noEventsFilter.fr}</p><p class="kh" lang="km">{T.noEventsFilter.kh}</p></div>
+	{:else if view === 'album'}
+		<p class="count" role="status">{countText.fr} · <span lang="km">{countText.kh}</span></p>
+		<EventCarousel events={shown} {readerLang} {onOpen} onTight={(v) => (tight = v)} />
 	{:else}
+		<p class="count" role="status">{countText.fr} · <span lang="km">{countText.kh}</span></p>
 		{#each groups as g (g.key)}
 			<h3 class="sep" class:up={g.upcoming}>
 				{#if g.upcoming}
@@ -228,7 +264,7 @@
 		color: var(--muted-text);
 	}
 	.search input { flex: 1; min-width: 0; border: none; background: none; outline: none; font-size: 1rem; color: var(--text); }
-	.more-btn { width: var(--btn-tap); height: var(--btn-tap); border-radius: var(--radius-full); background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-secondary); }
+	.more-btn, .view-btn { width: var(--btn-tap); height: var(--btn-tap); border-radius: var(--radius-full); background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-secondary); }
 	.mi { display: flex; align-items: center; gap: var(--space-3); min-height: 3.25rem; padding: 0 var(--space-3); border-radius: var(--radius-md); font-size: var(--fs-lg); text-align: left; background: var(--surface-2); width: 100%; }
 	.mi .kh { font-size: var(--fs-xl); color: var(--text-secondary); }
 	.mi-txt { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
@@ -256,10 +292,17 @@
 	}
 	.todo .kh { font-size: var(--fs-xl); }
 	.todo-n { font-family: var(--font-display); font-size: var(--fs-xl); }
-	.chips { display: flex; gap: var(--space-2); overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+	/* 2 lignes de puces au plus, défilement vertical, fondu en bas tant qu'il en reste. */
+	.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); max-height: calc(var(--btn-tap) * 2 + var(--space-2)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+	.chips.compact { max-height: var(--btn-tap); }
+	.chips:global([data-more='1']) { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 22px), transparent); }
+	.count { font-size: var(--fs-md); color: var(--text-secondary); padding: 0 var(--space-1); }
+	.count span { font-size: 1rem; }
+	.empty-filter { padding: var(--space-6) 0; }
+	.empty-filter .kh { font-size: var(--fs-xl); }
 	.chip {
 		min-height: var(--btn-tap);
-		padding: 0 var(--space-4);
+		padding: 0 var(--space-3);
 		border-radius: var(--radius-full);
 		background: var(--raised);
 		color: var(--text-secondary);
@@ -270,7 +313,6 @@
 		gap: var(--space-2);
 	}
 	.chip .kh { font-size: var(--fs-xl); }
-	.chips.wrap { flex-wrap: wrap; overflow-x: visible; }
 	.chip .n { font-size: var(--fs-md); opacity: 0.7; }
 	/* Un seul style PLEIN = un filtre réellement appliqué ; « Toutes/Tous » sélectionné (aucun filtre) = contour. */
 	.chip.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }

@@ -16,6 +16,7 @@ const EVENTS = [
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="#fcd"/></svg>'
 
 async function mock(page: Page, user = 'Chetana Yin') {
+	await page.addInitScript(() => { try { localStorage.setItem('coffre-events-view', 'grid') } catch { /* sans stockage */ } }) // ces specs testent la GRILLE de secours
 	const json = (r: any, b: unknown, s = 200) => r.fulfill({ status: s, contentType: 'application/json', body: JSON.stringify(b) })
 	await page.route('**/api/auth/sign-in', (r) => r.fulfill({ status: 200, body: 'sign-in (simulé)' }))
 	await page.route(/__data\.json/, (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ type: 'data', nodes: [{ type: 'data', data: [{ user: 1 }, { id: 2, email: 3, name: 4, picture: 5 }, 2, 'c@x.fr', user, ''], uses: {} }, { type: 'skip' }] }) }))

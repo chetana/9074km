@@ -26,6 +26,7 @@ async function photo(takenAt: string | null, color = '#fcd'): Promise<Buffer> {
 
 interface Opts { attachStatus?: () => number; unclassified?: number; failPut?: string; dupPath?: string }
 async function setup(page: Page, o: Opts = {}) {
+	await page.addInitScript(() => { try { localStorage.setItem('coffre-events-view', 'grid') } catch { /* sans stockage */ } }) // ces specs testent la GRILLE de secours
 	const puts: string[] = []
 	const media: any[] = []
 	const attach: { id: number; paths: string[]; status: number; mode: string }[] = []
@@ -200,6 +201,7 @@ test('deux appareils, même nom de fichier : photo déjà rangée ailleurs NON d
 	const { puts, attach } = await setup(page, { dupPath: 'IMG_0001' })
 	await openSheet(page, '2026-10-11')
 	await pick(page, [await jpg('IMG_0001.jpg'), await jpg('IMG_0002.jpg', null, '#cdf')])
+	await page.locator('.sheet:has(.taken) .btn-confirm').click() // lot mixte (une photo sans date) : la feuille prévient avant d'envoyer
 	await expect.poll(() => puts.length).toBe(2)
 	const toast = page.locator('.toast', { hasText: 'Déjà dans' })
 	await expect(toast).toBeVisible()

@@ -7,6 +7,7 @@ const EV = { id: 2, names: { fr: 'Week-end à Lyon', en: 'Week-end à Lyon', kh:
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="#fcd"/></svg>'
 
 async function mock(page: Page, count = 0) {
+	await page.addInitScript(() => { try { localStorage.setItem('coffre-events-view', 'grid') } catch { /* sans stockage */ } }) // ces specs testent la GRILLE de secours
 	const posts: string[] = []
 	const json = (r: any, b: unknown, s = 200) => r.fulfill({ status: s, contentType: 'application/json', body: JSON.stringify(b) })
 	await page.route('**/api/auth/sign-in', (r) => r.fulfill({ status: 200, body: 'sign-in (simulé)' }))
