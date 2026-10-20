@@ -17,7 +17,7 @@ const USAGE = `Usage : node --experimental-strip-types scripts/import-photos.mjs
   --auto-events  crée un évènement par étape de voyage détectée au GPS (déplacement > rayon, ou pause de plus de 3 jours)
      --radius-km N (60)  --min-photos N (5)  --names "Chengdu;Chongqing" (noms dans l'ordre des étapes, séparés par ; ou |)
      --geocode  nomme les étapes via Nominatim/OpenStreetMap (envoie les coordonnées de chaque étape, rien d'autre)
-Photos : 2048 px max, JPEG q85, EXIF conservé, rangées dans YYYY/MM/DD/ (date EXIF, sinon nom IMG_YYYYMMDD_HHMMSS).
+Photos : 1600 px max, JPEG q75 mozjpeg, EXIF conservé, rangées dans YYYY/MM/DD/ (date EXIF, sinon nom IMG_YYYYMMDD_HHMMSS).
 GIF envoyés tels quels, vidéos ignorées. Relançable : un nom déjà dans le bucket n'est jamais renvoyé.
 Env (ou .env) : GCS_BUCKET_NAME, S3_ENDPOINT, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY ; BOX, BOX_KEY pour la base.`
 
@@ -100,7 +100,7 @@ async function one(f) {
 		return
 	}
 	const isGif = /\.gif$/i.test(f)
-	const out = isGif ? buf : await sharp(buf, { failOn: 'none' }).rotate().resize(2048, 2048, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).keepExif().toBuffer()
+	const out = isGif ? buf : await sharp(buf, { failOn: 'none' }).rotate().resize(1600, 1600, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 75, mozjpeg: true }).keepExif().toBuffer()
 	const path = `${day.replaceAll('-', '/')}/${f}`
 	if (APPLY) await s3.send(new PutObjectCommand({ Bucket, Key: path, Body: out, ContentType: isGif ? 'image/gif' : 'image/jpeg' }))
 	stats.envoyees++
