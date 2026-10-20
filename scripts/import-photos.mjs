@@ -136,7 +136,8 @@ if (AUTO) {
 		const seen = used.get(name) ?? 0
 		used.set(name, seen + 1)
 		if (seen) name = `${name} (${seen + 1})`
-		const place = st.lat === null ? null : `${st.lat.toFixed(3)},${st.lng.toFixed(3)}`
+		const cityOf = (n) => n.replace(/^.*·\s*/, '').replace(/\s*\(.*\)$/, '').trim()
+		const place = names[i] ? cityOf(name) : GEOCODE && !name.startsWith('Étape') ? cityOf(name) : st.lat === null ? null : `${st.lat.toFixed(3)},${st.lng.toFixed(3)}`
 		console.log(`  ${i + 1}. ${name} · ${st.dateStart} → ${st.dateEnd} · ${st.paths.length} photos · ${place ?? 'sans GPS'}`)
 		const lookup = `(SELECT id FROM events WHERE name_fr=${q(name)} AND date_start=${q(st.dateStart)} AND deleted_at IS NULL ORDER BY id LIMIT 1)`
 		sql.push(`INSERT INTO events (name_fr,name_en,name_kh,name_src_lang,names_pending,date_start,date_end,place,created_by) SELECT ${q(name)},${q(name)},${q(name)},'fr',true,${q(st.dateStart)},${q(st.dateEnd)},${q(place)},(SELECT id FROM users WHERE email=${q(email)}) WHERE NOT EXISTS (SELECT 1 FROM events WHERE name_fr=${q(name)} AND date_start=${q(st.dateStart)} AND deleted_at IS NULL);`)
