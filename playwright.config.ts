@@ -14,7 +14,13 @@ const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleW
 export default defineConfig({
 	testDir: './e2e',
 	fullyParallel: true,
-	retries: 0,
+	// 2 reprises : machine partagée (charge > 10 relevée), des tests isolément verts expirent au hasard (page qui reste
+	// en squelette) ; une reprise verte est signalée « flaky » par le reporter, jamais masquée.
+	retries: 2,
+	// 2 workers : avec les défauts (moitié des coeurs) les deux serveurs Vite dev saturent et des specs
+	// (historiques comprises) expirent ; mesuré stable en 2 workers.
+	workers: 2,
+	timeout: 30_000,
 	reporter: 'list',
 	use: {
 		baseURL: 'http://localhost:5173',
@@ -45,14 +51,15 @@ export default defineConfig({
 			command: 'npm run dev',
 			url: 'http://localhost:5173',
 			reuseExistingServer: !process.env.CI,
-			timeout: 30_000,
+			timeout: 60_000,
 		},
 		{
 			command: 'npm run dev -- --port 5174 --strictPort',
 			url: 'http://localhost:5174',
 			reuseExistingServer: !process.env.CI,
-			timeout: 30_000,
+			timeout: 60_000,
 			env: {
+				NODE_ENV: 'development', // garde positif du bypass : posé explicitement, jamais hérité
 				E2E_AUTH_USER: JSON.stringify({ id: 1, email: 'e2e@example.test', name: 'Chet E2E', picture: '' }),
 				DATABASE_URL: 'postgres://e2e:e2e@127.0.0.1:1/e2e',
 				GCS_BUCKET_NAME: 'e2e-bucket-injoignable',
