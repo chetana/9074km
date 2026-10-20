@@ -1,6 +1,15 @@
 <script lang="ts">
 	import BottomSheet from '$lib/BottomSheet.svelte';
-	import { Plus, ImagePlus, Sparkles, Hourglass } from 'lucide-svelte';
+	import { Plus, ImagePlus, Sparkles, Hourglass, ChevronDown, X } from 'lucide-svelte';
+	import { userStore } from '$lib/auth';
+	import { eventsStore } from '$lib/events.svelte';
+	import { fetchForDate, addEventMedia } from '$lib/events-api';
+	import { displayNames, readerLangFor } from '$lib/events-ui';
+	import { preselectEvent, resolveGroupEvents, attachUploaded } from '$lib/upload-attach';
+	import { toasts } from '$lib/toast.svelte';
+	import { T } from '$lib/events-i18n';
+	import type { EventDTO } from '$lib/events-types';
+	import EventForm from './EventForm.svelte';
 	import { loadExif, planUploadDates, countsLabel, type ExifMap, type UploadPlan, type DateGroup } from '$lib/upload-exif';
 	import { formatRange } from '$lib/events-ui';
 	import { U } from '$lib/upload-i18n';
@@ -10,7 +19,8 @@
 		current: number;
 		total: number;
 		currentDate: string; // YYYY-MM-DD
-		onFiles: (files: File[] | FileList, date: string, exif?: ExifMap) => void | Promise<void>;
+		/** Renvoie les chemins RÉELLEMENT envoyés (sert au rattachement à l'évènement). */
+		onFiles: (files: File[] | FileList, date: string, exif?: ExifMap) => void | string[] | Promise<void | string[]>;
 	}
 
 	let { phase, current, total, currentDate, onFiles }: Props = $props();
@@ -27,7 +37,87 @@
 	function handleFabClick() {
 		if (phase !== 'idle') return;
 		pickedDate = currentDate;
+		touched = false;
+		selectedEventId = null;
+		listOpen = false;
+		void eventsStore.load();
 		showSheet = true;
+	}
+
+	// --- « Cet envoi : évènement » : pré-sélectionné d'après la date, décochable, jamais silencieux ---
+	const readerLang = $derived(readerLangFor($userStore?.name));
+	let covering = $state<EventDTO[]>([]);
+	let extra = $state<EventDTO[]>([]); // évènements créés ici ou couvrant d'autres dates (pour les noms)
+	let selectedEventId = $state<number | null>(null);
+	let touched = false; // l'utilisateur a choisi à la main pour la date courante
+	let lastDate = '';
+	let listOpen = $state(false);
+	let formOpen = $state(false);
+	let reqToken = 0;
+
+	async function refreshCovering(date: string) {
+		const t = ++reqToken;
+		try {
+			const r = await fetchForDate(date);
+			if (t !== reqToken) return;
+			covering = r.events;
+			if (!touched) selectedEventId = preselectEvent(r.events);
+		} catch {
+			if (t !== reqToken) return;
+			covering = [];
+			if (!touched) selectedEventId = null;
+		}
+	}
+
+	$effect(() => {
+		if (!showSheet) return;
+		const d = pickedDate;
+		if (d !== lastDate) { touched = false; lastDate = d; }
+		const h = setTimeout(() => void refreshCovering(d), 200);
+		return () => clearTimeout(h);
+	});
+
+	const byId = $derived(new Map([...eventsStore.list, ...extra, ...covering].map((e) => [e.id, e])));
+	const selected = $derived(selectedEventId === null ? null : (byId.get(selectedEventId) ?? null));
+	const others = $derived(eventsStore.list.filter((e) => !covering.some((c) => c.id === e.id)).slice(0, 12));
+	const nameOf = (e: EventDTO) => displayNames(e, readerLang);
+
+	function choose(id: number | null) {
+		selectedEventId = id;
+		touched = true;
+		listOpen = false;
+	}
+
+	function onEventCreated(ev: EventDTO) {
+		extra = [...extra.filter((e) => e.id !== ev.id), ev];
+		formOpen = false;
+		choose(ev.id);
+		showSheet = true;
+	}
+
+	function openCreate() {
+		listOpen = false;
+		showSheet = false;
+		formOpen = true;
+	}
+
+	async function attach(eventId: number, paths: string[]) {
+		const failed = await attachUploaded([{ eventId, paths }], addEventMedia);
+		if (failed.length) {
+			toasts.push({
+				message: U.attachFailed.fr, messageKh: U.attachFailed.kh, actionLabel: T.retry.fr, actionLabelKh: T.retry.kh, duration: 10000,
+				onAction: () => void attach(eventId, paths)
+			});
+		} else {
+			toasts.push({ message: U.attached.fr, messageKh: U.attached.kh });
+			void eventsStore.load();
+		}
+	}
+
+	// `fn` capturé AVANT la boucle : le FAB de la liste est démonté dès que l'envoi navigue vers le jour.
+	async function sendGroup(fn: Props['onFiles'], files: File[], date: string, exif: ExifMap, eventId: number | null) {
+		const paths = await fn(files, date, exif);
+		if (eventId !== null && Array.isArray(paths) && paths.length > 0) await attach(eventId, paths);
 	}
 
 	function handleConfirm() {
@@ -40,7 +130,7 @@
 	}
 
 	// Date de prise de vue (EXIF, lue sur l'original avant compression) : proposée, jamais imposée.
-	let pending = $state<{ plan: UploadPlan; exif: ExifMap } | null>(null);
+	let pending = $state<{ plan: UploadPlan; exif: ExifMap; groupEvents: Record<string, number | null>; original: Record<string, number | null>; keepEventId: number | null } | null>(null);
 
 	async function handleChange(e: Event) {
 		const input = e.target as HTMLInputElement;
@@ -50,17 +140,31 @@
 		const exif = await loadExif(files);
 		const plan = planUploadDates(files, exif, pickedDate);
 		if (!plan.needsConfirm) {
-			await onFiles(files, pickedDate, exif);
+			await sendGroup(onFiles, files, pickedDate, exif, selectedEventId);
 			return;
 		}
-		pending = { plan, exif };
+		// Évènement de chaque date : choix explicite pour la date du sheet, évènement couvrant pour les autres.
+		const dates = plan.byTaken.map((g) => g.date);
+		const cov = new Map<string, EventDTO[]>();
+		await Promise.all(dates.filter((d) => d !== pickedDate).map(async (d) => {
+			try { cov.set(d, (await fetchForDate(d)).events); } catch { cov.set(d, []); }
+		}));
+		extra = [...extra, ...[...cov.values()].flat()];
+		const resolved = Object.fromEntries(resolveGroupEvents(dates, pickedDate, selectedEventId, cov).map((r) => [r.date, r.eventId]));
+		pending = { plan, exif, groupEvents: { ...resolved }, original: resolved, keepEventId: selectedEventId };
 	}
 
-	async function runGroups(groups: DateGroup[]) {
+	async function runGroups(groups: DateGroup[], mode: 'taken' | 'keep') {
 		const p = pending;
 		pending = null;
 		if (!p) return;
-		for (const g of groups) await onFiles(g.files, g.date, p.exif);
+		const fn = onFiles;
+		for (const g of groups) await sendGroup(fn, g.files, g.date, p.exif, mode === 'keep' ? p.keepEventId : (p.groupEvents[g.date] ?? null));
+	}
+
+	function toggleGroupEvent(date: string) {
+		if (!pending) return;
+		pending.groupEvents[date] = pending.groupEvents[date] === null ? (pending.original[date] ?? null) : null;
 	}
 
 	const single = $derived(!!pending && pending.plan.byTaken.length === 1);
@@ -92,6 +196,32 @@
 			<span class="kh-today" lang="km">ថ្ងៃនេះ</span>
 		</button>
 	</div>
+	<div class="evt-row">
+		<span class="evt-label">{U.thisUpload.fr} · <span lang="km">{U.thisUpload.kh}</span> :</span>
+		<button class="evt-btn" aria-expanded={listOpen} aria-haspopup="listbox" onclick={() => (listOpen = !listOpen)}>
+			{#if selected}
+				{#if selected.emoji}<span aria-hidden="true">{selected.emoji}</span>{/if}
+				<span class="evt-name" lang={nameOf(selected).primaryLang}>{nameOf(selected).primary}</span>
+			{:else}
+				<span class="evt-name">{U.noEvent.fr} · <span lang="km">{U.noEvent.kh}</span></span>
+			{/if}
+			<ChevronDown size={20} aria-hidden="true" />
+		</button>
+	</div>
+	{#if listOpen}
+		<ul class="evt-list" role="listbox">
+			<li><button role="option" aria-selected={selectedEventId === null} class:on={selectedEventId === null} onclick={() => choose(null)}>{U.noEvent.fr} · <span lang="km">{U.noEvent.kh}</span></button></li>
+			{#if covering.length}<li class="evt-sec">{U.forThisDate.fr} · <span lang="km">{U.forThisDate.kh}</span></li>{/if}
+			{#each covering as e (e.id)}
+				<li><button role="option" aria-selected={selectedEventId === e.id} class:on={selectedEventId === e.id} onclick={() => choose(e.id)}>{#if e.emoji}<span aria-hidden="true">{e.emoji}</span>{/if} <span lang={nameOf(e).primaryLang}>{nameOf(e).primary}</span></button></li>
+			{/each}
+			{#if others.length}<li class="evt-sec">{U.otherEvents.fr} · <span lang="km">{U.otherEvents.kh}</span></li>{/if}
+			{#each others as e (e.id)}
+				<li><button role="option" aria-selected={selectedEventId === e.id} class:on={selectedEventId === e.id} onclick={() => choose(e.id)}>{#if e.emoji}<span aria-hidden="true">{e.emoji}</span>{/if} <span lang={nameOf(e).primaryLang}>{nameOf(e).primary}</span></button></li>
+			{/each}
+			<li><button role="option" aria-selected="false" class="evt-new" onclick={openCreate}><Plus size={20} aria-hidden="true" /> {T.newEvent.fr} · <span lang="km">{T.newEvent.kh}</span></button></li>
+		</ul>
+	{/if}
 	<button class="btn-confirm" onclick={handleConfirm}>
 		<ImagePlus size={22} />
 		<span>Choisir des photos</span>
@@ -108,23 +238,38 @@
 			<p class="taken-title-kh" lang="km">{single ? U.takenOn.kh : U.manyDays.kh}</p>
 			<ul class="taken-list">
 				{#each pending.plan.byTaken as g (g.date)}
+					{@const evId = pending.groupEvents[g.date] ?? null}
+					{@const ev = evId === null ? null : (byId.get(evId) ?? null)}
 					<li>
 						<span class="taken-date">{label(g.date).fr} · <span lang="km">{label(g.date).kh}</span></span>
 						<span class="taken-n">{countsLabel(g.files).fr} · <span lang="km">{countsLabel(g.files).kh}</span></span>
+						{#if pending.original[g.date] != null || evId !== null}
+							<button class="row-evt" aria-pressed={evId !== null} onclick={() => toggleGroupEvent(g.date)}>
+								{#if ev}
+									{#if ev.emoji}<span aria-hidden="true">{ev.emoji}</span>{/if}
+									<span lang={nameOf(ev).primaryLang}>{nameOf(ev).primary}</span> <X size={18} aria-label="{U.noEventLong.fr} · {U.noEventLong.kh}" />
+								{:else}
+									{U.noEventLong.fr} · <span lang="km">{U.noEventLong.kh}</span>
+								{/if}
+							</button>
+						{/if}
 					</li>
 				{/each}
 			</ul>
 			<p class="taken-q">{single ? U.useThisDate.fr : U.sortEach.fr}</p>
 			<p class="taken-q-kh" lang="km">{single ? U.useThisDate.kh : U.sortEach.kh}</p>
 		</div>
-		<button class="btn-confirm" onclick={() => runGroups(pending!.plan.byTaken)}>
+		<button class="btn-confirm" onclick={() => runGroups(pending!.plan.byTaken, 'taken')}>
 			<span>{single ? U.yesUse.fr : U.yesSort.fr}</span>
 			<span class="kh" lang="km">{single ? U.yesUse.kh : U.yesSort.kh}</span>
 		</button>
-		<button class="btn-keep" onclick={() => runGroups(pending!.plan.keep)}>
+		<button class="btn-keep" onclick={() => runGroups(pending!.plan.keep, 'keep')}>
 			<span>{U.keep.fr}</span>
 			<span class="kh" lang="km">{U.keep.kh}</span>
 			<span class="keep-date">{label(pickedDate).fr} · <span lang="km">{label(pickedDate).kh}</span></span>
+			{#if pending.keepEventId !== null && byId.get(pending.keepEventId)}
+				<span class="keep-date">{nameOf(byId.get(pending.keepEventId)!).primary}</span>
+			{/if}
 		</button>
 		<button class="btn-cancel" onclick={() => (pending = null)}>
 			{U.cancel.fr} · <span lang="km">{U.cancel.kh}</span>
@@ -132,8 +277,16 @@
 	{/if}
 </BottomSheet>
 
+<EventForm
+	open={formOpen}
+	event={null}
+	initial={{ dateStart: pickedDate, dateEnd: pickedDate }}
+	onclose={() => { formOpen = false; showSheet = true; }}
+	onSaved={(ev) => onEventCreated(ev)}
+/>
+
 <!-- FAB -->
-{#if pending === null}
+{#if pending === null && !showSheet && !formOpen}
 <button class="fab" class:busy={phase !== 'idle'} onclick={handleFabClick} aria-label="Ajouter des fichiers">
 	{#if phase === 'idle'}
 		<Plus size={26} />
@@ -292,6 +445,22 @@
 		align-items: center;
 	}
 	.btn-cancel span { font-size: 1rem; }
+	.evt-row { display: flex; flex-direction: column; gap: var(--space-1); }
+	.evt-label { font-size: var(--fs-md); color: var(--text-secondary); font-weight: 600; }
+	.evt-label span { font-size: var(--fs-xl); line-height: var(--lh-kh); }
+	.evt-btn { min-height: 3rem; width: 100%; display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: var(--fs-xl); text-align: left; }
+	.evt-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); }
+	.evt-name span { font-size: var(--fs-xl); }
+	.evt-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-1); max-height: 30dvh; overflow-y: auto; }
+	.evt-list button { width: 100%; min-height: var(--btn-tap); padding: 0 var(--space-3); border-radius: var(--radius-md); background: var(--surface-2); text-align: left; font-size: var(--fs-xl); display: flex; align-items: center; gap: var(--space-2); }
+	.evt-list button span[lang='km'] { font-size: var(--fs-xl); }
+	.evt-list button.on { background: var(--raised); box-shadow: inset 0 0 0 2px var(--accent-deep); }
+	.evt-list .evt-new { color: var(--accent-text); font-weight: 600; }
+	.evt-sec { font-size: var(--fs-md); color: var(--muted-text); font-weight: 600; padding: var(--space-1) var(--space-1) 0; }
+	.evt-sec span { font-size: var(--fs-lg); }
+	.row-evt { margin-top: var(--space-1); min-height: var(--btn-tap); align-self: center; display: inline-flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3); border-radius: var(--radius-full); background: var(--surface); color: var(--text); font-size: var(--fs-lg); }
+	.row-evt span[lang='km'] { font-size: var(--fs-xl); }
+	.row-evt[aria-pressed='false'] { color: var(--muted-text); }
 	.keep-date { font-size: var(--fs-md); color: var(--muted-text); }
 	.keep-date span { font-size: 1rem; }
 	.btn-keep .kh { font-size: var(--fs-xl); line-height: var(--lh-kh); color: var(--text-secondary); }

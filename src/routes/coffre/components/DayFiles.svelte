@@ -453,6 +453,7 @@
 		} else {
 			refreshAll();
 		}
+		return uploaded.map((u) => u.path); // chemins réellement envoyés : sert au rattachement à l'évènement
 	}
 
 	// --- Delete ---

@@ -46,3 +46,6 @@ Règles : ne jamais utiliser LastModified S3 (UTC) comme date de prise de vue ; 
 - Tests : 3+ fichiers fixtures (avec offset, sans offset, JPEG sans EXIF, orientation 6/8).
 - Points non vérifiables en CI : HEIC→JPEG iOS (le navigateur peut convertir et perdre l'EXIF), rendu sur iPhone réel.
 - Écarts à l'implémentation : l'EXIF n'est réinjecté que dans le JPEG réduit (Safari/iPhone) ; un WebP produit par Chrome/Android n'en porte pas, ses champs vont seulement en base. La table `media` est créée par `002-media.sql` (7 instructions au total avec `001`).
+
+## Lot 2 — implémenté sur `feat/coffre-lot2`
+- Script de rétro-indexation (`scripts/index-coffre-media.mjs`), `GET /api/coffre/media/unclassified`, chip « N à classer » (liste simple, mode trier au lot 4), ligne « Cet envoi : évènement » dans le sheet d'upload. Choix : l'évènement couvrant n'est pré-sélectionné que s'il a « ajouter ici » activé (auto_attach) ; les autres évènements restent choisissables dans la liste.
