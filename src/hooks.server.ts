@@ -7,33 +7,26 @@ import { getDB } from '$lib/server/db'
 import { users } from '$lib/server/schema'
 import { rateLimitDecision } from '$lib/server/rate-limit'
 import { createDevAuthHandle } from '$lib/server/dev-auth'
+import { parseAllowedEmails, isEmailAllowed, isAccessExemptPath, forbiddenResponse } from '$lib/server/access'
 import { dev } from '$app/environment'
 
 const LOGTO_COOKIE = 'logtoCookies'
 
-// AI-DEV: Rate-limit global par IP (ceinture-et-bretelles anti-bot / anti-abus de coût).
-// lys n'avait AUCUNE protection de ce type — un scanner qui sonde des chemins bidon
-// (/wp-admin, /.env…) ou martèle une route réveillerait le container à chaque requête,
-// voire déclencherait des appels Vertex coûteux si le chemin scanné touche /api/chat/*.
-// Fenêtre glissante en mémoire, perdue au scale-to-zero (sans gravité pour une garde anti-abus).
+// Rate-limit par IP, réservé aux visiteurs ANONYMES : un utilisateur connecté (autorisé) n'est jamais compté,
+// sinon un évènement de plusieurs centaines de photos (une miniature chacune) déclenche des 429.
 const RL_WINDOW_MS = 60_000
-// Relevé 120 → 600 req/min/IP le 23/09/2026 : ce seuil n'avait pas suivi la même relecture que
-// le rate-limit Cloudflare (20 → 100 → 500 → 5000 req/10s, chet-workspace/ARCHITECTURE.md Fix #7),
-// et était devenu le plus restrictif des deux — les vignettes photo du Coffre (une requête
-// og-image + une listObjects par jour affiché, ~60/mois consulté) déclenchaient des 429 en
-// navigation normale (plusieurs mois consultés en moins d'une minute). Reste une vraie borne
-// anti-bot en profondeur (défense en couches derrière Cloudflare), juste plus généreuse.
-const RL_MAX = 600
+const RL_MAX_ANON = 120
 const rlHits = new Map<string, number[]>()
 const rateLimit: Handle = ({ event, resolve }) => {
 	if (event.url.pathname.startsWith('/_app/')) return resolve(event) // assets statiques immuables
+	if (event.locals.dbUser) return resolve(event)
 
 	const xff = event.request.headers.get('x-forwarded-for')
 	if (!xff) return resolve(event) // pas de XFF = appel interne, non concerné
 	const ip = xff.split(',')[0].trim() || 'unknown'
 
 	const now = Date.now()
-	const { limited, hits } = rateLimitDecision(rlHits.get(ip) ?? [], now, RL_WINDOW_MS, RL_MAX)
+	const { limited, hits } = rateLimitDecision(rlHits.get(ip) ?? [], now, RL_WINDOW_MS, RL_MAX_ANON)
 	rlHits.set(ip, hits)
 	if (limited) {
 		return new Response('Too many requests', { status: 429 })
@@ -100,6 +93,7 @@ const logto: Handle = ({ event, resolve }) => {
 const userCache = new Map<string, { id: number; name: string; picture: string; lastWriteMs: number }>()
 const WRITE_THROTTLE_MS = 60 * 60 * 1000 // 1 h
 
+let lastDeniedLog = 0
 const dbUser: Handle = async ({ event, resolve }) => {
 	if (event.locals.user) {
 		const userInfo = event.locals.user
@@ -109,6 +103,11 @@ const dbUser: Handle = async ({ event, resolve }) => {
 		const picture = userInfo.picture ?? ''
 
 		if (logtoId && email) {
+			if (!isEmailAllowed(email, parseAllowedEmails(env.ALLOWED_EMAILS), { dev })) {
+				if (Date.now() - lastDeniedLog > 300_000) { lastDeniedLog = Date.now(); console.warn('[access] compte non autorisé refusé') }
+				if (isAccessExemptPath(event.url.pathname)) return resolve(event)
+				return forbiddenResponse(event.url.pathname)
+			}
 			const now = Date.now()
 			let cached = userCache.get(logtoId)
 
@@ -159,4 +158,4 @@ const dbUser: Handle = async ({ event, resolve }) => {
 // Placé AVANT dbUser : une vraie session Logto (locals.user) garde la priorité côté dbUser.
 const devAuth = createDevAuthHandle(() => ({ dev, nodeEnv: process.env.NODE_ENV, raw: env.E2E_AUTH_USER }))
 
-export const handle = sequence(rateLimit, clearStaleCookie, logto, devAuth, dbUser)
+export const handle = sequence(clearStaleCookie, logto, devAuth, dbUser, rateLimit)

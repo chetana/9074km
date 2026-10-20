@@ -338,6 +338,8 @@ pour les « faux » (à valider à la main, jamais appliquées).
 
 ## Env vars
 
+`ALLOWED_EMAILS` (virgule) = seuls comptes admis (`access.ts`) ; absente en prod = personne n'entre (403). Rate-limit : anonymes seulement (120/min/IP), connectés jamais comptés.
+
 Secrets injectés via `infra/box/env/*.env` sur chetbox (jamais commités). Voir
 `chet-workspace/MIGRATION-BOX.md` pour l'inventaire complet des secrets (Cloudflare, S3, GLM/
 OpenCode, Vertex, Logto...).
