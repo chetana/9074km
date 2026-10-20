@@ -15,7 +15,7 @@ const USAGE = `Usage : node --experimental-strip-types scripts/import-photos.mjs
   --date YYYY-MM-DD  date des photos sans EXIF ni date dans le nom (midi) ; sinon elles sont ignorées
   --event ID rattache les photos du dossier à l'évènement, sans déplacer une photo d'un autre évènement
   --auto-events  crée un évènement par étape de voyage détectée au GPS (déplacement > rayon, ou pause de plus de 3 jours)
-     --radius-km N (60)  --min-photos N (5)  --names "Chengdu,Chongqing" (noms dans l'ordre des étapes)
+     --radius-km N (60)  --min-photos N (5)  --names "Chengdu;Chongqing" (noms dans l'ordre des étapes, séparés par ; ou |)
      --geocode  nomme les étapes via Nominatim/OpenStreetMap (envoie les coordonnées de chaque étape, rien d'autre)
 Photos : 2048 px max, JPEG q85, EXIF conservé, rangées dans YYYY/MM/DD/ (date EXIF, sinon nom IMG_YYYYMMDD_HHMMSS).
 GIF envoyés tels quels, vidéos ignorées. Relançable : un nom déjà dans le bucket n'est jamais renvoyé.
@@ -29,7 +29,7 @@ const dir = args.find((a, i) => !a.startsWith('--') && !VALUE_FLAGS.includes(arg
 const AUTO = args.includes('--auto-events')
 const GEOCODE = args.includes('--geocode')
 const fallbackDay = valueOf('--date')
-const names = valueOf('--names')?.split(',').map((x) => x.trim()).filter(Boolean) ?? []
+const names = valueOf('--names')?.split(/[;|]|,(?!\s)/).map((x) => x.trim()).filter(Boolean) ?? []
 const stageOpts = {
 	radiusKm: Number(valueOf('--radius-km') ?? DEFAULT_STAGE_OPTIONS.radiusKm),
 	minPhotos: Number(valueOf('--min-photos') ?? DEFAULT_STAGE_OPTIONS.minPhotos)
