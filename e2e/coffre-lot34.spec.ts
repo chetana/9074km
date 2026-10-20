@@ -92,6 +92,7 @@ const khmerSizes = (page: Page, root: string) => page.evaluate((r) => {
 test('carte de suggestion (jour isolé) : texte FR + khmer, Oui → confirmation avec le nombre de photos → création + rattachement en mode keep', async ({ page }) => {
 	const { calls } = await setup(page, { suggestions: [SUGG_CREATE], unclassified: [u('2026/11/30/p00.jpg', '2026-11-30')] })
 	await page.goto('/coffre?v=events')
+	await page.locator('.sugg-btn').click() // les suggestions s'ouvrent dans une fenêtre
 	const card = page.locator('section.card')
 	await expect(card).toContainText('38 photos du 30 novembre 2026 sans évènement')
 	await expect(card).toContainText('Nouvel évènement « 30 novembre » ?')
@@ -119,6 +120,7 @@ test('carte de suggestion (jour isolé) : texte FR + khmer, Oui → confirmation
 test('suggestion « ajouter à » un évènement existant ; photo déjà ailleurs : jamais déplacée en silence', async ({ page }) => {
 	const { calls } = await setup(page, { suggestions: [SUGG_ATTACH], attachSkip: true })
 	await page.goto('/coffre?v=events')
+	await page.locator('.sugg-btn').click()
 	await expect(page.locator('section.card .q')).toContainText('Ajouter à « Week-end à Lyon » ?')
 	await page.locator('section.card').getByRole('button', { name: /^Oui/ }).click()
 	await expect(page.locator('.confirm .cq')).toContainText('Ajouter 12 photos à « Week-end à Lyon » ?')
@@ -132,6 +134,7 @@ test('suggestion « ajouter à » un évènement existant ; photo déjà ailleur
 test('« Autre… » : choisir un autre évènement puis confirmer ; × : refus enregistré avec la plage et le nombre de photos', async ({ page }) => {
 	const { calls } = await setup(page, { suggestions: [SUGG_CREATE] })
 	await page.goto('/coffre?v=events')
+	await page.locator('.sugg-btn').click()
 	await page.locator('section.card').getByRole('button', { name: /^Autre/ }).click()
 	await page.locator('.sheet .row', { hasText: 'Anniversaire de Lys' }).click()
 	await expect(page.locator('.confirm .cq')).toContainText('Ajouter 38 photos à « Anniversaire de Lys » ?')
@@ -268,7 +271,8 @@ test('recherche locale par lieu et par date + chips de lieu', async ({ page }) =
 	await expect.poll(names).toEqual(['Week-end à Lyon'])
 	await page.fill('.search input', '')
 	await expect.poll(async () => (await names()).length).toBe(3)
-	await page.locator('.chips[aria-label=Lieu] .chip', { hasText: 'Paris' }).click()
+	await page.locator('.fbtn').nth(1).locator('.fmain').click()
+	await page.getByRole('option', { name: /Paris/ }).click()
 	await expect.poll(names).toEqual(['Noël à Paris'])
 	await expect(page.locator('.pend-badge')).toContainText('កំពុងបកប្រែ')
 	await expect(page.locator('.pend-badge')).toHaveAttribute('title', 'Traduction en cours… · កំពុងបកប្រែ…')
