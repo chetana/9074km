@@ -5,7 +5,7 @@
 	import { eventsStore } from '$lib/events.svelte';
 	import { fetchForDate, addEventMedia } from '$lib/events-api';
 	import { displayNames, readerLangFor } from '$lib/events-ui';
-	import { preselectEvent, resolveGroupEvents, attachUploaded } from '$lib/upload-attach';
+	import { preselectEvent, resolveGroupEvents, attachUploaded, skippedMessage } from '$lib/upload-attach';
 	import { toasts } from '$lib/toast.svelte';
 	import { T } from '$lib/events-i18n';
 	import type { EventDTO } from '$lib/events-types';
@@ -101,17 +101,38 @@
 		formOpen = true;
 	}
 
+	function attachFailedToast(retry: () => void) {
+		toasts.push({
+			message: U.attachFailed.fr, messageKh: U.attachFailed.kh, actionLabel: T.retry.fr, actionLabelKh: T.retry.kh, duration: 10000,
+			onAction: retry
+		});
+	}
+
+	// mode « keep » : une photo déjà rangée dans un AUTRE évènement (même nom de fichier, même jour) n'est jamais
+	// déplacée en silence ; on le dit, et « Déplacer ici » demande un déplacement explicite.
 	async function attach(eventId: number, paths: string[]) {
-		const failed = await attachUploaded([{ eventId, paths }], addEventMedia);
-		if (failed.length) {
-			toasts.push({
-				message: U.attachFailed.fr, messageKh: U.attachFailed.kh, actionLabel: T.retry.fr, actionLabelKh: T.retry.kh, duration: 10000,
-				onAction: () => void attach(eventId, paths)
-			});
-		} else {
+		const { failed, skipped } = await attachUploaded([{ eventId, paths }], (id, ps) => addEventMedia(id, ps, 'keep'));
+		if (failed.length) return attachFailedToast(() => void attach(eventId, paths));
+		void eventsStore.load();
+		if (skipped.length === 0) {
 			toasts.push({ message: U.attached.fr, messageKh: U.attached.kh });
-			void eventsStore.load();
+			return;
 		}
+		const others = new Set(skipped.map((s) => s.otherEventId));
+		const only = others.size === 1 ? byId.get([...others][0]) : undefined;
+		const msg = skippedMessage(skipped.length, only ? nameOf(only).primary : null, U);
+		const moving = skipped.map((s) => s.path);
+		toasts.push({
+			message: msg.fr, messageKh: msg.kh, actionLabel: U.moveHere.fr, actionLabelKh: U.moveHere.kh, duration: 12000,
+			onAction: () => void moveSkipped(eventId, moving)
+		});
+	}
+
+	async function moveSkipped(eventId: number, paths: string[]) {
+		const { failed } = await attachUploaded([{ eventId, paths }], (id, ps) => addEventMedia(id, ps, 'move'));
+		if (failed.length) return attachFailedToast(() => void moveSkipped(eventId, paths));
+		toasts.push({ message: T.moved.fr, messageKh: T.moved.kh });
+		void eventsStore.load();
 	}
 
 	// `fn` capturé AVANT la boucle : le FAB de la liste est démonté dès que l'envoi navigue vers le jour.

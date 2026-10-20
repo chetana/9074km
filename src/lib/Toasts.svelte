@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { toasts, type ToastItem } from './toast.svelte';
 
 	// Un minuteur par toast ; à l'expiration (ou si la page est quittée) l'action différée part.
@@ -17,13 +17,24 @@
 		toasts.dismiss(t.id, 'action');
 	}
 
+	// Le dock est dans le flux (nav + badge de version + zone sûre) : on mesure sa vraie hauteur pour poser le toast AU-DESSUS.
+	let dockH = $state(0);
+	function measureDock() {
+		dockH = document.querySelector('.nav-dock')?.getBoundingClientRect().height ?? 0;
+	}
+	onMount(() => {
+		measureDock();
+		window.addEventListener('resize', measureDock);
+		return () => window.removeEventListener('resize', measureDock);
+	});
+
 	onDestroy(() => {
 		for (const [id, h] of timers) { clearTimeout(h); toasts.dismiss(id, 'destroy'); }
 		timers.clear();
 	});
 </script>
 
-<div class="stack" aria-live="polite">
+<div class="stack" aria-live="polite" style={dockH ? `bottom: ${dockH + 8}px` : undefined}>
 	{#each toasts.items as t (t.id)}
 		<div class="toast" role="status">
 			<span class="msg">{t.message}{#if t.messageKh}<span class="kh" lang="km">{t.messageKh}</span>{/if}</span>

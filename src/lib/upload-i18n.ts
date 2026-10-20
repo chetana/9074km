@@ -12,10 +12,13 @@ export const U = {
 	videos: { fr: 'vidéos', kh: 'វីដេអូ' },
 	cancel: { fr: 'Annuler', kh: 'បោះបង់' },
 	thisUpload: { fr: 'Cet envoi', kh: 'ការផ្ញើនេះ' },
-	noEvent: { fr: 'Aucun évènement', kh: 'គ្មាន' },
+	noEvent: { fr: 'Aucun évènement', kh: 'គ្មានព្រឹត្តិការណ៍' },
 	noEventLong: { fr: 'Sans évènement', kh: 'គ្មានព្រឹត្តិការណ៍' },
 	forThisDate: { fr: 'Pour cette date', kh: 'សម្រាប់កាលបរិច្ឆេទនេះ' },
 	otherEvents: { fr: 'Autres évènements', kh: 'ព្រឹត្តិការណ៍ផ្សេងទៀត' },
 	attachFailed: { fr: 'Photos envoyées, évènement non attaché', kh: 'បានផ្ញើរូបថតហើយ តែភ្ជាប់ទៅព្រឹត្តិការណ៍មិនបាន' },
+	skipOther: { fr: '{n} photo(s) déjà dans un autre évènement, non déplacée(s)', kh: '{n} រូបថតនៅក្នុងព្រឹត្តិការណ៍ផ្សេងរួចហើយ មិនបានផ្លាស់ទី' },
+	skipNamed: { fr: 'Déjà dans « {x} » : {n} photo(s) non déplacée(s)', kh: 'មានរួចហើយក្នុង «{x}» ៖ {n} រូបថតមិនបានផ្លាស់ទី' },
+	moveHere: { fr: 'Déplacer ici', kh: 'ផ្លាស់ទីមកទីនេះ' },
 	attached: { fr: 'Photos envoyées et ajoutées à l’évènement', kh: 'បានផ្ញើ និងបន្ថែមរូបថតទៅព្រឹត្តិការណ៍ហើយ' }
 } as const;

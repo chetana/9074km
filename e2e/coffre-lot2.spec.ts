@@ -24,11 +24,11 @@ async function photo(takenAt: string | null, color = '#fcd'): Promise<Buffer> {
 	return takenAt ? Buffer.from(injectExif(new Uint8Array(base), { takenAt, offset: '+07:00', lat: null, lng: null, make: 'Apple', model: 'iPhone', orientation: 1 })) : base
 }
 
-interface Opts { attachStatus?: () => number; unclassified?: number; failPut?: string }
+interface Opts { attachStatus?: () => number; unclassified?: number; failPut?: string; dupPath?: string }
 async function setup(page: Page, o: Opts = {}) {
 	const puts: string[] = []
 	const media: any[] = []
-	const attach: { id: number; paths: string[]; status: number }[] = []
+	const attach: { id: number; paths: string[]; status: number; mode: string }[] = []
 	const created: any[] = []
 	const json = (r: any, b: unknown, s = 200) => r.fulfill({ status: s, contentType: 'application/json', body: JSON.stringify(b) })
 	await page.route('**/api/auth/sign-in', (r) => r.fulfill({ status: 200, body: 'sign-in (simulé)' }))
@@ -44,8 +44,11 @@ async function setup(page: Page, o: Opts = {}) {
 		if (r.request().method() !== 'POST') return json(r, { paths: [] })
 		const id = Number(/events\/(\d+)\/media/.exec(r.request().url())![1])
 		const status = o.attachStatus?.() ?? 200
-		attach.push({ id, paths: JSON.parse(r.request().postData()!).paths, status })
-		return json(r, { success: status === 200 }, status)
+		const body = JSON.parse(r.request().postData()!)
+		attach.push({ id, paths: body.paths, status, mode: body.mode })
+		// 2 appareils, même nom de fichier : en mode keep la photo déjà rangée dans l'évènement 6 n'est pas déplacée
+		const dup = body.mode === 'keep' && o.dupPath ? body.paths.filter((p: string) => p.includes(o.dupPath!)) : []
+		return json(r, { success: status === 200, added: body.paths.length - dup.length, skipped: dup.map((path: string) => ({ path, eventId: 6 })) }, status)
 	})
 	await page.route(/\/api\/coffre\/events(\?.*)?$/, (r) => {
 		if (r.request().method() === 'POST') { const b = JSON.parse(r.request().postData()!); const e = ev(99, b.name, b.name, b.dateStart, b.dateEnd, { emoji: null, count: 0 }); created.push(b); return json(r, { event: e }, 201) }
@@ -86,7 +89,7 @@ test('évènement couvrant PRÉ-SÉLECTIONNÉ (auto_attach d\'abord) ; rattachem
 	await page.locator('.evt-list .on').click()
 	await pick(page, [await jpg('a.jpg')])
 	await expect.poll(() => puts).toEqual(['2026/10/11/a.jpg'])
-	await expect.poll(() => attach).toEqual([{ id: 2, paths: ['2026/10/11/a.jpg'], status: 200 }])
+	await expect.poll(() => attach).toEqual([{ id: 2, paths: ['2026/10/11/a.jpg'], status: 200, mode: 'keep' }])
 })
 
 test('décocher : « Aucun évènement » → rien n\'est rattaché', async ({ page }) => {
@@ -125,8 +128,8 @@ test('plusieurs dates : chaque lot est rattaché à l\'évènement qui couvre SA
 	await expect.poll(() => [...puts].sort()).toEqual(['2026/10/02/a.jpg', '2026/10/03/b.jpg', '2026/10/11/c.jpg'])
 	await expect.poll(() => attach.length).toBe(2)
 	expect([...attach].sort((x, y) => x.id - y.id)).toEqual([
-		{ id: 2, paths: ['2026/10/11/c.jpg'], status: 200 }, // date choisie : choix explicite (pré-sélection)
-		{ id: 6, paths: ['2026/10/02/a.jpg'], status: 200 }, // 2 oct. : anniversaire ; 3 oct. : aucun évènement → aucun lien
+		{ id: 2, paths: ['2026/10/11/c.jpg'], status: 200, mode: 'keep' }, // date choisie : choix explicite (pré-sélection)
+		{ id: 6, paths: ['2026/10/02/a.jpg'], status: 200, mode: 'keep' }, // 2 oct. : anniversaire ; 3 oct. : aucun évènement → aucun lien
 	])
 })
 
@@ -139,7 +142,7 @@ test('plusieurs dates : on peut retirer l\'évènement d\'un lot avant d\'envoye
 	await expect(page.locator('.taken-list li', { hasText: '2 octobre' }).locator('.row-evt')).toContainText('Sans évènement')
 	await page.getByRole('button', { name: /^Oui, / }).click()
 	await expect.poll(() => puts.length).toBe(2)
-	await expect.poll(() => attach).toEqual([{ id: 2, paths: ['2026/10/11/c.jpg'], status: 200 }])
+	await expect.poll(() => attach).toEqual([{ id: 2, paths: ['2026/10/11/c.jpg'], status: 200, mode: 'keep' }])
 })
 
 test('upload partiellement échoué : seul ce qui est parti est rattaché (jamais de lien fantôme)', async ({ page }) => {
@@ -147,7 +150,7 @@ test('upload partiellement échoué : seul ce qui est parti est rattaché (jamai
 	await openSheet(page, '2026-10-11')
 	await pick(page, [await jpg('good.jpg'), await jpg('bad.jpg', null, '#cdf')])
 	await expect.poll(() => puts).toEqual(['2026/10/11/good.jpg'])
-	await expect.poll(() => attach).toEqual([{ id: 2, paths: ['2026/10/11/good.jpg'], status: 200 }])
+	await expect.poll(() => attach).toEqual([{ id: 2, paths: ['2026/10/11/good.jpg'], status: 200, mode: 'keep' }])
 	await expect.poll(() => media.length).toBe(1)
 	expect(media[0].items.map((i: any) => i.path)).toEqual(['2026/10/11/good.jpg'])
 })
@@ -167,6 +170,45 @@ test('échec du rattachement : toast non bloquant « Photos envoyées, évèneme
 	await expect.poll(() => attach.map((a) => a.status)).toEqual([500, 200])
 	expect(attach[1].paths).toEqual(['2026/10/11/a.jpg'])
 	await expect(page.locator('.toast', { hasText: 'ajoutées à l’évènement' })).toBeVisible()
+	// le toast d'échec est AU-DESSUS du dock (ne recouvre aucune icône) et « Réessayer » reste cliquable (clic ci-dessus)
+})
+
+test('toast d\'échec posé au-dessus du dock : aucune icône du dock recouverte', async ({ page }) => {
+	const { attach } = await setup(page, { attachStatus: () => 500 })
+	await openSheet(page, '2026-10-11')
+	await pick(page, [await jpg('a.jpg')])
+	const toast = page.locator('.toast', { hasText: 'évènement non attaché' })
+	await expect(toast).toBeVisible()
+	await page.waitForTimeout(500)
+	const m = await page.evaluate(() => {
+		const t = document.querySelector('.toast')!.getBoundingClientRect()
+		const d = document.querySelector('.nav-dock')!.getBoundingClientRect()
+		const tabs = [...document.querySelectorAll('.dock-tab')].map((x) => x.getBoundingClientRect())
+		return { toastBottom: t.bottom, dockTop: d.top, overlapsTab: tabs.some((r) => !(t.bottom <= r.top || t.top >= r.bottom)) }
+	})
+	expect(m.toastBottom).toBeLessThanOrEqual(m.dockTop)
+	expect(m.overlapsTab).toBe(false)
+	if (SHOTS) await page.screenshot({ path: `${SHOTS}/05b-toast-au-dessus-du-dock.png` })
+	await toast.locator('.act').click() // reste cliquable : relance (échoue encore ici, simple preuve de réaction)
+	await expect.poll(() => attach.length).toBeGreaterThanOrEqual(2)
+})
+
+test('deux appareils, même nom de fichier : photo déjà rangée ailleurs NON déplacée en silence ; « Déplacer ici » = décision explicite', async ({ page }) => {
+	const { puts, attach } = await setup(page, { dupPath: 'IMG_0001' })
+	await openSheet(page, '2026-10-11')
+	await pick(page, [await jpg('IMG_0001.jpg'), await jpg('IMG_0002.jpg', null, '#cdf')])
+	await expect.poll(() => puts.length).toBe(2)
+	const toast = page.locator('.toast', { hasText: 'Déjà dans' })
+	await expect(toast).toBeVisible()
+	await expect(toast).toContainText('Déjà dans « Anniversaire de Lys » : 1 photo non déplacée')
+	expect(attach).toEqual([{ id: 2, paths: ['2026/10/11/IMG_0001.jpg', '2026/10/11/IMG_0002.jpg'], status: 200, mode: 'keep' }]) // aucun déplacement envoyé
+	expect(await toast.locator('.act .kh').evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(18)
+	await page.waitForTimeout(500)
+	if (SHOTS) await page.screenshot({ path: `${SHOTS}/08-deja-dans-un-autre-evenement.png` })
+	await toast.locator('.act').click()
+	await expect.poll(() => attach.length).toBe(2)
+	expect(attach[1]).toEqual({ id: 2, paths: ['2026/10/11/IMG_0001.jpg'], status: 200, mode: 'move' })
+	await expect(page.locator('.toast', { hasText: 'Photos déplacées' })).toBeVisible()
 })
 
 test('création rapide « + Nouvel évènement » : la fiche s\'ouvre, l\'évènement créé est sélectionné et reçoit les photos', async ({ page }) => {
@@ -180,7 +222,7 @@ test('création rapide « + Nouvel évènement » : la fiche s\'ouvre, l\'évèn
 	await expect(page.locator('.evt-btn')).toContainText('Noël')
 	expect(created[0]).toMatchObject({ name: 'Noël', dateStart: '2026-12-25', dateEnd: '2026-12-25' })
 	await pick(page, [await jpg('n.jpg')])
-	await expect.poll(() => attach).toEqual([{ id: 99, paths: ['2026/12/25/n.jpg'], status: 200 }])
+	await expect.poll(() => attach).toEqual([{ id: 99, paths: ['2026/12/25/n.jpg'], status: 200, mode: 'keep' }])
 })
 
 test('vidéo et photo sans EXIF : indexées dans media (kind déduit côté serveur, taille envoyée)', async ({ page }) => {
