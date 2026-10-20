@@ -23,7 +23,9 @@ vi.mock('$lib/server/events-store', () => ({
 }))
 
 const translateMock = vi.fn()
+const healMock = vi.fn()
 vi.mock('$lib/server/events-names', () => ({
+	healPendingNames: (...a: unknown[]) => healMock(...a),
 	scheduleNameTranslation: (...a: unknown[]) => { calls.push('translate'); return translateMock(...a) },
 }))
 
@@ -70,6 +72,12 @@ describe('GET /events', () => {
 		expect((await res.json()).events).toHaveLength(1)
 		expect(setHeaders).toHaveBeenCalledWith({ 'cache-control': 'no-store' })
 		expect(calls[0]).toBe('schema')
+	})
+	it('relance la traduction des noms restés en attente, pour l\'utilisateur connecté', async () => {
+		const pending = dto()
+		store.listEvents.mockResolvedValue([pending])
+		await GET(ev())
+		expect(healMock).toHaveBeenCalledWith(5, [pending])
 	})
 	it('filtres year/place validés et transmis', async () => {
 		store.listEvents.mockResolvedValue([])

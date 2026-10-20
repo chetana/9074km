@@ -118,12 +118,12 @@
 	{/if}
 
 	{#if places.length > 1}
-		<div class="chips" role="group" aria-label="Lieu">
+		<div class="chips wrap" role="group" aria-label="Lieu">
 			<button class="chip all" class:on={place === null} aria-pressed={place === null} onclick={() => (place = null)}>
 				<MapPin size={16} aria-hidden="true" /> {T.allPlaces.fr} <span class="kh" lang="km">{T.allPlaces.kh}</span>
 			</button>
 			{#each places as p (p.key)}
-				<button class="chip" class:on={place === p.key} aria-pressed={place === p.key} onclick={() => (place = place === p.key ? null : p.key)}>{p.label}</button>
+				<button class="chip" class:on={place === p.key} aria-pressed={place === p.key} onclick={() => (place = place === p.key ? null : p.key)}><MapPin size={16} aria-hidden="true" /> {p.label}{#if p.count > 1} <span class="n">{p.count}</span>{/if}</button>
 			{/each}
 		</div>
 	{/if}
@@ -270,6 +270,8 @@
 		gap: var(--space-2);
 	}
 	.chip .kh { font-size: var(--fs-xl); }
+	.chips.wrap { flex-wrap: wrap; overflow-x: visible; }
+	.chip .n { font-size: var(--fs-md); opacity: 0.7; }
 	/* Un seul style PLEIN = un filtre réellement appliqué ; « Toutes/Tous » sélectionné (aucun filtre) = contour. */
 	.chip.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 	.chip.all.on { background: transparent; color: var(--accent-text); box-shadow: inset 0 0 0 2px var(--accent); }
