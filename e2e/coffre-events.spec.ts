@@ -32,6 +32,7 @@ async function mock(page: Page, user = 'Chetana Yin') {
 	})
 	await page.route(/\/api\/coffre\/(note|meta|reactions)/, (r) => (r.request().url().includes('note') ? r.fulfill({ body: '' }) : json(r, {})))
 	await page.route('**/api/coffre/events/for-date*', (r) => json(r, { events: [EVENTS[1]], tags: {}, tagEvents: [] }))
+	await page.route(/\/api\/coffre\/events\/\d+\/dates-media/, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0 }) }))
 	await page.route(/\/api\/coffre\/events\/\d+\/media/, (r) => json(r, { paths: ['2026/10/11/a.jpg', '2026/10/11/b.jpg'] }))
 	await page.route(/\/api\/coffre\/events(\?.*)?$/, (r) => json(r, { events: EVENTS }))
 }
