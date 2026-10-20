@@ -101,6 +101,11 @@
 		{ path: '/apprendre', Icon: BookOpen,      label: 'Apprendre', kh: 'រៀន'    },
 	];
 
+	function onTab(path: string, active: boolean) {
+		if (active && path === '/coffre') window.dispatchEvent(new CustomEvent('coffre:home'));
+		else goto(path);
+	}
+
 	const currentPath = $derived($page.url.pathname);
 	const activeIndex = $derived(tabs.findIndex(t => $page.url.pathname.startsWith(t.path)));
 	const isGallery = $derived($page.url.pathname.startsWith('/fiancailles'));
@@ -128,7 +133,7 @@
 				<button
 					class="dock-tab"
 					class:active
-					onclick={() => goto(tab.path)}
+					onclick={() => onTab(tab.path, active)}
 				>
 					<span class="dock-icon" style="position:relative">
 						<tab.Icon size={24} strokeWidth={1.75} />
