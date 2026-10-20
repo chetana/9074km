@@ -198,6 +198,34 @@ test('position mémorisée : tap sur un évènement en plein élan puis retour, 
 	}
 })
 
+
+test('aperçu : 3 photos sur la carte centrale (ni vidéo ni couverture), qui suivent le centre', async ({ page }) => {
+	await open(page, 393, 852)
+	await page.locator('.slot[data-center] .album').focus(); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(900)
+	const strip = page.locator('.slot[data-center] .strip img')
+	await expect(strip).toHaveCount(3)
+	const srcs = await strip.evaluateAll((l) => l.map((i) => (i as HTMLImageElement).src))
+	expect(srcs.some((s) => s.includes('mp4'))).toBe(false)
+	expect(new Set(srcs).size).toBe(3)
+	expect((await strip.first().boundingBox())!.width).toBeGreaterThanOrEqual(36)
+	if (SHOTS) await page.screenshot({ path: `${SHOTS}/apercu-393.png` })
+	await page.locator('.slot[data-center] .album').focus(); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(900)
+	await expect(page.locator('.slot[data-center] .strip img')).toHaveCount(3)
+	await expect(page.locator('.slot:not([data-center]) .strip')).toHaveCount(0)
+	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(393)
+})
+
+test('bouton Au hasard : ≥ 44 px, change toujours de carte, bien dans l\'écran à 375×667', async ({ page }) => {
+	await open(page, 375, 667)
+	const btn = page.getByRole('button', { name: /Au hasard/ })
+	const b = (await btn.boundingBox())!
+	expect(b.width).toBeGreaterThanOrEqual(44); expect(b.height).toBeGreaterThanOrEqual(44); expect(b.x + b.width).toBeLessThanOrEqual(375)
+	for (let k = 0; k < 4; k++) {
+		const before = await centerName(page)
+		await btn.click(); await page.waitForTimeout(900)
+		expect(await centerName(page)).not.toBe(before)
+	}
+})
 test('grille de secours utilisable avec les nouveaux boutons', async ({ page }) => {
 	await open(page, 393, 852)
 	await page.locator('.view-btn').click()

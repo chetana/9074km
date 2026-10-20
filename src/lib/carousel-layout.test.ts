@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { layoutAt, ALBUM, snapTarget, clampPos, nearestByDate, cssTransform, cardSize, fitStage, TIGHT_BELOW, restoreIndex, parseRemembered } from './carousel-layout'
+import { pickPreview, randomOther, layoutAt, ALBUM, snapTarget, clampPos, nearestByDate, cssTransform, cardSize, fitStage, TIGHT_BELOW, restoreIndex, parseRemembered } from './carousel-layout'
 
 describe('layoutAt (carrousel Album)', () => {
 	it('d = 0 : carte centrale neutre, agrandie, opaque, au premier plan', () => {
@@ -95,3 +95,19 @@ describe('mémoire de position', () => {
 		for (const raw of [null, '', '{', '[]', '{"id":"3","start":"2026-07-08"}', '{"id":3,"start":"nimporte"}']) expect(parseRemembered(raw)).toBeNull()
 	})
 })
+
+describe('pickPreview / randomOther', () => {
+	const p = (n: number) => Array.from({ length: n }, (_, i) => `2026/10/11/p${i}.jpg`);
+	it('3 photos réparties début-milieu-fin, sans la couverture ni les vidéos', () => {
+		expect(pickPreview([...p(9), '2026/10/12/c.mp4'], '2026/10/11/p0.jpg')).toEqual(['2026/10/11/p1.jpg', '2026/10/11/p5.jpg', '2026/10/11/p8.jpg']);
+	});
+	it('moins de photos que demandé : toutes, jamais de doublon', () => {
+		expect(pickPreview(p(2), null)).toEqual(p(2));
+		expect(pickPreview([], null)).toEqual([]);
+	});
+	it('randomOther : jamais la carte courante, couvre toutes les autres', () => {
+		for (const r of [0, 0.3, 0.99]) expect(randomOther(5, 2, r)).not.toBe(2);
+		expect(new Set([0, 0.25, 0.5, 0.75, 0.99].map((r) => randomOther(5, 2, r)))).toEqual(new Set([0, 1, 3, 4]));
+		expect(randomOther(1, 0, 0.5)).toBe(0);
+	});
+});

@@ -88,6 +88,7 @@ export const T = {
 	exportLimit: { fr: 'Trop d’exports, réessaie plus tard', kh: 'នាំចេញច្រើនពេក សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ' },
 	allPlacesShort: { fr: 'Tous', kh: 'គ្រប់កន្លែង' },
 	allPlaces: { fr: 'Tous les lieux', kh: 'គ្រប់កន្លែង' },
+	random: { fr: 'Au hasard', kh: 'ចៃដន្យ' },
 	suggTitle: { fr: 'Suggestion', kh: 'ការផ្តល់យោបល់' },
 	suggText: { fr: '{n} photo(s) du {d} sans évènement', kh: 'រូបថត {n} សន្លឹកនៅថ្ងៃ {d} ដែលគ្មានព្រឹត្តិការណ៍' },
 	suggAttachTo: { fr: 'Ajouter à « {x} » ?', kh: 'បន្ថែមទៅ «{x}» ឬ?' },
