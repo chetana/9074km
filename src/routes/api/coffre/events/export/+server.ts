@@ -10,8 +10,16 @@ import { todayInParis } from '$lib/server/events-validate'
 export const GET: RequestHandler = async (event) => {
   const user = await requireAuth(event)
   if (!exportLimiter.take(user.id)) throw error(429, 'too many exports')
-  await ensureCoffreSchema()
-  const events = await exportEvents()
+  let events: Awaited<ReturnType<typeof exportEvents>>
+  try {
+    await ensureCoffreSchema()
+    events = await exportEvents()
+  } catch (e) {
+    // Échec de notre côté : 503 propre, et le quota n'est PAS décompté.
+    exportLimiter.refund(user.id)
+    console.error('[coffre/events/export]', (e as Error)?.message)
+    throw error(503, 'export indisponible')
+  }
   const today = todayInParis()
   return new Response(JSON.stringify({ format: 'coffre-evenements', formatVersion: 1, exportedAt: new Date().toISOString(), count: events.length, events }, null, 2), {
     headers: {

@@ -68,7 +68,7 @@ export function suggestEvents(input: { media: SuggestMedia[]; events: SuggestEve
 		byDay.set(n, d)
 	}
 	// 2. jours denses, croissants
-	const dense = [...byDay.values()].filter((d) => d.count >= DENSE_MIN || (d.count >= 2 && d.video)).sort((a, b) => a.n - b.n)
+	const dense = [...byDay.values()].filter((d) => d.count >= DENSE_MIN || (d.count >= DENSE_MIN_WITH_VIDEO && d.video)).sort((a, b) => a.n - b.n)
 	// 3. fusion des jours denses CONSÉCUTIFS (veille/lendemain calendaires)
 	const merged: Day[][] = []
 	for (const d of dense) {

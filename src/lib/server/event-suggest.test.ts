@@ -1,9 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import { suggestEvents, proposeName, dayNum, dayStr, type SuggestMedia, type Dismissal, type SuggestEvent } from './event-suggest'
+import { suggestEvents, proposeName, dayNum, dayStr, DENSE_MIN, DENSE_MIN_WITH_VIDEO, type SuggestMedia, type Dismissal, type SuggestEvent } from './event-suggest'
 
 const photos = (day: string, n: number, kind: 'image' | 'video' = 'image'): SuggestMedia[] =>
 	Array.from({ length: n }, (_, i) => ({ path: `${day.replaceAll('-', '/')}/p${String(i).padStart(3, '0')}${kind === 'video' ? '.mp4' : '.jpg'}`, day, kind }))
 const run = (media: SuggestMedia[], events: SuggestEvent[] = [], dismissals: Dismissal[] = []) => suggestEvents({ media, events, dismissals })
+
+describe('seuils de densité : les constantes pilotent bien l\'algorithme', () => {
+	it('exactement au seuil : dense ; un cran en dessous : non (photos seules, puis avec vidéo)', () => {
+		expect(run(photos('2026-11-30', DENSE_MIN))).toHaveLength(1)
+		expect(run(photos('2026-11-30', DENSE_MIN - 1))).toEqual([])
+		const withVideo = (n: number) => [...photos('2026-11-30', n - 1), ...photos('2026-11-30', 1, 'video')]
+		expect(run(withVideo(DENSE_MIN_WITH_VIDEO))).toHaveLength(1)
+		expect(run(withVideo(DENSE_MIN_WITH_VIDEO - 1))).toEqual([])
+		expect(DENSE_MIN_WITH_VIDEO).toBeLessThan(DENSE_MIN)
+	})
+})
 
 describe('jour dense', () => {
 	it('4 photos : dense ; 3 photos : non', () => {

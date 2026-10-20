@@ -27,7 +27,7 @@ beforeEach(() => {
 })
 
 describe('GET /events/export', () => {
-	const sample = [{ id: 1, names: { fr: 'a', en: 'a', kh: 'a' }, dates: { start: '2026-10-02', end: '2026-10-02' }, place: 'Lyon', emoji: '🚆', color: 'peach', autoAttach: true, version: 2, createdAt: '2026-10-01T10:00:00Z', photos: ['2026/10/02/a.jpg'] }]
+	const sample = [{ id: 1, names: { fr: 'a', en: 'a', kh: 'a' }, nameSrcLang: 'fr', namesPending: false, coverPath: '2026/10/02/a.jpg', dates: { start: '2026-10-02', end: '2026-10-02' }, place: 'Lyon', emoji: '🚆', color: 'peach', autoAttach: true, version: 2, createdAt: '2026-10-01T10:00:00Z', photos: ['2026/10/02/a.jpg'] }]
 	it('401 sans session', async () => {
 		requireAuthMock.mockRejectedValue({ status: 401 })
 		await expect(EXPORT(ev())).rejects.toMatchObject({ status: 401 })
@@ -42,8 +42,17 @@ describe('GET /events/export', () => {
 		const text = await res.text()
 		const body = JSON.parse(text)
 		expect(body).toMatchObject({ format: 'coffre-evenements', formatVersion: 1, count: 1 })
-		expect(body.events[0]).toMatchObject({ id: 1, version: 2, dates: { start: '2026-10-02', end: '2026-10-02' }, photos: ['2026/10/02/a.jpg'] })
+		expect(body.events[0]).toMatchObject({ id: 1, version: 2, nameSrcLang: 'fr', namesPending: false, coverPath: '2026/10/02/a.jpg', dates: { start: '2026-10-02', end: '2026-10-02' }, photos: ['2026/10/02/a.jpg'] })
 		expect(text).not.toMatch(/"(lat|lng|gps|latitude|longitude|uploaded_?by|uploadedBy|created_?by|email|make|model)"/i)
+	})
+	it('échec Postgres : 503 propre, quota NON décompté (6 exports réussis ensuite)', async () => {
+		const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+		exportMock.mockRejectedValue(new Error('pg down'))
+		for (let i = 0; i < 10; i++) await expect(EXPORT(ev())).rejects.toMatchObject({ status: 503 })
+		exportMock.mockResolvedValue(sample)
+		for (let i = 0; i < 6; i++) expect((await EXPORT(ev())).status).toBe(200)
+		await expect(EXPORT(ev())).rejects.toMatchObject({ status: 429 })
+		err.mockRestore()
 	})
 	it('6 exports par heure et par utilisateur : 429 ensuite, autre utilisateur libre', async () => {
 		exportMock.mockResolvedValue(sample)

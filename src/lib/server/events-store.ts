@@ -229,6 +229,9 @@ export interface ExportedEvent {
   id: number
   names: { fr: string; en: string; kh: string }
   dates: { start: string; end: string }
+  nameSrcLang: NameLang
+  namesPending: boolean
+  coverPath: string | null
   place: string | null
   emoji: string | null
   color: string
@@ -242,7 +245,7 @@ export interface ExportedEvent {
 export async function exportEvents(): Promise<ExportedEvent[]> {
   const db = getDB()
   const evs = rows(await db.execute(sql`
-    SELECT e.id, e.name_fr, e.name_en, e.name_kh, to_char(e.date_start, 'YYYY-MM-DD') AS date_start, to_char(e.date_end, 'YYYY-MM-DD') AS date_end,
+    SELECT e.id, e.name_fr, e.name_en, e.name_kh, e.name_src_lang, e.names_pending, e.cover_path, to_char(e.date_start, 'YYYY-MM-DD') AS date_start, to_char(e.date_end, 'YYYY-MM-DD') AS date_end,
       e.place, e.emoji, e.color, e.auto_attach, e.version, to_char(e.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
     FROM events e WHERE e.deleted_at IS NULL ORDER BY e.date_start, e.id`))
   const media = rows(await db.execute(sql`
@@ -251,6 +254,7 @@ export async function exportEvents(): Promise<ExportedEvent[]> {
   for (const m of media) byEvent.set(m.event_id, [...(byEvent.get(m.event_id) ?? []), m.media_path])
   return evs.map((r) => ({
     id: r.id, names: { fr: r.name_fr, en: r.name_en, kh: r.name_kh }, dates: { start: r.date_start, end: r.date_end },
+    nameSrcLang: r.name_src_lang, namesPending: r.names_pending, coverPath: r.cover_path ?? null,
     place: r.place ?? null, emoji: r.emoji ?? null, color: r.color, autoAttach: r.auto_attach, version: r.version,
     createdAt: r.created_at, photos: byEvent.get(r.id) ?? [],
   }))

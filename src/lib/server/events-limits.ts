@@ -15,6 +15,8 @@ export function createUserLimiter(windowMs: number, max: number) {
       if (hits.size > 500) for (const [k, v] of hits) if (!v.some((t) => now - t < windowMs)) hits.delete(k)
       return !r.limited
     },
+    /** Rend le dernier crédit consommé (échec côté serveur : le quota ne doit pas être décompté). */
+    refund(userId: number) { const h = hits.get(userId); if (h && h.length) h.pop() },
     reset() { hits.clear() },
   }
 }
