@@ -183,6 +183,31 @@ export async function addEventMedia(id: number, userId: number, paths: string[],
   })
 }
 
+// Photos du coffre (media vivantes) dont le jour tombe dans les dates de l'évènement et qui ne sont dans AUCUN évènement vivant.
+const unattachedInRange = (id: number) => sql`SELECT m.path FROM media m JOIN events e ON e.id = ${id} AND e.deleted_at IS NULL
+  WHERE m.deleted_at IS NULL AND m.day BETWEEN e.date_start AND e.date_end
+    AND NOT EXISTS (SELECT 1 FROM event_media em JOIN events ev ON ev.id = em.event_id AND ev.deleted_at IS NULL WHERE em.media_path = m.path)`
+
+/** N photos rattachables par dates (null = évènement introuvable). */
+export async function countUnattachedInRange(id: number): Promise<number | null> {
+  const db = getDB()
+  const ev = rows(await db.execute(sql`SELECT 1 FROM events WHERE id = ${id} AND deleted_at IS NULL`))
+  if (!ev.length) return null
+  return rows(await db.execute(sql`SELECT count(*)::int AS n FROM (${unattachedInRange(id)}) t`))[0].n as number
+}
+
+/** Rattache les photos non classées des dates de l'évènement : mode keep, jamais de déplacement, idempotent. */
+export async function attachUnattachedInRange(id: number, userId: number): Promise<{ added: number } | false> {
+  return getDB().transaction(async (tx) => {
+    const ev = rows(await tx.execute(sql`SELECT 1 FROM events WHERE id = ${id} AND deleted_at IS NULL FOR SHARE`))
+    if (!ev.length) return false
+    const paths = rows(await tx.execute(unattachedInRange(id))).map((r) => r.path as string)
+    if (paths.length === 0) return { added: 0 }
+    const res = await attachMedia(tx, id, userId, paths, 'keep')
+    return { added: res.added.length }
+  })
+}
+
 export async function removeEventMedia(id: number, paths: string[]): Promise<number | null> {
   return getDB().transaction(async (tx) => {
     const ev = rows(await tx.execute(sql`SELECT 1 FROM events WHERE id = ${id} AND deleted_at IS NULL`))
