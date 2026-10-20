@@ -150,6 +150,8 @@ test('upload partiellement échoué : seul ce qui est parti est rattaché (jamai
 	const { puts, attach, media } = await setup(page, { failPut: 'bad' })
 	await openSheet(page, '2026-10-11')
 	await pick(page, [await jpg('good.jpg'), await jpg('bad.jpg', null, '#cdf')])
+	// lot mixte (une photo sans date de prise de vue) : la feuille prévient désormais avant d'envoyer
+	await page.locator('.sheet:has(.taken) .btn-confirm').click()
 	await expect.poll(() => puts).toEqual(['2026/10/11/good.jpg'])
 	await expect.poll(() => attach).toEqual([{ id: 2, paths: ['2026/10/11/good.jpg'], status: 200, mode: 'keep' }])
 	await expect.poll(() => media.length).toBe(1)
