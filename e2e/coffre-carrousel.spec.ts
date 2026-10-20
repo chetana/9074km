@@ -81,32 +81,21 @@ test('clavier : flèches changent de carte, la carte centrale est un bouton focu
 	await expect(page.locator('.scrub')).toHaveAttribute('aria-label', /Parcourir les évènements/)
 })
 
-test('filtres année / lieu : cartes réduites, compteur « N sur M », état vide FR+km, centre le plus proche en date', async ({ page }) => {
+test('filtres année / lieu (boutons + fenêtres) : cartes réduites, compteur « N sur M », état vide FR+km, centre le plus proche en date', async ({ page }) => {
 	await open(page)
-	await page.getByRole('button', { name: /^2026$/ }).click()
+	await page.locator('.fbtn').nth(0).locator('.fmain').click()
+	await page.getByRole('option', { name: /^2026/ }).click()
 	const n26 = EVENTS.filter((e) => e.dates.start.startsWith('2026')).length
 	await expect(page.locator('.count')).toContainText(`${n26} sur 14`)
-	await page.getByRole('button', { name: /Lyon/ }).first().click()
+	await page.locator('.fbtn').nth(1).locator('.fmain').click()
+	await page.getByRole('option', { name: /Lyon/ }).first().click()
 	await expect(page.locator('.count')).toContainText(/sur 14/)
 	expect(await centerName(page)).toContain('Week-end à Lyon')
 	if (SHOTS) await page.screenshot({ path: `${SHOTS}/carrousel-3-filtre.png` })
-	await page.getByRole('button', { name: /^2024$/ }).click()
+	await page.fill('.search input', 'zzzz')
 	await expect(page.locator('.empty-filter')).toContainText('Aucun évènement pour ce filtre')
 	expect(await page.locator('.empty-filter .kh').evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(18)
 	if (SHOTS) await page.screenshot({ path: `${SHOTS}/carrousel-4-vide.png` })
-})
-
-test('rangées de filtres : 2 lignes au plus, défilables avec fondu, puces ≥ 44 px', async ({ page }) => {
-	await open(page)
-	const m = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.chips')].map((c) => ({ h: c.clientHeight, sh: c.scrollHeight, more: c.dataset.more, chip: Math.min(...[...c.querySelectorAll('.chip')].map((x) => x.getBoundingClientRect().height)) })))
-	expect(m).toHaveLength(2)
-	for (const r of m) { expect(r.h).toBeLessThanOrEqual(2 * 44 + 8 + 1); expect(r.chip).toBeGreaterThanOrEqual(44) }
-	const places = m[1]
-	expect(places.sh).toBeGreaterThan(places.h) // 9 lieux : ça déborde, donc ça défile
-	expect(places.more).toBe('1') // fondu = il en reste
-	await page.locator('.chips').nth(1).evaluate((e) => (e.scrollTop = e.scrollHeight))
-	await expect.poll(() => page.locator('.chips').nth(1).evaluate((e) => (e as HTMLElement).dataset.more)).toBe('')
-	if (SHOTS) await page.screenshot({ path: `${SHOTS}/carrousel-5-filtres.png` })
 })
 
 test('bascule grille / carrousel mémorisée (localStorage), la page marche aussi sans stockage', async ({ page }) => {
@@ -134,11 +123,11 @@ test('page sans localStorage : le carrousel s\'affiche quand même', async ({ pa
 
 test('khmer ≥ 18 px, cibles ≥ 44 px (bascule, curseur, puces, carte centrale)', async ({ page }) => {
 	await open(page)
-	for (const sel of ['.view-btn', '.scrub', '.slot[data-center] .album', '.chips .chip']) {
+	for (const sel of ['.view-btn', '.scrub', '.slot[data-center] .album', '.fmain']) {
 		const b = (await page.locator(sel).first().boundingBox())!
 		expect(Math.min(b.width, b.height), sel).toBeGreaterThanOrEqual(44)
 	}
-	const small = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.events .chip .kh, .events .t2, .events .empty-filter .kh')].map((e) => parseFloat(getComputedStyle(e).fontSize)).filter((s) => s < 18))
+	const small = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.events .ft .kh, .events .t2, .events .empty-filter .kh')].map((e) => parseFloat(getComputedStyle(e).fontSize)).filter((s) => s < 18))
 	expect(small).toEqual([])
 })
 
@@ -159,7 +148,6 @@ for (const [w, h] of [[393, 852], [375, 667]] as const) {
 		expect(m.stage.top, 'après le compteur').toBeGreaterThanOrEqual(m.count.bottom - 0.5)
 		expect(m.scrollTop, 'aucun défilement nécessaire').toBe(0)
 		expect(m.stage.h).toBeGreaterThanOrEqual(120)
-		if (h < 700) for (const c of m.chips) expect(c, 'petit écran : rangées de filtres réduites à 1 ligne').toBeLessThanOrEqual(44 + 1)
 		if (SHOTS) await page.screenshot({ path: `${SHOTS}/carrousel-tient-${w}x${h}.png` })
 	})
 }

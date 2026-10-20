@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { layoutAt, ALBUM, snapTarget, clampPos, nearestByDate, cssTransform, cardScale, fitStage, CARD_FULL_H, TIGHT_BELOW } from './carousel-layout'
+import { layoutAt, ALBUM, snapTarget, clampPos, nearestByDate, cssTransform, cardSize, fitStage, TIGHT_BELOW, restoreIndex, parseRemembered } from './carousel-layout'
 
 describe('layoutAt (carrousel Album)', () => {
 	it('d = 0 : carte centrale neutre, agrandie, opaque, au premier plan', () => {
@@ -51,20 +51,47 @@ describe('snap et date', () => {
 })
 
 describe('taille depuis la hauteur disponible', () => {
-	it('cardScale : jamais > 1, ratio conservé, plancher 0,4, proportionnelle entre les deux', () => {
-		expect(cardScale(1000)).toBe(1); expect(cardScale(10)).toBe(0.4)
-		expect(cardScale(CARD_FULL_H / 2)).toBeCloseTo(0.5)
-		expect(cardScale(300)).toBeLessThan(cardScale(340))
+	it('cardSize : taille nominale quand la place suffit, ratio conservé, plancher, texte jamais réduit', () => {
+		expect(cardSize(1000)).toMatchObject({ w: 208, h: 310, cap: 146, meta2: true })
+		const s = cardSize(300)
+		expect(s.h).toBe(Math.floor(296 / 1.1)); expect(s.w / s.h).toBeCloseTo(208 / 310, 1)
+		const small = cardSize(60)
+		expect(small.h).toBe(150); expect(small.w).toBeGreaterThanOrEqual(170); expect(small.meta2).toBe(false)
+		expect(small.h - small.cap).toBeGreaterThanOrEqual(40) // la couverture garde de la place
+		expect(cardSize(200).cap).toBeLessThanOrEqual(cardSize(400).cap)
 	})
-	it('cssTransform : décalages, profondeur et échelle suivent k', () => {
+	it('cssTransform : décalages et profondeur suivent le facteur, pas l\'échelle', () => {
 		const t = layoutAt(1)
-		expect(cssTransform(t, 0.5)).toBe(`translate3d(${122 * 0.5}px,0,${-70 * 0.5}px) rotateY(-44deg) scale(${t.scale * 0.5})`)
+		expect(cssTransform(t, 0.5)).toBe(`translate3d(${122 * 0.5}px,0,${-70 * 0.5}px) rotateY(-44deg) scale(${t.scale})`)
 	})
 	it('fitStage : scène = disponible − curseur, bornée ; serré sous le seuil, avec hystérésis', () => {
 		expect(fitStage(343, 44, false)).toEqual({ stageH: 295, tight: false })
 		expect(fitStage(900, 44, false).stageH).toBe(440); expect(fitStage(50, 44, false).stageH).toBe(120)
 		expect(fitStage(TIGHT_BELOW - 1, 44, false).tight).toBe(true)
-		expect(fitStage(TIGHT_BELOW + 50, 44, true).tight).toBe(true) // reste serré tant qu'on n'a pas regagné de la place
+		expect(fitStage(TIGHT_BELOW + 50, 44, true).tight).toBe(true)
 		expect(fitStage(TIGHT_BELOW + 111, 44, true).tight).toBe(false)
+	})
+})
+
+describe('mémoire de position', () => {
+	const L = [{ id: 1, start: '2026-11-30' }, { id: 2, start: '2026-10-10' }, { id: 3, start: '2026-07-08' }, { id: 4, start: '2025-12-24' }]
+	it('même évènement gardé au centre, même si la liste change (nouvel évènement, filtre qui le garde)', () => {
+		expect(restoreIndex(L, { id: 3, start: '2026-07-08' })).toBe(2)
+		const withNew = [{ id: 9, start: '2027-01-01' }, ...L]
+		expect(restoreIndex(withNew, { id: 3, start: '2026-07-08' })).toBe(3) // un évènement créé ne déplace pas la position
+	})
+	it('évènement exclu par un filtre : le plus proche en date de la date mémorisée', () => {
+		const filtered = [L[0], L[3]]
+		expect(restoreIndex(filtered, { id: 3, start: '2026-07-08' })).toBe(0) // 2026-11-30 est à 145 j, 2025-12-24 à 196 j
+		expect(restoreIndex(filtered, { id: 3, start: '2026-01-10' })).toBe(1)
+		expect(restoreIndex([L[0], L[1]], { id: 4, start: '2025-12-24' })).toBe(1)
+	})
+	it('mémorisé supprimé/introuvable : date la plus proche ; sans mémoire ou liste vide : premier', () => {
+		expect(restoreIndex(L, { id: 77, start: '2026-10-09' })).toBe(1)
+		expect(restoreIndex(L, null)).toBe(0); expect(restoreIndex([], { id: 1, start: '2026-01-01' })).toBe(0)
+	})
+	it('parseRemembered : tolère le stockage vide ou corrompu', () => {
+		expect(parseRemembered('{"id":3,"start":"2026-07-08"}')).toEqual({ id: 3, start: '2026-07-08' })
+		for (const raw of [null, '', '{', '[]', '{"id":"3","start":"2026-07-08"}', '{"id":3,"start":"nimporte"}']) expect(parseRemembered(raw)).toBeNull()
 	})
 })
