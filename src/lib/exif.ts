@@ -117,9 +117,14 @@ export function parseExif(bytes: Uint8Array, now: number = Date.now()): ExifData
 }
 
 /** Lit l'EXIF d'une photo (les 128 premiers Ko suffisent : l'APP1 est en tête de fichier). */
+/** Comme readExif mais LÈVE si la lecture du fichier échoue (photothèque, mémoire) : « pas d'EXIF » ≠ « illisible ». */
+export async function readExifStrict(file: Blob): Promise<ExifData | null> {
+	return parseExif(new Uint8Array(await file.slice(0, 131072).arrayBuffer()));
+}
+
 export async function readExif(file: Blob): Promise<ExifData | null> {
 	try {
-		return parseExif(new Uint8Array(await file.slice(0, 131072).arrayBuffer()));
+		return await readExifStrict(file);
 	} catch {
 		return null;
 	}

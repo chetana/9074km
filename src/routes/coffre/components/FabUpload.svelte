@@ -151,15 +151,22 @@
 	}
 
 	// Date de prise de vue (EXIF, lue sur l'original avant compression) : proposée, jamais imposée.
-	let pending = $state<{ plan: UploadPlan; exif: ExifMap; groupEvents: Record<string, number | null>; original: Record<string, number | null>; keepEventId: number | null } | null>(null);
+	let readProgress = $state<{ done: number; total: number } | null>(null);
+	let pending = $state<{ files: File[]; plan: UploadPlan; exif: ExifMap; groupEvents: Record<string, number | null>; original: Record<string, number | null>; keepEventId: number | null } | null>(null);
 
 	async function handleChange(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const files = input.files ? Array.from(input.files) : [];
 		input.value = '';
 		if (files.length === 0) return;
-		const exif = await loadExif(files);
-		const plan = planUploadDates(files, exif, pickedDate);
+		const load = await loadExif(files, { onProgress: (done, total) => { if (total > 20) readProgress = { done, total }; } });
+		readProgress = null;
+		await prepare(files, load.map, load.failed);
+	}
+
+	// Jamais d'envoi silencieux d'un lot dont l'EXIF n'a pas été lu entièrement : la feuille s'ouvre et le dit.
+	async function prepare(files: File[], exif: ExifMap, failed: File[]) {
+		const plan = planUploadDates(files, exif, pickedDate, failed);
 		if (!plan.needsConfirm) {
 			await sendGroup(onFiles, files, pickedDate, exif, selectedEventId);
 			return;
@@ -172,7 +179,17 @@
 		}));
 		extra = [...extra, ...[...cov.values()].flat()];
 		const resolved = Object.fromEntries(resolveGroupEvents(dates, pickedDate, selectedEventId, cov).map((r) => [r.date, r.eventId]));
-		pending = { plan, exif, groupEvents: { ...resolved }, original: resolved, keepEventId: selectedEventId };
+		pending = { files, plan, exif, groupEvents: { ...resolved }, original: resolved, keepEventId: selectedEventId };
+	}
+
+	async function retryRead() {
+		const p = pending;
+		if (!p) return;
+		pending = null;
+		const load = await loadExif(p.plan.failed, { onProgress: (done, total) => { if (total > 20) readProgress = { done, total }; } });
+		readProgress = null;
+		for (const [f, x] of load.map) p.exif.set(f, x);
+		await prepare(p.files, p.exif, load.failed);
 	}
 
 	async function runGroups(groups: DateGroup[], mode: 'taken' | 'keep') {
@@ -277,6 +294,12 @@
 					</li>
 				{/each}
 			</ul>
+			{#if pending.plan.failed.length > 0}
+				<p class="notice">{U.readFailed.fr.replace('{n}', String(pending.plan.failed.length))}<br /><span lang="km">{U.readFailed.kh.replace('{n}', String(pending.plan.failed.length))}</span></p>
+				<button class="btn-retry" onclick={retryRead}><span>{U.retryRead.fr}</span> <span class="kh" lang="km">{U.retryRead.kh}</span></button>
+			{:else if pending.plan.noDate > 0}
+				<p class="notice">{U.noDate.fr.replace('{n}', String(pending.plan.noDate))}<br /><span lang="km">{U.noDate.kh.replace('{n}', String(pending.plan.noDate))}</span></p>
+			{/if}
 			<p class="taken-q">{single ? U.useThisDate.fr : U.sortEach.fr}</p>
 			<p class="taken-q-kh" lang="km">{single ? U.useThisDate.kh : U.sortEach.kh}</p>
 		</div>
@@ -305,6 +328,10 @@
 	onclose={() => { formOpen = false; showSheet = true; }}
 	onSaved={(ev) => onEventCreated(ev)}
 />
+
+{#if readProgress}
+	<p class="reading" role="status">{U.reading.fr} {readProgress.done}/{readProgress.total} · <span lang="km">{U.reading.kh}</span></p>
+{/if}
 
 <!-- FAB -->
 {#if pending === null && !showSheet && !formOpen}
@@ -453,6 +480,10 @@
 	.taken-q { font-size: var(--fs-lg); color: var(--text); font-weight: 600; }
 	.taken-q-kh { font-size: var(--fs-xl); color: var(--text-secondary); line-height: var(--lh-kh); }
 	.btn-confirm .kh { font-size: var(--fs-xl); }
+	.notice { background: var(--peach); color: var(--peach-text); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); font-size: var(--fs-md); text-align: center; line-height: var(--lh-kh); }
+	.btn-retry { min-height: var(--btn-tap); border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); color: var(--accent-text); font-size: var(--fs-md); display: flex; align-items: center; justify-content: center; gap: var(--space-2); }
+	.btn-retry .kh { font-size: var(--fs-xl); }
+	.reading { position: fixed; left: var(--space-4); right: var(--space-4); bottom: calc(var(--dock-h, var(--nav-height)) + var(--space-3)); z-index: 100; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-2); font-size: var(--fs-md); }
 	.btn-keep {
 		width: 100%;
 		min-height: var(--btn-tap);
